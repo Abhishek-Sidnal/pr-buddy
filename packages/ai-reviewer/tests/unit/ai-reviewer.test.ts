@@ -33,7 +33,7 @@ describe("createAiReviewer", () => {
     ["a name with Markdown", { name: "[x](https://evil.example)" }],
     ["a model with a space", { model: "big model" }],
     ["a model with a backtick", { model: "m`" }],
-    ["a very long model", { model: "m".repeat(101) }],
+    ["a very long model", { model: "m".repeat(201) }],
   ])("refuses a provider with %s", (_name, identity) => {
     expect(() => createAiReviewer({ provider: createScriptedProvider([], identity) })).toThrow(
       ConfigurationError,

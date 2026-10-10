@@ -135,15 +135,72 @@ start-up with a message that names what is missing.
 A person sees the repositories of the installations GitHub lists for them, as of the moment they
 signed in. Sessions last 8 hours.
 
-## 8. Troubleshooting
+## 8. Turn on AI review
 
-| Symptom                                       | Likely cause                                                                                       |
-| --------------------------------------------- | -------------------------------------------------------------------------------------------------- |
-| Deliveries show `401`                         | The webhook secret in GitHub and in `.env` differ                                                  |
-| Deliveries show `202` but no comment          | See the API log; often the app is not installed on that repository, or the pull request is a draft |
-| The log shows an authentication error         | Wrong `GITHUB_APP_ID`, or the private key lost its line breaks                                     |
-| The comment says the configuration is invalid | `.github/pr-buddy.json` on the base branch has a mistake; the comment names the field              |
-| Deliveries show `429` or `503`                | Rate limit or full queue; redeliver later                                                          |
-| The dashboard address answers `404`           | The dashboard is off: the log says so at start-up. Set the database and all three settings         |
-| Sign-in returns with "did not complete"       | The callback URL in the app's settings does not match `PUBLIC_URL`, or the client secret is wrong  |
-| Signed in, but no repositories                | The app is not installed where you have access, or nothing has been reviewed since storage was on  |
+Optional. With it on, PR Buddy asks a language model for suggestions and shows them apart from
+the rule findings. It sends code to the service you choose, so it needs two switches: one here,
+and one in each repository. Design and limits: [DESIGN-AI.md](DESIGN-AI.md).
+
+**1. Choose a provider** and add its settings to `.env`. `AI_MODEL` is always required.
+
+| Provider                        | Settings                                                                                                  |
+| ------------------------------- | --------------------------------------------------------------------------------------------------------- |
+| AWS Bedrock                     | `AI_PROVIDER=bedrock`, `AI_MODEL`, `AWS_REGION`, and an access key or a Bedrock API key (below)           |
+| Anthropic                       | `AI_PROVIDER=anthropic`, `AI_MODEL`, `AI_API_KEY`                                                         |
+| OpenAI                          | `AI_PROVIDER=openai`, `AI_MODEL`, `AI_API_KEY`                                                            |
+| Azure AI Foundry / Azure OpenAI | `AI_PROVIDER=azure`, `AI_MODEL` (the deployment name), `AI_API_KEY`, `AI_BASE_URL` ending in `/openai/v1` |
+| Another compatible service      | `AI_PROVIDER=openai-compatible`, `AI_MODEL`, `AI_BASE_URL`, and `AI_API_KEY` if the service wants one     |
+
+For Bedrock:
+
+1. In the AWS console, open **Amazon Bedrock** in the region you will use and make sure your
+   account has access to the model. Note the model ID or inference profile ID, for example one
+   that starts with `us.`.
+2. Create credentials that may call that model and nothing else. Either a **Bedrock API key**
+   (Bedrock → API keys), set as `AWS_BEARER_TOKEN_BEDROCK`, or an **IAM access key** whose policy
+   allows `bedrock:InvokeModel` on that model, set as `AWS_ACCESS_KEY_ID` and
+   `AWS_SECRET_ACCESS_KEY` (plus `AWS_SESSION_TOKEN` for temporary credentials).
+3. Add to `.env`:
+
+   ```
+   AI_PROVIDER=bedrock
+   AI_MODEL=<model or inference profile ID>
+   AWS_REGION=<region, for example us-east-1>
+   AWS_BEARER_TOKEN_BEDROCK=<key>
+   ```
+
+**2. Restart the API.** The log says `AI review is available` with the provider and model. A
+setting that does not fit stops the service and names the variable.
+
+**3. Opt a repository in.** On its default branch, in `.github/pr-buddy.json`:
+
+```json
+{
+  "ai": { "enabled": true }
+}
+```
+
+The file is read from the pull request's base branch, so this takes effect for pull requests
+opened or updated after it is merged.
+
+**4. Open or update a pull request there.** PR Buddy's comment gains an "AI suggestions" section
+when the model has something to say. If the call fails, the comment says the AI review could not
+be completed, and the API log has a line `AI review failed` with an error such as
+`ProviderHttp403`.
+
+## 9. Troubleshooting
+
+| Symptom                                         | Likely cause                                                                                       |
+| ----------------------------------------------- | -------------------------------------------------------------------------------------------------- |
+| Deliveries show `401`                           | The webhook secret in GitHub and in `.env` differ                                                  |
+| Deliveries show `202` but no comment            | See the API log; often the app is not installed on that repository, or the pull request is a draft |
+| The log shows an authentication error           | Wrong `GITHUB_APP_ID`, or the private key lost its line breaks                                     |
+| The comment says the configuration is invalid   | `.github/pr-buddy.json` on the base branch has a mistake; the comment names the field              |
+| Deliveries show `429` or `503`                  | Rate limit or full queue; redeliver later                                                          |
+| The dashboard address answers `404`             | The dashboard is off: the log says so at start-up. Set the database and all three settings         |
+| Sign-in returns with "did not complete"         | The callback URL in the app's settings does not match `PUBLIC_URL`, or the client secret is wrong  |
+| Signed in, but no repositories                  | The app is not installed where you have access, or nothing has been reviewed since storage was on  |
+| AI review fails with `ProviderHttp401` or `403` | The key is wrong or expired, or it may not call that model in that region                          |
+| AI review fails with `ProviderHttp404`          | The model ID, deployment name or base URL is wrong                                                 |
+| AI review fails with `ProviderHttp429`          | The provider is rate limiting; the next push tries again                                           |
+| No "AI suggestions" section                     | The repository has not opted in on its base branch, or the model found nothing worth reporting     |

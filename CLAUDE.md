@@ -8,7 +8,7 @@ PR Buddy is an open-source GitHub App that reviews pull requests with determinis
 keeps one summary comment on each pull request up to date. It never merges or changes code.
 Milestones 1 (review engine) and 2 (GitHub App) are built, and so are four parts of Milestone 3:
 PostgreSQL storage for review history, more rules with thresholds and line comments, an optional
-AI reviewer that has no real provider yet, and a dashboard (sign-in with GitHub, a read-only API
+AI reviewer with five model providers, and a dashboard (sign-in with GitHub, a read-only API
 and the React app in `apps/web`). Current status is in `docs/TRACKER.md`.
 
 ## Commands
@@ -76,7 +76,9 @@ apps/api ──► packages/github-client ──► packages/review-engine
 - **`ai-reviewer`** is optional and inert without a provider. It selects what may be sent, builds
   the prompt, asks an `AiProvider` once with a time limit, and keeps only suggestions it can
   verify against the files it sent. It never throws for a provider problem; it returns a status.
-  Tests use `createScriptedProvider`. No real provider exists yet.
+  Tests use `createScriptedProvider`. Real providers are in `src/providers/`, one file each over
+  `fetch` with no vendor SDK (D-060); an error reply becomes `ProviderHttp<status>` and its body
+  is never read (D-062). The operator picks one with `AI_PROVIDER`; `AI_MODEL` has no default.
 - **`apps/web`** is the dashboard: React, React Router and plain CSS driven by the tokens in
   `src/styles/tokens.css`. Shared components are in `src/components/`; reuse them. The rules are
   in `docs/DESIGN-SYSTEM.md`. It is tested with Testing Library against a fake `fetch`.
@@ -98,7 +100,7 @@ or updates the comment.
 
 ## Invariants
 
-These are design decisions with reasons recorded in `docs/BRAIN.md` (D-001 to D-059). Read the
+These are design decisions with reasons recorded in `docs/BRAIN.md` (D-001 to D-062). Read the
 relevant entry before changing one.
 
 - A webhook body is only a trigger. What gets reviewed is fetched from the API.

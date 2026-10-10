@@ -14,8 +14,9 @@ of actionable, evidence-backed findings. Humans keep the merge decision.
   private test repository on 2026-10-10; results are in the tracker.
 - **Milestone 3** is under way. Done: PostgreSQL storage for review history and webhook
   deliveries, seven rules with reporting thresholds and line comments, and the AI reviewer.
-- The AI reviewer has **no real provider yet**, so nothing is sent to any model. It needs a
-  provider from the operator and `ai.enabled` from the repository.
+- The AI reviewer has five providers (AWS Bedrock, Anthropic, OpenAI, Azure AI Foundry, any
+  OpenAI-compatible service). It is off until the operator sets `AI_PROVIDER` and a repository
+  sets `ai.enabled`. See the tracker for which providers have been run live.
 - The **dashboard** is built: sign-in with GitHub, a read-only API limited to the installations
   a person can access, and a React app (`apps/web`) in the Graphite / Signal Lime design. It is
   off unless the database and three settings are present. Sign-in was verified against real

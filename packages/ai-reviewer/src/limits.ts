@@ -23,6 +23,7 @@ export const MAX_AI_SUGGESTION_LENGTH = 600;
 export const DEFAULT_AI_TIMEOUT_MS = 60_000;
 export const MAX_AI_TIMEOUT_MS = 300_000;
 
-export const MAX_PROVIDER_LABEL_LENGTH = 100;
+/** Long enough for a Bedrock inference-profile ARN. */
+export const MAX_PROVIDER_LABEL_LENGTH = 200;
 /** Validation issues are published, so they are bounded. */
 export const MAX_SETTINGS_ISSUE_LENGTH = 300;

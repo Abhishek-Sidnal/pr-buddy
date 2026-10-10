@@ -28,3 +28,23 @@ export {
   MAX_PROMPT_CODE_LENGTH,
   MAX_PROMPT_FILES,
 } from "./limits.js";
+export {
+  createProvider,
+  PROVIDER_NAMES,
+  providerSettingsSchema,
+  type ProviderDependencies,
+  type ProviderName,
+  type ProviderSettings,
+} from "./providers/provider-settings.js";
+export { ProviderHttpError, ProviderResponseError } from "./providers/http.js";
+export {
+  createBedrockProvider,
+  type BedrockAuth,
+  type BedrockOptions,
+} from "./providers/bedrock.js";
+export { createAnthropicProvider, type AnthropicOptions } from "./providers/anthropic.js";
+export {
+  createChatCompletionsProvider,
+  type ChatCompletionsDialect,
+  type ChatCompletionsOptions,
+} from "./providers/openai.js";

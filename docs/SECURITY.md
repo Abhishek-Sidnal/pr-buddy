@@ -139,8 +139,8 @@ with a hard kill is a later option.
 
 ## 6B. Threats and controls in Milestone 3 — AI review
 
-Design: [DESIGN-AI.md](DESIGN-AI.md). No provider ships yet, so none of this runs until an
-operator adds one.
+Design: [DESIGN-AI.md](DESIGN-AI.md). None of this runs until an operator names a provider and a
+repository opts in.
 
 | #   | Threat                                                          | Control                                                                                                                                 | Where                                           |
 | --- | --------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------- |
@@ -155,24 +155,27 @@ operator adds one.
 | A9  | A provider outage or bad reply takes reviews down               | The reviewer returns a status and never throws; rule findings are published regardless                                                  | `ai-reviewer/ai-reviewer.ts`                    |
 | A10 | Prompt or reply text leaks through logs or the database         | Only status, counts, tokens, duration and the error's name are logged or stored; suggestion text is not stored                          | `review.service.ts`, `postgres-review-store.ts` |
 | A11 | A provider's name or model, once published, injects Markdown    | Both are checked against a strict pattern when the reviewer is created, and rendered as inline code                                     | `ai-reviewer/provider.ts`                       |
+| A12 | A provider key leaks                                            | Keys are read from the environment once, redacted in logs, absent from errors, and never sent to the browser                            | `api/config/env.ts`, `api/logger.ts`            |
+| A13 | A provider's error reply leaks the prompt                       | A failed reply becomes an error named after its HTTP status; its body is not read                                                       | `ai-reviewer/providers/http.ts`                 |
+| A14 | Code is sent over an unencrypted connection                     | A base URL must be `https://`, or `http://` on the same machine; credentials, queries and fragments in it are refused                   | `ai-reviewer/providers/provider-settings.ts`    |
+| A15 | A request is redirected to another AWS host or path             | The region is checked against a strict pattern and the model is one encoded path segment                                                | `provider-settings.ts`, `providers/bedrock.ts`  |
+| A16 | A vendor SDK brings in a compromised dependency                 | No SDK is installed; each provider is one file over `fetch`, and request signing is implemented and tested here                         | `ai-reviewer/providers/`                        |
+| A17 | A mis-set provider fails at the first pull request              | Settings are validated at start-up and the service refuses to start, naming the variable                                                | `api/config/env.ts`                             |
 
 ### Known limits
 
 - **Prompt injection is bounded, not prevented.** A pull request can still persuade a model to
   write a misleading suggestion about a real line. It is published as an unverified suggestion
   with confidence 0.5, and it cannot carry a link, a mention or a location outside the diff.
-- **Not tested against a real model.** The controls above are covered by tests with scripted
-  replies. How well the instructions hold against a real model is unknown until a provider exists.
+- **Resistance to prompt injection is not measured.** The controls above are covered by tests
+  with scripted replies; see the tracker for which providers have answered a real request.
+- **AWS credentials come from the environment only.** A long-lived access key in a file is the
+  weakest way to hold them. Prefer a Bedrock API key with a short lifetime or temporary
+  credentials, scoped to `bedrock:InvokeModel` on the one model.
+- **The model's name is published.** It appears in the comment and the database. An inference
+  profile given as an ARN would show the AWS account number; use the profile ID instead.
 - **A secret inside an ordinary source file is sent.** Files are excluded by name only; PR Buddy
   is not a secret scanner.
-
-### Requirements for a provider
-
-| Requirement | Detail                                                                              |
-| ----------- | ----------------------------------------------------------------------------------- |
-| Disclosure  | Document which service receives code, and its retention and training terms          |
-| Credentials | The key comes from the environment, is redacted in logs and never appears in errors |
-| Limits      | Honour the request's abort signal and output-token limit                            |
 
 ## 6C. Threats and controls in Milestone 3 — dashboard
 

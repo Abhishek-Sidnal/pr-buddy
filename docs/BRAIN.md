@@ -450,6 +450,32 @@ exists at another commit, and links to it.
 now. The stored history answers the question that matters: has this been superseded?
 **Cost.** A push that was never reviewed, for example to a draft, is not noticed.
 
+### D-060 — Providers are small adapters over `fetch`; no vendor SDK
+
+**Decision.** Bedrock, Anthropic, OpenAI, Azure AI Foundry and a generic OpenAI-compatible
+provider are each one file that builds a request and reads a reply. Bedrock requests are signed
+with an own implementation of AWS Signature Version 4, checked against AWS's published values.
+**Why.** Four SDKs would be hundreds of packages in the image for one HTTP call each, and every
+dependency is supply-chain exposure (D-011 is the precedent). One request shape per service is
+easy to read and to test against a stand-in.
+**Cost.** AWS credentials come from the environment only: instance roles, profiles and single
+sign-on are not looked up. Features an SDK adds for free, such as retries, are absent on purpose
+(D-048).
+**Revisit when.** Someone needs role-based AWS credentials.
+
+### D-061 — The operator must name the model; there is no default
+
+**Decision.** `AI_MODEL` is required with every provider.
+**Why.** The model decides the cost of every review and which terms apply to the code sent. A
+default would make that choice silently and would go stale.
+
+### D-062 — A provider's error is reduced to its HTTP status
+
+**Decision.** A reply that is not `2xx` becomes an error named `ProviderHttp<status>`; its body
+is not read into the error.
+**Why.** Error bodies from model services can repeat the request. The status is what an operator
+needs to tell a bad key (401, 403) from a missing model (404) or a rate limit (429).
+
 ## 3. Glossary
 
 | Term       | Meaning                                                                                 |

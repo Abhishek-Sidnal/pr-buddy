@@ -8,18 +8,18 @@ bounded and clearly separate from its deterministic checks. Decisions are record
 
 - A package, `@pr-buddy/ai-reviewer`, that turns a validated pull request into a prompt, sends it
   to a provider, and turns the answer into verified findings.
-- A provider interface. **No real provider ships yet**: which service receives code is the
-  operator's choice and has not been made (D-041). A scripted provider exists for tests.
+- A provider interface and five providers: AWS Bedrock, Anthropic, OpenAI, Azure AI Foundry and
+  any OpenAI-compatible service (section 10). A scripted provider exists for tests.
 - Wiring in the review service, the summary comment and storage, all of which do nothing until a
-  provider is supplied.
+  provider is configured.
 
-Until a provider is added, a running PR Buddy behaves exactly as before.
+Until the operator sets `AI_PROVIDER`, a running PR Buddy sends nothing to any model.
 
 ## 2. Two switches, both off by default
 
 | Switch     | Who sets it          | Where                                                  |
 | ---------- | -------------------- | ------------------------------------------------------ |
-| Provider   | The operator         | Passed to `createReviewService` as `aiReviewer`        |
+| Provider   | The operator         | `AI_PROVIDER` and its settings in the environment      |
 | Repository | The repository owner | `"ai": { "enabled": true }` in `.github/pr-buddy.json` |
 
 Both are needed (D-042). The repository file is read at the pull request's **base** commit, like
@@ -136,14 +136,65 @@ usage and duration. **The text of AI suggestions is not stored** (D-046): it is 
 model that has read the code and may quote it, and the database holds no source code
 (D-031). The suggestions stay readable on the pull request.
 
-## 10. Adding a provider
+## 10. Providers
 
-1. Implement `AiProvider`: a `name`, a `model`, and `complete(request)` returning the reply text
-   and, if known, token usage. Honour `request.signal` and `request.maxOutputTokens`.
-2. Read its key and model from the environment in `apps/api/src/config/env.ts`, and add the key
-   to the logger's redaction list.
-3. Pass `createAiReviewer({ provider })` to `createReviewService` in `main.ts`.
-4. Document in the README which service receives code and how it handles it.
+Five providers ship. The operator picks one with `AI_PROVIDER`; with none set, nothing is sent
+anywhere. Each is a small adapter over `fetch`: no vendor SDK is installed (D-060).
+
+| `AI_PROVIDER`       | Service                         | Endpoint used                                      | Credentials                                             |
+| ------------------- | ------------------------------- | -------------------------------------------------- | ------------------------------------------------------- |
+| `bedrock`           | AWS Bedrock                     | Converse API in `AWS_REGION`                       | A Bedrock API key, or an AWS access key (signed, SigV4) |
+| `anthropic`         | Anthropic                       | Messages API                                       | `AI_API_KEY`                                            |
+| `openai`            | OpenAI                          | Chat Completions                                   | `AI_API_KEY`                                            |
+| `azure`             | Azure AI Foundry / Azure OpenAI | Chat Completions under the resource's `/openai/v1` | `AI_API_KEY`, sent as `api-key`                         |
+| `openai-compatible` | Anything that speaks that API   | Chat Completions at `AI_BASE_URL`                  | `AI_API_KEY`, optional                                  |
+
+| Variable                                     | Needed for                                                     |
+| -------------------------------------------- | -------------------------------------------------------------- |
+| `AI_PROVIDER`                                | Turning AI review on                                           |
+| `AI_MODEL`                                   | Every provider. There is no default: the model decides cost    |
+| `AI_API_KEY`                                 | `anthropic`, `openai`, `azure`; optional for the other two     |
+| `AI_BASE_URL`                                | `azure`, `openai-compatible`; optional override for the others |
+| `AWS_REGION`                                 | `bedrock`                                                      |
+| `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY` | `bedrock`, unless a Bedrock API key is given                   |
+| `AWS_SESSION_TOKEN`                          | `bedrock`, with temporary credentials                          |
+| `AWS_BEARER_TOKEN_BEDROCK`                   | `bedrock`: a Bedrock API key, instead of an access key         |
+| `AI_TIMEOUT_MS`                              | Optional; 60,000 by default                                    |
+
+Rules that hold for every adapter:
+
+- `AI_BASE_URL` must be `https://`, or `http://` on the local machine for a model run locally.
+- A reply that is not `2xx` becomes an error named after its status, such as `ProviderHttp429`.
+  The body of an error reply is never read into the error: it can echo the prompt.
+- The request's abort signal and output-token limit are passed on.
+- Token usage is read when the service reports it.
+- Credentials are read from the environment once, are redacted in logs, and are not part of any
+  error.
+
+A setting that does not fit the chosen provider stops the service at start-up with a message that
+names the variable, like every other setting.
+
+### Bedrock
+
+Bedrock is called through its Converse API, which has one request shape for every model family.
+With an access key the request is signed with AWS Signature Version 4, implemented in
+`providers/sigv4.ts` and checked against AWS's published test values. Credentials come from the
+environment only: instance roles, profiles and single sign-on are not looked up (D-060).
+
+`AI_MODEL` is a model ID or an inference profile ID, for example one that starts with `us.`.
+The AWS account must have been granted access to that model in that region.
+
+### What has been run against a real service
+
+Only what the tracker says. An adapter that has not been run live is written from the service's
+published API and tested against a stand-in; treat it as unproven until it has answered once.
+
+### Adding another
+
+1. Implement `AiProvider` in `packages/ai-reviewer/src/providers/`: a `name`, a `model`, and
+   `complete(request)` returning the reply text and, if known, token usage.
+2. Add it to `createProvider` and to the settings schema in `provider-settings.ts`.
+3. Document which service receives code.
 
 ## 11. Testing
 

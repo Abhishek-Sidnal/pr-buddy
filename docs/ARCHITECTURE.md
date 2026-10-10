@@ -126,11 +126,13 @@ packages/ai-reviewer/src/
 ├── settings.ts           The `ai` section of a repository's configuration
 ├── ai-reviewer.ts        Orchestration: select, ask once with a time limit, verify, filter
 ├── scripted-provider.ts  A provider that answers from a script, for tests
+├── providers/            Bedrock, Anthropic and Chat Completions adapters; settings; signing
 ├── prompt/               File selection and budgets; the prompt
 └── output/               Reply parsing; suggestions → verified findings
 ```
 
-`AiProvider` is the boundary: the reviewer never knows which service answers. No implementation
+`AiProvider` is the boundary: the reviewer never knows which service answers. `providers/` holds
+one adapter per service, each a single file over `fetch`, and the request signing Bedrock needs.
 that calls a real service exists yet.
 
 ## 6. API modules
