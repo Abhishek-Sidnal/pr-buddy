@@ -1,6 +1,7 @@
 import { useState, type ReactNode } from "react";
 import type { Me } from "../api/schemas.js";
 import { PageHeader, Timestamp } from "../components/common.js";
+import { DataHandling } from "../components/data-handling.js";
 import { AiKeySettings } from "./ai-keys.js";
 import { plural } from "../format.js";
 import {
@@ -103,21 +104,7 @@ export function SettingsPage(props: {
 
       <section aria-labelledby="data-heading" className="settings-section">
         <h2 id="data-heading">Data handling</h2>
-        <ul className="bullets">
-          <li>
-            Stored: repository names, pull request numbers, commit IDs, findings with file paths,
-            counts and timings.
-          </li>
-          <li>
-            Never stored: pull request titles and descriptions, source code, diffs, the text of AI
-            suggestions, and GitHub tokens.
-          </li>
-          <li>
-            An installation&apos;s AI key, if an owner sets one, is stored encrypted and is never
-            sent back to a browser. It is deleted when it is removed here or the app is uninstalled.
-          </li>
-          <li>Your session keeps your GitHub login and ID for at most eight hours.</li>
-        </ul>
+        <DataHandling />
       </section>
     </>
   );

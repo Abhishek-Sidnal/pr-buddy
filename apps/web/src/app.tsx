@@ -1,11 +1,13 @@
 import type { ReactNode } from "react";
-import { NavLink, Route, Routes, useSearchParams } from "react-router";
-import { api, SIGN_IN_PATH } from "./api/client.js";
+import { NavLink, Route, Routes } from "react-router";
+import { api } from "./api/client.js";
 import type { Me } from "./api/schemas.js";
 import { EmptyState, ErrorState, LoadingState, Notice, PageHeader } from "./components/common.js";
 import { Icon, type IconName } from "./components/icon.js";
 import { plural } from "./format.js";
+import { appInstallUrl } from "./github-links.js";
 import { HistoryPage } from "./pages/history.js";
+import { LandingPage } from "./pages/landing.js";
 import { OverviewPage } from "./pages/overview.js";
 import { RepositoriesPage } from "./pages/repositories.js";
 import { RepositoryPage } from "./pages/repository.js";
@@ -19,43 +21,6 @@ function Brand(): ReactNode {
       <Icon name="brand" />
       PR Buddy
     </span>
-  );
-}
-
-function SignInPage(): ReactNode {
-  const [search] = useSearchParams();
-  return (
-    <main className="sign-in">
-      <Brand />
-      <h1>Review history for your pull requests</h1>
-      <p>
-        PR Buddy checks pull requests with deterministic rules and keeps one comment on each up to
-        date. Sign in to see what it found in the repositories you can access.
-      </p>
-      {search.get("sign-in") === "failed" ? (
-        <Notice tone="danger" title="Sign-in did not complete" isAlert>
-          <p>
-            GitHub did not confirm the sign-in, or it took longer than ten minutes. Nothing was
-            saved. Start again with the button below.
-          </p>
-        </Notice>
-      ) : null}
-      <a className="button button-primary" href={SIGN_IN_PATH}>
-        Sign in with GitHub
-      </a>
-      <h2>What GitHub will share</h2>
-      <ul className="bullets">
-        <li>Your GitHub login and ID, to show who is signed in.</li>
-        <li>
-          Which installations of the PR Buddy app you can access, to decide which repositories you
-          may see.
-        </li>
-      </ul>
-      <p className="hint">
-        PR Buddy keeps no GitHub token: it is used once during sign-in and dropped. Sessions end
-        after eight hours.
-      </p>
-    </main>
   );
 }
 
@@ -80,7 +45,11 @@ const NAVIGATION: readonly { to: string; label: string; icon: IconName; end?: bo
   { to: "/settings", label: "Settings", icon: "settings" },
 ];
 
-function Shell(props: { readonly me: Me; readonly onSignOut: () => void }): ReactNode {
+function Shell(props: {
+  readonly me: Me;
+  readonly installUrl: string | undefined;
+  readonly onSignOut: () => void;
+}): ReactNode {
   const { me } = props;
   return (
     <div className="app">
@@ -119,10 +88,23 @@ function Shell(props: { readonly me: Me; readonly onSignOut: () => void }): Reac
                 Install the app on a repository, or ask an owner for access to one where it is
                 installed. Then sign out and in again: access is read at sign-in.
               </p>
+              {props.installUrl === undefined ? null : (
+                <a className="button button-secondary" href={props.installUrl}>
+                  Install on GitHub
+                </a>
+              )}
             </Notice>
           ) : null}
           <Routes>
-            <Route path="/" element={<OverviewPage />} />
+            <Route
+              path="/"
+              element={
+                <OverviewPage
+                  installationCount={me.installationCount}
+                  installUrl={props.installUrl}
+                />
+              }
+            />
             <Route path="/repositories" element={<RepositoriesPage />} />
             <Route path="/repositories/:repositoryId" element={<RepositoryPage />} />
             <Route path="/history" element={<HistoryPage />} />
@@ -142,6 +124,10 @@ function Shell(props: { readonly me: Me; readonly onSignOut: () => void }): Reac
 /** Decides between the sign-in page and the dashboard by asking the API who is signed in. */
 export function App(): ReactNode {
   const { resource, reload } = useResource((signal) => api.me(signal), "me");
+  // Asked once, without a session. If the answer is missing or unusable there is simply no
+  // Install button: nothing else waits for it.
+  const service = useResource((signal) => api.service(signal), "service").resource;
+  const installUrl = service.status === "ready" ? appInstallUrl(service.data.appSlug) : undefined;
 
   if (resource.status === "loading") {
     return (
@@ -152,7 +138,7 @@ export function App(): ReactNode {
   }
   if (resource.status === "error") {
     return resource.error.kind === "unauthenticated" ? (
-      <SignInPage />
+      <LandingPage installUrl={installUrl} />
     ) : (
       <main className="sign-in">
         <Brand />
@@ -165,5 +151,5 @@ export function App(): ReactNode {
     // Whatever the answer, ask again who is signed in: that decides what is shown next.
     void api.signOut().then(reload, reload);
   };
-  return <Shell me={resource.data} onSignOut={signOut} />;
+  return <Shell me={resource.data} installUrl={installUrl} onSignOut={signOut} />;
 }

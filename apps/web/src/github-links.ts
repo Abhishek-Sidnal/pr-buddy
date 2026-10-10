@@ -33,3 +33,12 @@ export function commitUrl(repository: RepositoryRef, commitId: string | null): s
     ? `${base}/commit/${commitId}`
     : undefined;
 }
+
+const APP_SLUG = /^[a-z0-9](?:[a-z0-9-]{0,98}[a-z0-9])?$/;
+
+/** Where a person installs the operator's GitHub App, or nothing if its name is not one. */
+export function appInstallUrl(appSlug: string | null | undefined): string | undefined {
+  return typeof appSlug === "string" && APP_SLUG.test(appSlug)
+    ? `${GITHUB}/apps/${appSlug}/installations/new`
+    : undefined;
+}

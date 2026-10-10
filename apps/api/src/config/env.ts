@@ -92,6 +92,17 @@ const environmentSchema = z.object({
   SECRETS_ENCRYPTION_KEY_PREVIOUS: masterKeySetting.optional(),
   GITHUB_CLIENT_ID: z.string().min(1).max(100).optional(),
   GITHUB_CLIENT_SECRET: z.string().min(1).max(200).optional(),
+  /**
+   * The app's name as it appears in github.com/apps/<slug>. GitHub allows lower-case letters,
+   * digits and hyphens there; nothing else may reach the Install link.
+   */
+  GITHUB_APP_SLUG: z
+    .string()
+    .regex(
+      /^[a-z0-9](?:[a-z0-9-]{0,98}[a-z0-9])?$/,
+      "must be the app's name in github.com/apps/<name>",
+    )
+    .optional(),
   PUBLIC_URL: z
     .string()
     .refine(isPublicUrl, "must be an https:// origin, or http://localhost for development")
@@ -136,6 +147,8 @@ export interface AppConfig {
     readonly clientSecret: string;
     /** The origin people use to reach the service, without a trailing slash. */
     readonly publicUrl: string;
+    /** The app's name in github.com/apps/<slug>. Without it nobody is offered an Install link. */
+    readonly appSlug?: string;
   };
 }
 
@@ -240,6 +253,7 @@ function readDashboardSettings(values: z.infer<typeof environmentSchema>): AppCo
     clientId: GITHUB_CLIENT_ID,
     clientSecret: GITHUB_CLIENT_SECRET,
     publicUrl: new URL(PUBLIC_URL).origin,
+    ...(values.GITHUB_APP_SLUG === undefined ? {} : { appSlug: values.GITHUB_APP_SLUG }),
   };
 }
 
@@ -310,6 +324,12 @@ export function findConfigurationWarnings(config: AppConfig): string[] {
     warnings.push(
       "PUBLIC_URL is HTTPS but TRUST_PROXY is 0. Behind a proxy, every visitor then shares one " +
         "rate limit. Set TRUST_PROXY to the number of proxies in front of the service.",
+    );
+  }
+  if (config.dashboard !== undefined && config.dashboard.appSlug === undefined) {
+    warnings.push(
+      "GITHUB_APP_SLUG is not set. The dashboard cannot offer an Install button, so a new " +
+        "visitor has no way to start from it. Set it to the app's name in github.com/apps/<name>.",
     );
   }
   if (config.database !== undefined && /[?&]sslmode=disable\b/.test(config.database.url)) {

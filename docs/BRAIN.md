@@ -659,6 +659,33 @@ is private, a server needs a token that may read packages.
 **Rejected.** A default image in the Compose file: it would be a tag, which D-070 forbids, or a
 digest that is wrong after every release.
 
+### D-083 — The Install link exists only when the operator names the app
+
+**Decision.** An optional setting, `GITHUB_APP_SLUG`, and a route without a session,
+`GET /auth/service`, that returns it. The browser builds the install address from it after
+checking it against a pattern. Without the setting there is no Install button.
+**Why.** A new user needs one obvious first action, and the service cannot guess its app's
+public name from the app ID.
+**Rejected.** Asking GitHub for the name at start-up: one more thing that can fail before the
+service is up, to save the operator one line. Putting the address in the page's HTML: the
+policy forbids inline scripts, and one built page must serve every deployment.
+
+### D-084 — After installing, GitHub sends people to the ordinary sign-in
+
+**Decision.** The app's Setup URL is `<PUBLIC_URL>/auth/login`. No route of its own, and
+nothing GitHub appends to that address is read.
+**Why.** Access is whatever GitHub reports at sign-in (D-050). An installation ID taken from an
+address would be a claim by whoever built the link.
+**Cost.** One more redirect, and a person already signed in gets a fresh session.
+
+### D-085 — "Getting started" shows facts, not ticks
+
+**Decision.** The steps on the overview are derived from stored state: installations in the
+session, whether a review exists, whether an installation has a key. They disappear when the
+first review exists. Nothing records that a person dismissed or completed a step.
+**Why.** D-058: the dashboard shows only what the service can back. A checklist a person ticks
+by hand can say "done" when nothing works.
+
 ## 3. Glossary
 
 | Term       | Meaning                                                                                 |

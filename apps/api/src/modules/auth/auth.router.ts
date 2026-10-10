@@ -17,6 +17,8 @@ export interface AuthDependencies {
   readonly logger: Logger;
   /** The origin people use to reach the service, without a trailing slash. */
   readonly publicUrl: string;
+  /** The app's name in github.com/apps/<slug>, if the operator configured it. */
+  readonly appSlug?: string;
 }
 
 const STATE_BYTES = 32;
@@ -87,6 +89,16 @@ export function createAuthRouter(dependencies: AuthDependencies): Router {
   const redirectUri = `${publicUrl}/auth/callback`;
   const router = Router();
 
+  /**
+   * What a visitor who is not signed in needs in order to start: the name of the app to
+   * install. It takes no input and answers nothing that is not already public (D-083).
+   */
+  router.get("/service", (_request, response) => {
+    response.json({ appSlug: dependencies.appSlug ?? null });
+  });
+
+  // GitHub also sends people here after they install the app (the app's Setup URL), with
+  // parameters of its own. None of them is read: access is asked of GitHub at sign-in (D-084).
   router.get("/login", (_request, response) => {
     const state = randomBytes(STATE_BYTES).toString("base64url");
     response.append("Set-Cookie", serializeCookie(names, names.state, state, STATE_TTL_SECONDS));

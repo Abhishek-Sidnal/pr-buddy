@@ -386,6 +386,28 @@ customer bring their own AI provider. Design: [DESIGN-AI-KEYS.md](DESIGN-AI-KEYS
 Out of scope: a key per repository, usage or spending reports, providers that need an address
 (Azure is reached by resource name), a key service such as AWS KMS (the interface allows it), teams and billing.
 
+### Part 2 — a first public deployment
+
+No new requirement: the example stack runs from an image that CI publishes (D-082). What was
+verified is in the tracker.
+
+### Part 3 — onboarding
+
+A person who arrives at a hosted PR Buddy knows nothing about GitHub Apps and should not need
+to. Design: [DESIGN-DASHBOARD.md](DESIGN-DASHBOARD.md), section 8.
+
+| ID     | Requirement                                                                                     |
+| ------ | ----------------------------------------------------------------------------------------------- |
+| FR-97  | A signed-out visitor sees what PR Buddy does, what it stores, and how to start.                 |
+| FR-98  | When the operator has named the app, the page offers one button that installs it on GitHub.     |
+| FR-99  | After installing, the person arrives on the dashboard signed in, with the installation visible. |
+| FR-100 | Until a first review exists, the overview shows the next step, derived from stored state.       |
+| NFR-97 | Without the app's name the Install button is absent everywhere; nothing else changes.           |
+| NFR-98 | The route that serves the app's name needs no session and reveals nothing else.                 |
+
+Out of scope: terms of service and a privacy policy (the operator's texts), a public marketing
+site, sign-up, billing.
+
 ## 7. Success metrics (from M2 onward)
 
 These cannot be measured until PR Buddy reviews real pull requests.
