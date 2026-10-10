@@ -1,0 +1,20 @@
+# Development environment. Usage:
+#   docker compose run --rm dev npm install
+#   docker compose run --rm dev npm run check
+services:
+  dev:
+    build:
+      context: ./docker
+      dockerfile: dev.Dockerfile
+    working_dir: /workspace
+    volumes:
+      - .:/workspace
+      # Dependencies live in a volume: Linux binaries stay out of the host folder.
+      - node_modules:/workspace/node_modules
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+
+volumes:
+  node_modules:

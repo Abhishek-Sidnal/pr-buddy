@@ -1,0 +1,25 @@
+{
+  "pullRequest": {
+    "number": 102,
+    "title": "Remove the legacy HTTP client",
+    "body": "The legacy HTTP client has had no callers since the move to fetch. This removes it together with its tests.",
+    "baseSha": "1a2b3c4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a0b",
+    "headSha": "0f9e8d7c6b5a4f3e2d1c0b9a8f7e6d5c4b3a2f1e"
+  },
+  "files": [
+    {
+      "path": "src/legacy/http-client.ts",
+      "status": "removed",
+      "additions": 0,
+      "deletions": 6,
+      "patch": "@@ -1,6 +0,0 @@\n-import http from \"node:http\";\n-\n-export function get(url: string): Promise<string> {\n-  return new Promise((resolve) => http.get(url, (response) => resolve(String(response.statusCode))));\n-}\n-"
+    },
+    {
+      "path": "tests/legacy/http-client.test.ts",
+      "status": "removed",
+      "additions": 0,
+      "deletions": 4,
+      "patch": "@@ -1,4 +0,0 @@\n-import { get } from \"../../src/legacy/http-client.js\";\n-\n-it(\"is exported\", () => expect(get).toBeTypeOf(\"function\"));\n-"
+    }
+  ]
+}

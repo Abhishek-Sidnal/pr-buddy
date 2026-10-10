@@ -1,0 +1,26 @@
+{
+  "pullRequest": {
+    "number": 103,
+    "title": "Move date helpers into the shared folder",
+    "body": "Moves the date helpers from utils to shared so the web app can import them, and labels formatted timestamps as UTC.",
+    "baseSha": "4d3c2b1a0f9e8d7c6b5a4f3e2d1c0b9a8f7e6d5c",
+    "headSha": "c5d6e7f8a9b0c1d2e3f4a5b6c7d8e9f0a1b2c3d4"
+  },
+  "files": [
+    {
+      "path": "src/shared/date.ts",
+      "previousPath": "src/utils/date.ts",
+      "status": "renamed",
+      "additions": 0,
+      "deletions": 0
+    },
+    {
+      "path": "src/shared/format.ts",
+      "previousPath": "src/utils/format.ts",
+      "status": "renamed",
+      "additions": 1,
+      "deletions": 1,
+      "patch": "@@ -1,5 +1,5 @@\n import { toIsoDate } from \"./date.js\";\n \n export function formatTimestamp(value: Date): string {\n-  return toIsoDate(value);\n+  return `${toIsoDate(value)} UTC`;\n }"
+    }
+  ]
+}
