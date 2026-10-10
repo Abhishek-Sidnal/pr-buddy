@@ -54,7 +54,7 @@ export function dispatchReview(
 ): EnqueueResult {
   const { reviewQueue, reviewService, pendingReviewStore } = dependencies;
   const { trigger } = pending;
-  return reviewQueue.enqueue(reviewKeyOf(trigger), async () => {
+  return reviewQueue.enqueue(reviewKeyOf(trigger), String(trigger.installationId), async () => {
     try {
       await reviewService.review(trigger);
     } catch (error) {
@@ -154,12 +154,19 @@ export function createWebhookRouter(dependencies: WebhookRouterDependencies): Ro
       // review, for example one that hit a rate limit, be run again by redelivering.
       deliveryStore.release(deliveryId),
     );
-    if (result === "rejected") {
+    if (result === "rejected" || result === "rejected_for_group") {
       // Forget the request and the delivery, so that GitHub's "Redeliver" can succeed once
       // there is room.
       await pendingReviewStore.complete(pending);
       await deliveryStore.release(deliveryId);
-      logger.warn({ deliveryId }, "Webhook rejected: review queue is full");
+      logger.warn(
+        result === "rejected"
+          ? { deliveryId }
+          : { deliveryId, installationId: trigger.installationId },
+        result === "rejected"
+          ? "Webhook rejected: review queue is full"
+          : "Webhook rejected: this installation has too many reviews waiting",
+      );
       response.status(503).json({ error: "queue_full" });
       return;
     }
@@ -212,7 +219,8 @@ export async function recoverPendingReviews(
   let queued = 0;
   for (const review of pending) {
     // One that does not fit stays in the table and is picked up at the next start.
-    if (dispatchReview(dependencies, review) !== "rejected") {
+    const result = dispatchReview(dependencies, review);
+    if (result !== "rejected" && result !== "rejected_for_group") {
       queued += 1;
     }
   }

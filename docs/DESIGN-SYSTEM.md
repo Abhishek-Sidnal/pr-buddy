@@ -109,6 +109,7 @@ All in `apps/web/src/components/`. Reuse them; do not restyle one-off copies.
 | The next step  | The only card with an accent border, and the only one that may carry a main action            |
 | A step's state | Always text, with a check icon beside "Done"; never colour alone                              |
 | Data handling  | The shared `DataHandling` list; the visitor's page and the settings never have their own copy |
+| Long-form page | The `prose` block: one column, 44rem, a heading per section, short lists; used by `/privacy`  |
 
 ### Interaction
 

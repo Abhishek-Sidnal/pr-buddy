@@ -106,7 +106,7 @@ or updates the comment.
 
 ## Invariants
 
-These are design decisions with reasons recorded in `docs/BRAIN.md` (D-001 to D-085). Read the
+These are design decisions with reasons recorded in `docs/BRAIN.md` (D-001 to D-091). Read the
 relevant entry before changing one.
 
 - A webhook body is only a trigger. What gets reviewed is fetched from the API.
@@ -133,12 +133,24 @@ relevant entry before changing one.
   row answers `404` like a missing one (D-054). New read methods take `installationIds` first.
 - No GitHub user token is stored, logged or sent to the browser; session tokens are stored only
   as a SHA-256 (D-049, D-051). The dashboard reads history and can change one thing, an
+  installation's own AI key (D-056, D-075).
 - An installation's AI key is encrypted before it reaches SQL, bound to its installation and
   provider, never returned by any route and never logged (D-073). Only an owner may change it,
   and writes need the dashboard's `Origin` and the `X-PR-Buddy-Request` header (D-072, D-075).
-  Customers pick a fixed provider, never an address; Azure is named by resource (D-074, D-080). A review whose installation key
-  fails does not fall back to the operator's provider (D-078).
-  installation's own AI key (D-056, D-075).
+  Customers pick a fixed provider, never an address; Azure is named by resource (D-074, D-080).
+  A review whose installation key fails does not fall back to the operator's provider (D-078).
+- `GET /auth/service` is the only route with data that needs no session. It answers what the
+  operator configured for the public (app name, who runs the service, retention) and takes no
+  input (D-083, D-090). Links made from those values are checked again in the browser
+  (`github-links.ts`, `operator-links.ts`).
+- The privacy page's statements about the software are fixed text kept with the code; change
+  them in the same change as the behaviour they describe. Statements about the operator come
+  only from settings, and "not published" is said, never hidden (D-090, D-091).
+- Every queued review carries its installation. The queue is shared fairly between
+  installations and one installation's waiting reviews are capped (D-089).
+- Backups and alerts are scripts in `deploy/`, not part of the API. A backup never contains
+  `deploy/.env`; the server's credential may only write backups and publish alerts; an alert
+  names the site and the failing checks and nothing about what was reviewed (D-086 to D-088).
 - The dashboard shows only what the service can back: no sample data, no control that does
   nothing (D-058). Web code uses design tokens, never raw colours; every API answer is parsed
   with a Zod schema; stored text is rendered as text; GitHub links go through

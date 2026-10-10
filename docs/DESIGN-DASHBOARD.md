@@ -109,15 +109,16 @@ rejects a request whose `Origin` header is not the dashboard's own.
 `apps/web` is a React application built with Vite. The API serves its built files, so the
 dashboard and its API share one origin: no CORS, and the cookie never crosses sites (D-052).
 
-| Page         | Path                 | Shows                                                            |
-| ------------ | -------------------- | ---------------------------------------------------------------- |
-| Sign-in      | any, when signed out | What GitHub will share, and one button                           |
-| Overview     | `/`                  | Reviews, findings and failures in 30 days; recent reviews        |
-| Repositories | `/repositories`      | Each visible repository and its latest review                    |
-| Repository   | `/repositories/:id`  | That repository's reviews, with paging                           |
-| Review       | `/reviews/:id`       | Outcome, counts by severity, findings list and detail, AI record |
-| History      | `/history`           | Every visible review, filtered by outcome through the address    |
-| Settings     | `/settings`          | Theme, the session, where configuration lives, what is stored    |
+| Page         | Path                 | Shows                                                                            |
+| ------------ | -------------------- | -------------------------------------------------------------------------------- |
+| Sign-in      | any, when signed out | What GitHub will share, and one button                                           |
+| Overview     | `/`                  | Reviews, findings and failures in 30 days; recent reviews                        |
+| Repositories | `/repositories`      | Each visible repository and its latest review                                    |
+| Repository   | `/repositories/:id`  | That repository's reviews, with paging                                           |
+| Review       | `/reviews/:id`       | Outcome, counts by severity, findings list and detail, AI record                 |
+| History      | `/history`           | Every visible review, filtered by outcome through the address                    |
+| Settings     | `/settings`          | Theme, the session, where configuration lives, what is stored                    |
+| Privacy      | `/privacy`           | What the software does with data, and who runs this deployment. Open to everyone |
 
 - No secrets reach the browser. The application knows only what the read API returns.
 - Everything from the API is rendered as text by React. Nothing is inserted as HTML.
@@ -189,6 +190,9 @@ no button that leads nowhere (D-058). The service warns at start-up when the das
 and the slug is missing.
 
 The slug is not a secret: it is in the address of the app's public page.
+
+The same route also carries who runs the deployment and for how many days reviews are kept,
+for the public page at `/privacy` ([DESIGN-OPERATIONS.md](DESIGN-OPERATIONS.md), section 4).
 
 ### Coming back from GitHub (D-084)
 

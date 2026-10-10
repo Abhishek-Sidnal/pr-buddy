@@ -408,6 +408,39 @@ to. Design: [DESIGN-DASHBOARD.md](DESIGN-DASHBOARD.md), section 8.
 Out of scope: terms of service and a privacy policy (the operator's texts), a public marketing
 site, sign-up, billing.
 
+### Part 4 — operations
+
+Design: [DESIGN-OPERATIONS.md](DESIGN-OPERATIONS.md).
+
+| ID      | Requirement                                                                                   |
+| ------- | --------------------------------------------------------------------------------------------- |
+| FR-101  | The example stack can back its database up every night to storage outside the server.         |
+| FR-102  | The operator is told when the service is unreachable, unhealthy, or failing reviews.          |
+| FR-103  | The operator is told when it has recovered, and is not told again while nothing changes.      |
+| NFR-99  | A backup never contains the master key, and the server cannot read or delete earlier backups. |
+| NFR-100 | A dump is checked before it is kept; a restore from outside the server has been carried out.  |
+| NFR-101 | An alert contains no repository, person or secret.                                            |
+
+### Part 5 — who runs the service
+
+| ID      | Requirement                                                                                        |
+| ------- | -------------------------------------------------------------------------------------------------- |
+| FR-104  | Anyone can read, without signing in, what the service stores, sends and deletes, and for how long. |
+| FR-105  | The page names the operator and how to reach them, when the operator has said so.                  |
+| FR-106  | The page links to the operator's own privacy policy and terms, when they exist.                    |
+| NFR-102 | When the operator has not said who they are, the page says so and the service warns at start-up.   |
+
+### Part 6 — a fair share of the queue
+
+| ID      | Requirement                                                                                             |
+| ------- | ------------------------------------------------------------------------------------------------------- |
+| FR-107  | A free slot goes to the installation with the least running work, then the one served longest ago.      |
+| FR-108  | One installation's waiting reviews are capped; beyond the cap its webhook is refused like a full queue. |
+| NFR-103 | The queue's existing guarantees per pull request and its overall limits are unchanged.                  |
+
+Out of scope: several servers, automatic restore, usage metering and billing, AI spending
+limits, translated pages.
+
 ## 7. Success metrics (from M2 onward)
 
 These cannot be measured until PR Buddy reviews real pull requests.

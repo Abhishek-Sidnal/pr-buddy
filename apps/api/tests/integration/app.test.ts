@@ -30,12 +30,16 @@ interface AppOverrides {
   isReady?: () => Promise<boolean>;
   concurrency?: number;
   maxWaiting?: number;
+  maxWaitingPerGroup?: number;
 }
 
 function buildApp(overrides: AppOverrides = {}): Express {
   reviewQueue = createReviewQueue({
     concurrency: overrides.concurrency ?? 2,
     maxWaiting: overrides.maxWaiting ?? 10,
+    ...(overrides.maxWaitingPerGroup === undefined
+      ? {}
+      : { maxWaitingPerGroup: overrides.maxWaitingPerGroup }),
     onError: createReviewErrorLogger(logger),
   });
   return createApp({
@@ -464,6 +468,46 @@ describe("limits", () => {
     expect(waiting.body).toEqual({ status: "queued" });
     expect(rejected.status).toBe(503);
     expect(rejected.body).toEqual({ error: "queue_full" });
+
+    releaseFirstReview();
+    await reviewQueue.onIdle();
+    const redelivered = await deliver(pullRequestEvent({ number: 3 }), {
+      deliveryId: rejectedDeliveryId,
+    });
+    await reviewQueue.onIdle();
+
+    expect(redelivered.body).toEqual({ status: "queued" });
+  });
+
+  it("answers 503 to an installation with too many reviews waiting, and serves the others", async () => {
+    let releaseFirstReview: () => void = () => undefined;
+    const firstReviewHeld = new Promise<void>((resolve) => {
+      releaseFirstReview = resolve;
+    });
+    github.beforeCall = async (method, callNumber) => {
+      if (method === "getPullRequest" && callNumber === 1) {
+        await firstReviewHeld;
+      }
+    };
+    app = buildApp({ concurrency: 1, maxWaiting: 10, maxWaitingPerGroup: 1 });
+    const rejectedDeliveryId = "55555555-5555-4555-8555-555555555555";
+
+    const running = await deliver(pullRequestEvent({ number: 1 }));
+    const waiting = await deliver(pullRequestEvent({ number: 2 }));
+    const rejected = await deliver(pullRequestEvent({ number: 3 }), {
+      deliveryId: rejectedDeliveryId,
+    });
+    const neighbour = await deliver(pullRequestEvent({ number: 4, installation: { id: 9009 } }));
+
+    expect([running.status, waiting.status, neighbour.status]).toEqual([202, 202, 202]);
+    expect(rejected.status).toBe(503);
+    expect(rejected.body).toEqual({ error: "queue_full" });
+    expect(logger.entries).toContainEqual({
+      level: "warn",
+      message: "Webhook rejected: this installation has too many reviews waiting",
+      fields: { deliveryId: rejectedDeliveryId, installationId: 1001 },
+    });
+    expect(logger.text()).not.toContain("CANARY");
 
     releaseFirstReview();
     await reviewQueue.onIdle();

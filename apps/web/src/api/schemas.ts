@@ -76,8 +76,31 @@ export const reviewDetailsSchema = reviewSummarySchema.extend({
   newerReviewId: z.string().nullable(),
 });
 
-/** What a visitor may learn before signing in: the name of the app to install, if configured. */
-export const serviceInfoSchema = z.object({ appSlug: z.string().nullable() });
+/** Who runs this deployment, as its operator chose to say it. `null` means they did not say. */
+export const operatorSchema = z.object({
+  name: z.string().nullable(),
+  /** An email address or an https:// address. It is checked again before it becomes a link. */
+  contact: z.string().nullable(),
+  privacyUrl: z.string().nullable(),
+  termsUrl: z.string().nullable(),
+});
+
+export const UNNAMED_OPERATOR: z.infer<typeof operatorSchema> = {
+  name: null,
+  contact: null,
+  privacyUrl: null,
+  termsUrl: null,
+};
+
+/**
+ * What a visitor may learn before signing in: the app to install, who runs the service, and
+ * how many days reviews are kept (0 means for ever, `null` means the service did not say).
+ */
+export const serviceInfoSchema = z.object({
+  appSlug: z.string().nullable(),
+  operator: operatorSchema.default(UNNAMED_OPERATOR),
+  retentionDays: z.number().int().min(0).nullable().default(null),
+});
 
 export const meSchema = z.object({
   login: z.string(),

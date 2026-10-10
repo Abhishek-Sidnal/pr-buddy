@@ -126,6 +126,7 @@ describe("the application shell", () => {
       "Repositories /repositories",
       "Review history /history",
       "Settings /settings",
+      "Privacy and data /privacy",
     ]);
     expect(links.filter((link) => link.getAttribute("aria-current") === "page")).toHaveLength(1);
     expect(within(navigation).getByRole("link", { current: "page" }).textContent).toBe(

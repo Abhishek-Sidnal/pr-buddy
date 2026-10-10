@@ -34,15 +34,18 @@ cp deploy/.env.example deploy/.env
 
 Fill in `deploy/.env`. It is ignored by git; keep it readable by you alone.
 
-| Setting                  | Value                                                                                            |
-| ------------------------ | ------------------------------------------------------------------------------------------------ |
-| `SITE_ADDRESS`           | The host name, without `https://`                                                                |
-| `POSTGRES_PASSWORD`      | A password you make up. Letters and digits only, for example from `openssl rand -hex 24`         |
-| `GITHUB_APP_ID`          | From the app's settings                                                                          |
-| `GITHUB_PRIVATE_KEY`     | The private key on one line, with `\n` for each line break                                       |
-| `GITHUB_WEBHOOK_SECRET`  | The secret you gave the app                                                                      |
-| `REVIEW_RETENTION_DAYS`  | Optional. Days to keep reviews; 365 by default, `0` for ever                                     |
-| `SECRETS_ENCRYPTION_KEY` | Optional. A master key that lets customers store their own AI keys; see GITHUB_APP.md, section 9 |
+| Setting                                      | Value                                                                                                                                                            |
+| -------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `SITE_ADDRESS`                               | The host name, without `https://`                                                                                                                                |
+| `POSTGRES_PASSWORD`                          | A password you make up. Letters and digits only, for example from `openssl rand -hex 24`                                                                         |
+| `GITHUB_APP_ID`                              | From the app's settings                                                                                                                                          |
+| `GITHUB_PRIVATE_KEY`                         | The private key on one line, with `\n` for each line break                                                                                                       |
+| `GITHUB_WEBHOOK_SECRET`                      | The secret you gave the app                                                                                                                                      |
+| `REVIEW_RETENTION_DAYS`                      | Optional. Days to keep reviews; 365 by default, `0` for ever                                                                                                     |
+| `SECRETS_ENCRYPTION_KEY`                     | Optional. A master key that lets customers store their own AI keys; see GITHUB_APP.md, section 9                                                                 |
+| `REVIEW_QUEUE_LIMIT_PER_INSTALLATION`        | Optional. Reviews of one installation that may wait; 20 by default                                                                                               |
+| `OPERATOR_NAME`, `OPERATOR_CONTACT`          | Who runs this deployment and how to reach them, shown on the public `/privacy` page. Optional, but without them the page says you have not published who you are |
+| `OPERATOR_PRIVACY_URL`, `OPERATOR_TERMS_URL` | Optional. Links to your own privacy policy and terms                                                                                                             |
 
 For the dashboard, also set `GITHUB_CLIENT_ID`, `GITHUB_CLIENT_SECRET` and
 `PUBLIC_URL=https://<SITE_ADDRESS>`: all three, or none. For AI review, add the provider's
@@ -149,23 +152,101 @@ variable before upgrading if you want to keep older reviews. `0` keeps everythin
 
 ## 6. Back up and restore
 
-Everything PR Buddy remembers is in the database: review history and sessions. It holds no
-source code ([DESIGN-STORAGE.md](DESIGN-STORAGE.md)).
+Everything PR Buddy remembers is in the database: review history, sessions, and installations'
+AI keys in encrypted form. It holds no source code ([DESIGN-STORAGE.md](DESIGN-STORAGE.md)).
+
+**Two things to keep, in two places.**
+
+| What          | Holds                                                                 | Kept by                      |
+| ------------- | --------------------------------------------------------------------- | ---------------------------- |
+| The dump      | History and encrypted AI keys                                         | `deploy/backup.sh`, nightly  |
+| `deploy/.env` | The key that decrypts those AI keys, and the GitHub App's private key | You, by hand, somewhere else |
+
+They are kept apart on purpose: whoever obtains a dump alone cannot read a stored AI key
+(D-086). Without `deploy/.env`, a restore brings back the history and no AI key, and the GitHub
+App's private key has to be generated again.
+
+### A backup every night
+
+`deploy/backup.sh` dumps the database, checks that the dump can be read back, copies it to an S3
+bucket and deletes local copies older than seven days. It exits with an error and sends an
+alert when no usable backup was stored.
+
+1. Create a private bucket with versioning on, and a rule that deletes objects after as many
+   days as you want to keep them.
+2. Create a credential that may do only this, so that someone who takes over the server cannot
+   read or delete earlier backups:
+
+   ```json
+   {
+     "Version": "2012-10-17",
+     "Statement": [
+       { "Effect": "Allow", "Action": "s3:PutObject", "Resource": "arn:aws:s3:::<bucket>/*" },
+       { "Effect": "Allow", "Action": "sns:Publish", "Resource": "<topic ARN>" }
+     ]
+   }
+   ```
+
+3. `cp deploy/ops.env.example deploy/ops.env`, fill it in, and `chmod 600 deploy/ops.env`.
+4. Run `deploy/backup.sh` once and look for the object in the bucket.
+5. Schedule it: see `deploy/crontab.example`.
+
+Without a bucket the script still works and keeps its dumps on the server, which does not
+survive the loss of the server.
+
+### Restore
+
+Restoring needs a credential that may read the bucket: yours, not the server's.
 
 ```bash
-# Back up
+# Into a new, empty stack: start it once so that the database exists, then stop the API.
+docker compose -f deploy/compose.yaml --env-file deploy/.env stop api
 docker compose -f deploy/compose.yaml --env-file deploy/.env exec -T postgres \
-  pg_dump --username prbuddy --dbname prbuddy --format custom > prbuddy.dump
-
-# Restore into a running, empty database
-docker compose -f deploy/compose.yaml --env-file deploy/.env exec -T postgres \
-  pg_restore --username prbuddy --dbname prbuddy --clean --if-exists < prbuddy.dump
+  pg_restore --username prbuddy --dbname prbuddy --clean --if-exists < prbuddy-<time>.dump
+docker compose -f deploy/compose.yaml --env-file deploy/.env start api
 ```
 
-Also keep `deploy/.env`: the GitHub App's private key cannot be downloaded again, only replaced.
+Put the saved `deploy/.env` back first: the API cannot decrypt stored AI keys with a new
+`SECRETS_ENCRYPTION_KEY`. Try a restore into a scratch database before you need one; a backup
+that has never been restored is a hope.
+
 Caddy's certificates are in the `caddy_data` volume; losing it only means they are issued again.
 
-## 7. What is exposed
+## 7. Know when something is wrong
+
+`deploy/watch.sh` checks the stack every five minutes and tells you when the set of problems
+changes: once when something breaks, once when it is right again.
+
+| Check          | A problem when                                                      |
+| -------------- | ------------------------------------------------------------------- |
+| Reachable      | `https://<SITE_ADDRESS>/readyz` does not answer `200`               |
+| Containers     | The proxy, the API or the database is not running                   |
+| Certificate    | It expires within 14 days                                           |
+| Disk           | The root file system is more than 85% full                          |
+| Backup         | A bucket is configured and the newest backup is older than 26 hours |
+| Failed reviews | Three or more reviews failed in the last 30 minutes                 |
+
+Alerts go to an AWS SNS topic, to a webhook that accepts `{"text": "..."}`, or both; set them in
+`deploy/ops.env`. Subscribe your email address to the topic and confirm the message AWS sends.
+A message names the site and the failing checks, and nothing about what was reviewed.
+
+```bash
+deploy/watch.sh --print      # check now, print the result, send nothing
+```
+
+To rehearse an alert without breaking anything, point the check at an address that does not
+answer `200`, then run it normally to see the recovery:
+
+```bash
+WATCH_URL=https://<SITE_ADDRESS>/api/me deploy/watch.sh
+deploy/watch.sh
+```
+
+**The watcher runs on the server it watches.** If the server is off, out of memory or cut off
+from the network, it says nothing. Add one alarm outside it: your hosting provider's alarm on
+the instance's status check, or any external uptime check of `/healthz`.
+
+## 8. What is exposed
 
 | Service  | Reachable from outside | Notes                                                          |
 | -------- | ---------------------- | -------------------------------------------------------------- |
@@ -178,7 +259,7 @@ and, when the dashboard is on, `/auth`, `/api` and the dashboard's pages. Browse
 keep using HTTPS for a year (`Strict-Transport-Security`), so do not put the dashboard on a host
 name that must also serve plain HTTP.
 
-## 8. Trying the stack on your own machine
+## 9. Trying the stack on your own machine
 
 The same files work for `localhost`: Caddy then issues a certificate from a local authority,
 which your browser will not trust until you accept it.
@@ -194,12 +275,13 @@ Open `https://localhost:8443`. Sign-in also needs `https://localhost:8443/auth/c
 the app's callback URLs. Webhooks from GitHub cannot reach `localhost`; use the development
 set-up for those.
 
-## 9. Limits of this example
+## 10. Limits of this example
 
 - One machine. If it is down, webhooks are missed until GitHub's deliveries are redelivered.
 - One instance. Requested reviews survive a restart, but two instances would not share work.
-- No metrics or alerting. The log is JSON, one object per line; collect it with whatever you use.
-- Backups are a command to run, not a schedule.
+- No metrics. The watcher of section 7 alerts on a handful of checks and runs on the server it
+  watches. The log is JSON, one object per line; collect it with whatever you use.
+- A restore is a procedure you carry out, not a button.
 - The published image is built for x86-64 only. On an Arm machine, build it there.
 - The database connection is unencrypted, which is safe only because it never leaves the stack's
   private network. For a database elsewhere, change `DATABASE_URL` in `deploy/compose.yaml` and

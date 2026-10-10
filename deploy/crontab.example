@@ -1,0 +1,9 @@
+# Schedules for the example stack. Adjust the path, then install with: crontab deploy/crontab.example
+# (that replaces the current user's schedule; use "crontab -e" to add to an existing one).
+# Times are the machine's own; most servers run on UTC.
+
+# A backup every night.
+15 20 * * * /home/ubuntu/pr-buddy/deploy/backup.sh >> /home/ubuntu/pr-buddy/state/backup.log 2>&1
+
+# A check every five minutes. It writes a line only when something changes.
+*/5 * * * * /home/ubuntu/pr-buddy/deploy/watch.sh >> /home/ubuntu/pr-buddy/state/watch.log 2>&1

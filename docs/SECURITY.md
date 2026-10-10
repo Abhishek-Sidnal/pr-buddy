@@ -192,26 +192,26 @@ repository opts in.
 
 Design: [DESIGN-DASHBOARD.md](DESIGN-DASHBOARD.md).
 
-| #   | Threat                                                            | Control                                                                                                                   | Where                                              |
-| --- | ----------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------- |
-| W1  | One tenant reads another's history                                | Every statement filters by the session's installation IDs; hidden and missing both answer `404`                           | `api/modules/history/postgres-history-store.ts`    |
-| W2  | Someone is signed in to an attacker's account (login CSRF)        | Random `state` in a cookie and in the request, compared in constant time; the cookie is cleared after one use             | `api/modules/auth/auth.router.ts`                  |
-| W3  | A GitHub user token leaks                                         | Used once at sign-in and dropped: never stored, logged or sent to the browser                                             | `auth.router.ts`, `github-client/oauth/`           |
-| W4  | A session cookie is stolen by a script or over plain HTTP         | `HttpOnly`; `Secure` with the `__Host-` prefix on HTTPS; `PUBLIC_URL` must be HTTPS except on localhost                   | `api/modules/auth/session-cookie.ts`, `config/env` |
-| W5  | A copy of the database yields working sessions                    | Only the SHA-256 of each 256-bit random token is stored                                                                   | `api/modules/auth/postgres-session-store.ts`       |
-| W6  | A session outlives its welcome                                    | Fixed 8-hour lifetime, no renewal; sign-out deletes the row; expired rows are purged                                      | `postgres-session-store.ts`                        |
-| W7  | Another site makes the browser act (CSRF)                         | The API is read-only; sign-out is a `POST` behind a `SameSite=Lax` cookie and an `Origin` check                           | `auth.router.ts`                                   |
-| W8  | Stored text runs as script in the dashboard                       | React renders all API data as text; no HTML insertion; CSP allows scripts from the dashboard's origin only, none inline   | `apps/web/src`, `api/modules/web/`                 |
-| W9  | A stored value becomes a malicious link                           | GitHub links are built from values checked against strict patterns; otherwise no link is rendered                         | `apps/web/src/github-links.ts`                     |
-| W10 | The dashboard is framed to trick clicks                           | `frame-ancestors 'none'` and `X-Frame-Options: DENY`                                                                      | `api/modules/web/`                                 |
-| W11 | The callback is used as an open redirect                          | It only ever redirects to fixed paths on the dashboard's own origin                                                       | `auth.router.ts`                                   |
-| W12 | Sign-in or the read API is hammered                               | Rate limits per client address on `/auth` and `/api`; page size fixed at 25                                               | `api/app.ts`                                       |
-| W13 | A hostile ID or cursor reaches a query                            | Path and query values are validated with Zod first, and every statement is parameterised                                  | `api/modules/history/history.router.ts`            |
-| W14 | The client secret leaks                                           | Read from the environment only, redacted in logs, never part of an error or a response                                    | `config/env.ts`, `logger.ts`                       |
-| W15 | A half-configured dashboard exposes something                     | Without all its settings and a database, its routes are not registered                                                    | `api/main.ts`, `config/env.ts`                     |
-| W16 | The public route for the app's name reveals more, or is abused    | It answers one value that is already public, takes no input, needs no session and is rate limited with sign-in            | `api/modules/auth/auth.router.ts`                  |
-| W17 | A configured app name turns the Install link into another address | The name is checked against a pattern when configured, and again in the browser before a link is built; the host is fixed | `config/env.ts`, `web/src/github-links.ts`         |
-| W18 | An address from GitHub after installation claims an installation  | Nothing in that address is read; access is asked of GitHub at sign-in (D-050, D-084)                                      | `api/modules/auth/auth.router.ts`                  |
+| #   | Threat                                                            | Control                                                                                                                        | Where                                              |
+| --- | ----------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ | -------------------------------------------------- |
+| W1  | One tenant reads another's history                                | Every statement filters by the session's installation IDs; hidden and missing both answer `404`                                | `api/modules/history/postgres-history-store.ts`    |
+| W2  | Someone is signed in to an attacker's account (login CSRF)        | Random `state` in a cookie and in the request, compared in constant time; the cookie is cleared after one use                  | `api/modules/auth/auth.router.ts`                  |
+| W3  | A GitHub user token leaks                                         | Used once at sign-in and dropped: never stored, logged or sent to the browser                                                  | `auth.router.ts`, `github-client/oauth/`           |
+| W4  | A session cookie is stolen by a script or over plain HTTP         | `HttpOnly`; `Secure` with the `__Host-` prefix on HTTPS; `PUBLIC_URL` must be HTTPS except on localhost                        | `api/modules/auth/session-cookie.ts`, `config/env` |
+| W5  | A copy of the database yields working sessions                    | Only the SHA-256 of each 256-bit random token is stored                                                                        | `api/modules/auth/postgres-session-store.ts`       |
+| W6  | A session outlives its welcome                                    | Fixed 8-hour lifetime, no renewal; sign-out deletes the row; expired rows are purged                                           | `postgres-session-store.ts`                        |
+| W7  | Another site makes the browser act (CSRF)                         | The API is read-only; sign-out is a `POST` behind a `SameSite=Lax` cookie and an `Origin` check                                | `auth.router.ts`                                   |
+| W8  | Stored text runs as script in the dashboard                       | React renders all API data as text; no HTML insertion; CSP allows scripts from the dashboard's origin only, none inline        | `apps/web/src`, `api/modules/web/`                 |
+| W9  | A stored value becomes a malicious link                           | GitHub links are built from values checked against strict patterns; otherwise no link is rendered                              | `apps/web/src/github-links.ts`                     |
+| W10 | The dashboard is framed to trick clicks                           | `frame-ancestors 'none'` and `X-Frame-Options: DENY`                                                                           | `api/modules/web/`                                 |
+| W11 | The callback is used as an open redirect                          | It only ever redirects to fixed paths on the dashboard's own origin                                                            | `auth.router.ts`                                   |
+| W12 | Sign-in or the read API is hammered                               | Rate limits per client address on `/auth` and `/api`; page size fixed at 25                                                    | `api/app.ts`                                       |
+| W13 | A hostile ID or cursor reaches a query                            | Path and query values are validated with Zod first, and every statement is parameterised                                       | `api/modules/history/history.router.ts`            |
+| W14 | The client secret leaks                                           | Read from the environment only, redacted in logs, never part of an error or a response                                         | `config/env.ts`, `logger.ts`                       |
+| W15 | A half-configured dashboard exposes something                     | Without all its settings and a database, its routes are not registered                                                         | `api/main.ts`, `config/env.ts`                     |
+| W16 | The public route for the app's name reveals more, or is abused    | It answers only what the operator configured for the public, takes no input, needs no session and is rate limited with sign-in | `api/modules/auth/auth.router.ts`                  |
+| W17 | A configured app name turns the Install link into another address | The name is checked against a pattern when configured, and again in the browser before a link is built; the host is fixed      | `config/env.ts`, `web/src/github-links.ts`         |
+| W18 | An address from GitHub after installation claims an installation  | Nothing in that address is read; access is asked of GitHub at sign-in (D-050, D-084)                                           | `api/modules/auth/auth.router.ts`                  |
 
 ### Known limits
 
@@ -278,6 +278,23 @@ secret that is not its own.
 | K13 | The save route is used to test stolen keys in bulk             | It needs an owner's session and is rate limited with the rest of the API                                     | `api/app.ts`                                   |
 | K14 | An Azure resource name is used to reach another host           | Lower-case letters, digits and hyphens only, so no dot, slash, colon or `@`; the domain is fixed in code     | `ai-key-store.ts`                              |
 | K15 | The test route spends a customer's money, or leaks the key     | Owners only, the three locks of a write, rate limited; it answers a result and a status, never the key       | `ai-key.router.ts`                             |
+
+## 6F. Threats and controls in Milestone 5 — operations
+
+Design: [DESIGN-OPERATIONS.md](DESIGN-OPERATIONS.md).
+
+| #   | Threat                                                         | Control                                                                                                         | Where                          |
+| --- | -------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------- | ------------------------------ |
+| O1  | The server is lost and the history and keys with it            | A nightly dump is copied to a bucket elsewhere; a restore from the bucket has been carried out                  | `deploy/backup.sh`             |
+| O2  | A stolen backup reveals customers' AI keys                     | Keys are encrypted in the database; the master key is not in the backup and is kept separately                  | `deploy/backup.sh`, D-086      |
+| O3  | Whoever takes over the server deletes or reads the backups     | The server's credential may only write objects and publish alerts; the bucket keeps versions                    | Bucket and credential policy   |
+| O4  | A backup that cannot be restored goes unnoticed                | Each dump is listed with `pg_restore` before it is kept; a failed run alerts; the watcher alerts on a stale one | `deploy/backup.sh`, `watch.sh` |
+| O5  | The service fails and nobody knows                             | A watcher checks reachability, containers, certificate, disk, backups and failed reviews, and alerts on change  | `deploy/watch.sh`              |
+| O6  | An alert leaks what was reviewed                               | A message names the site and the failing checks only                                                            | `deploy/watch.sh`              |
+| O7  | The server is down and so is its watcher                       | Documented: an alarm outside the server is needed; the example deployment uses its provider's                   | `docs/DEPLOYMENT.md`           |
+| O8  | One installation takes the whole review queue                  | The next job is chosen across installations; one installation's waiting reviews are capped                      | `review-queue.ts`, D-089       |
+| O9  | An operator's contact or link becomes a script or another site | Each is checked against a pattern when configured and again in the browser; links are `https://` only           | `config/env.ts`, `web/`        |
+| O10 | The privacy page promises what the software does not do        | Its software statements are fixed text reviewed with the code; operator statements come only from settings      | `web/src/pages/privacy.tsx`    |
 
 ### Known limits
 

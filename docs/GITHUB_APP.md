@@ -153,6 +153,20 @@ into a way in for someone who has never used PR Buddy:
    installing, a person is then sent through sign-in and arrives on the dashboard with the new
    installation visible.
 
+3. Say who runs the service. The dashboard has a page at `/privacy`, open to everyone, that
+   states what PR Buddy does with data. It also shows who you are, if you tell it:
+
+   ```
+   OPERATOR_NAME=<your name or your company's>
+   OPERATOR_CONTACT=<an email address, or the https:// address of a contact page>
+   OPERATOR_PRIVACY_URL=<optional: your own privacy policy>
+   OPERATOR_TERMS_URL=<optional: your own terms>
+   ```
+
+   Without the first two the page says that the operator has not published who they are, and
+   the service warns at start-up. The page describes the software; it is not a privacy policy
+   or terms in the legal sense. Where you need those, write them and link them here.
+
 Other people can install the app only when it is public: in the app's settings, **Advanced →
 Make public**. They never need the developer settings; those are for the person who runs the
 service.

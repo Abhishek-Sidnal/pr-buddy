@@ -14,8 +14,20 @@ change behaviour or configuration; such changes are listed under "Upgrade notes"
 - Until a first review exists, the overview shows a "Getting started" list. Each step's state
   comes from what the service knows: whether the app is installed, whether a review exists, and
   whether an installation has an AI key.
-- `GET /auth/service` tells a visitor's browser the app's name. It needs no session and answers
-  nothing else.
+- `GET /auth/service` tells a visitor's browser what the operator configured for the public: the
+  app's name, who runs the service, and how long reviews are kept. It needs no session.
+- A public page at `/privacy` states what the software stores, sends and deletes, and shows who
+  runs the deployment when the operator has set `OPERATOR_NAME` and `OPERATOR_CONTACT`. It can
+  link to the operator's own policy and terms (`OPERATOR_PRIVACY_URL`, `OPERATOR_TERMS_URL`).
+- The review queue is shared fairly between installations: a free slot goes to the installation
+  with the least running work, then the one served longest ago. One installation may have at
+  most `REVIEW_QUEUE_LIMIT_PER_INSTALLATION` reviews waiting (default 20); beyond that its
+  webhook is answered `503`, as for a full queue.
+- `deploy/backup.sh` backs the database up every night: it checks the dump, copies it to an S3
+  bucket with a credential that can only write, and alerts when it fails.
+- `deploy/watch.sh` checks reachability, containers, the certificate, disk space, backups and
+  failed reviews every five minutes, and alerts by AWS SNS or a webhook when the set of problems
+  changes, including when it clears.
 
 ### Changed
 
@@ -26,6 +38,12 @@ change behaviour or configuration; such changes are listed under "Upgrade notes"
 
 - To send people to the dashboard after they install the app, set the app's **Setup URL** on
   GitHub to `<PUBLIC_URL>/auth/login`. See `docs/GITHUB_APP.md`, section 7.
+- Set `OPERATOR_NAME` and `OPERATOR_CONTACT`, or the public privacy page says that the operator
+  has not published who they are.
+- An installation with more than 20 reviews waiting now has further webhooks refused until some
+  have run. Raise `REVIEW_QUEUE_LIMIT_PER_INSTALLATION` if that is too low for you.
+- Copy the new files in `deploy/` to the server to use the backup and watch scripts, and keep a
+  copy of `deploy/.env` somewhere else: it is deliberately not part of a backup.
 
 ## [0.2.0] — 2026-10-10
 

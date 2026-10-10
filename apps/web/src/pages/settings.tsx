@@ -1,4 +1,5 @@
 import { useState, type ReactNode } from "react";
+import { Link } from "react-router";
 import type { Me } from "../api/schemas.js";
 import { PageHeader, Timestamp } from "../components/common.js";
 import { DataHandling } from "../components/data-handling.js";
@@ -105,6 +106,9 @@ export function SettingsPage(props: {
       <section aria-labelledby="data-heading" className="settings-section">
         <h2 id="data-heading">Data handling</h2>
         <DataHandling />
+        <p>
+          <Link to="/privacy">Privacy and data: the full account, and who runs this service</Link>
+        </p>
       </section>
     </>
   );

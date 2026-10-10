@@ -42,6 +42,35 @@ function isPostgresUrl(value: string): boolean {
  * is accepted only for the local machine. A path, query or credentials are refused: cookies and
  * the callback are built from the origin alone.
  */
+function isHttpsLink(value: string): boolean {
+  let url: URL;
+  try {
+    url = new URL(value);
+  } catch {
+    return false;
+  }
+  return url.protocol === "https:" && url.username === "" && url.password === "";
+}
+
+const MAX_OPERATOR_NAME_LENGTH = 100;
+const MAX_OPERATOR_LINK_LENGTH = 500;
+/** Deliberately narrow: letters, digits and a few signs. No scheme, no query, nothing to escape. */
+const EMAIL_ADDRESS = /^[A-Za-z0-9._%+-]+@[A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)*\.[A-Za-z]{2,}$/;
+
+const operatorLinkSetting = z
+  .string()
+  .max(MAX_OPERATOR_LINK_LENGTH)
+  .refine(isHttpsLink, "must be an https:// address");
+
+/** Who runs this deployment, as the operator chose to say it. `null` means they did not say. */
+export interface OperatorInfo {
+  readonly name: string | null;
+  /** An email address or an https:// address. */
+  readonly contact: string | null;
+  readonly privacyUrl: string | null;
+  readonly termsUrl: string | null;
+}
+
 function isPublicUrl(value: string): boolean {
   let url: URL;
   try {
@@ -81,6 +110,7 @@ const environmentSchema = z.object({
   TRUST_PROXY: integerSetting(0, 10, 0),
   REVIEW_CONCURRENCY: integerSetting(1, 32, 2),
   REVIEW_QUEUE_LIMIT: integerSetting(1, 10_000, 100),
+  REVIEW_QUEUE_LIMIT_PER_INSTALLATION: integerSetting(1, 10_000, 20),
   WEBHOOK_RATE_LIMIT: integerSetting(1, 100_000, 300),
   DATABASE_URL: z
     .string()
@@ -107,6 +137,24 @@ const environmentSchema = z.object({
     .string()
     .refine(isPublicUrl, "must be an https:// origin, or http://localhost for development")
     .optional(),
+  // Who runs this deployment, shown on a public page. Each is text or a link the operator
+  // chose; none may carry anything a browser would run (D-090).
+  OPERATOR_NAME: z
+    .string()
+    .min(1)
+    .max(MAX_OPERATOR_NAME_LENGTH)
+    .regex(/^[^\p{Cc}]+$/u, "must not contain control characters")
+    .optional(),
+  OPERATOR_CONTACT: z
+    .string()
+    .max(MAX_OPERATOR_LINK_LENGTH)
+    .refine(
+      (value) => EMAIL_ADDRESS.test(value) || isHttpsLink(value),
+      "must be an email address or an https:// address",
+    )
+    .optional(),
+  OPERATOR_PRIVACY_URL: operatorLinkSetting.optional(),
+  OPERATOR_TERMS_URL: operatorLinkSetting.optional(),
 });
 
 export interface AppConfig {
@@ -121,6 +169,8 @@ export interface AppConfig {
   readonly trustProxy: number;
   readonly reviewConcurrency: number;
   readonly reviewQueueLimit: number;
+  /** Reviews of one installation that may wait. */
+  readonly reviewQueueLimitPerInstallation: number;
   /** Webhook requests allowed per minute from one client address. */
   readonly webhookRateLimit: number;
   /** Reviews older than this many days are deleted. Zero keeps every review. */
@@ -149,6 +199,7 @@ export interface AppConfig {
     readonly publicUrl: string;
     /** The app's name in github.com/apps/<slug>. Without it nobody is offered an Install link. */
     readonly appSlug?: string;
+    readonly operator: OperatorInfo;
   };
 }
 
@@ -254,6 +305,12 @@ function readDashboardSettings(values: z.infer<typeof environmentSchema>): AppCo
     clientSecret: GITHUB_CLIENT_SECRET,
     publicUrl: new URL(PUBLIC_URL).origin,
     ...(values.GITHUB_APP_SLUG === undefined ? {} : { appSlug: values.GITHUB_APP_SLUG }),
+    operator: {
+      name: values.OPERATOR_NAME ?? null,
+      contact: values.OPERATOR_CONTACT ?? null,
+      privacyUrl: values.OPERATOR_PRIVACY_URL ?? null,
+      termsUrl: values.OPERATOR_TERMS_URL ?? null,
+    },
   };
 }
 
@@ -304,6 +361,7 @@ export function loadConfig(environment: Readonly<Record<string, string | undefin
     trustProxy: values.TRUST_PROXY,
     reviewConcurrency: values.REVIEW_CONCURRENCY,
     reviewQueueLimit: values.REVIEW_QUEUE_LIMIT,
+    reviewQueueLimitPerInstallation: values.REVIEW_QUEUE_LIMIT_PER_INSTALLATION,
     webhookRateLimit: values.WEBHOOK_RATE_LIMIT,
     reviewRetentionDays: values.REVIEW_RETENTION_DAYS,
     ...(values.DATABASE_URL === undefined
@@ -324,6 +382,15 @@ export function findConfigurationWarnings(config: AppConfig): string[] {
     warnings.push(
       "PUBLIC_URL is HTTPS but TRUST_PROXY is 0. Behind a proxy, every visitor then shares one " +
         "rate limit. Set TRUST_PROXY to the number of proxies in front of the service.",
+    );
+  }
+  if (
+    config.dashboard !== undefined &&
+    (config.dashboard.operator.name === null || config.dashboard.operator.contact === null)
+  ) {
+    warnings.push(
+      "OPERATOR_NAME and OPERATOR_CONTACT are not both set. The public privacy page then says " +
+        "that the operator of this service has not published who they are.",
     );
   }
   if (config.dashboard !== undefined && config.dashboard.appSlug === undefined) {

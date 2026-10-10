@@ -356,7 +356,11 @@ describe("the service client", () => {
   it("reads the app's name from the route that needs no session", async () => {
     const { requests } = fakeApi({ "/auth/service": SERVICE });
 
-    expect(await api.service()).toEqual(SERVICE);
+    expect(await api.service()).toEqual({
+      ...SERVICE,
+      operator: { name: null, contact: null, privacyUrl: null, termsUrl: null },
+      retentionDays: null,
+    });
     expect(requests).toEqual(["GET /auth/service"]);
   });
 });

@@ -1,6 +1,7 @@
 import { randomBytes, timingSafeEqual } from "node:crypto";
 import { SignInError, type UserAuthClient } from "@pr-buddy/github-client";
 import { Router, type RequestHandler } from "express";
+import type { OperatorInfo } from "../../config/env.js";
 import type { Logger } from "../../logger.js";
 import {
   clearCookie,
@@ -19,7 +20,18 @@ export interface AuthDependencies {
   readonly publicUrl: string;
   /** The app's name in github.com/apps/<slug>, if the operator configured it. */
   readonly appSlug?: string;
+  /** Who runs this deployment, if the operator said so. */
+  readonly operator?: OperatorInfo;
+  /** Days a review is kept; 0 keeps them for ever. */
+  readonly retentionDays?: number;
 }
+
+const UNNAMED_OPERATOR: OperatorInfo = {
+  name: null,
+  contact: null,
+  privacyUrl: null,
+  termsUrl: null,
+};
 
 const STATE_BYTES = 32;
 /** How long a person has to finish signing in at GitHub. */
@@ -94,7 +106,11 @@ export function createAuthRouter(dependencies: AuthDependencies): Router {
    * install. It takes no input and answers nothing that is not already public (D-083).
    */
   router.get("/service", (_request, response) => {
-    response.json({ appSlug: dependencies.appSlug ?? null });
+    response.json({
+      appSlug: dependencies.appSlug ?? null,
+      operator: dependencies.operator ?? UNNAMED_OPERATOR,
+      retentionDays: dependencies.retentionDays ?? null,
+    });
   });
 
   // GitHub also sends people here after they install the app (the app's Setup URL), with

@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
-import { NavLink, Route, Routes } from "react-router";
+import { Link, NavLink, Route, Routes, useLocation } from "react-router";
 import { api } from "./api/client.js";
-import type { Me } from "./api/schemas.js";
+import type { Me, ServiceInfo } from "./api/schemas.js";
 import { EmptyState, ErrorState, LoadingState, Notice, PageHeader } from "./components/common.js";
 import { Icon, type IconName } from "./components/icon.js";
 import { plural } from "./format.js";
@@ -9,11 +9,15 @@ import { appInstallUrl } from "./github-links.js";
 import { HistoryPage } from "./pages/history.js";
 import { LandingPage } from "./pages/landing.js";
 import { OverviewPage } from "./pages/overview.js";
+import { PrivacyContent } from "./pages/privacy.js";
 import { RepositoriesPage } from "./pages/repositories.js";
 import { RepositoryPage } from "./pages/repository.js";
 import { ReviewPage } from "./pages/review.js";
 import { SettingsPage } from "./pages/settings.js";
-import { useResource } from "./use-resource.js";
+import { useResource, type Resource } from "./use-resource.js";
+
+const PRIVACY_PATH = "/privacy";
+const PRIVACY_TITLE = "Privacy and data";
 
 function Brand(): ReactNode {
   return (
@@ -48,6 +52,7 @@ const NAVIGATION: readonly { to: string; label: string; icon: IconName; end?: bo
 function Shell(props: {
   readonly me: Me;
   readonly installUrl: string | undefined;
+  readonly service: Resource<ServiceInfo>;
   readonly onSignOut: () => void;
 }): ReactNode {
   const { me } = props;
@@ -79,6 +84,8 @@ function Shell(props: {
           </ul>
           <p className="sidebar-status">
             GitHub: {plural(me.installationCount, "installation")} visible
+            <br />
+            <NavLink to="/privacy">Privacy and data</NavLink>
           </p>
         </nav>
         <main id="content" className="content" tabIndex={-1}>
@@ -113,6 +120,15 @@ function Shell(props: {
               path="/settings"
               element={<SettingsPage me={me} onSignOut={props.onSignOut} />}
             />
+            <Route
+              path={PRIVACY_PATH}
+              element={
+                <>
+                  <PageHeader title={PRIVACY_TITLE} />
+                  <PrivacyContent service={props.service} />
+                </>
+              }
+            />
             <Route path="*" element={<NotFoundPage />} />
           </Routes>
         </main>
@@ -127,6 +143,7 @@ export function App(): ReactNode {
   // Asked once, without a session. If the answer is missing or unusable there is simply no
   // Install button: nothing else waits for it.
   const service = useResource((signal) => api.service(signal), "service").resource;
+  const { pathname } = useLocation();
   const installUrl = service.status === "ready" ? appInstallUrl(service.data.appSlug) : undefined;
 
   if (resource.status === "loading") {
@@ -136,10 +153,23 @@ export function App(): ReactNode {
       </main>
     );
   }
-  if (resource.status === "error") {
-    return resource.error.kind === "unauthenticated" ? (
-      <LandingPage installUrl={installUrl} />
+  if (resource.status === "error" && resource.error.kind === "unauthenticated") {
+    // The one page besides the first that a visitor may read without signing in.
+    return pathname === PRIVACY_PATH ? (
+      <main className="landing">
+        <Brand />
+        <h1>{PRIVACY_TITLE}</h1>
+        <PrivacyContent service={service} />
+        <p>
+          <Link to="/">Back to the first page</Link>
+        </p>
+      </main>
     ) : (
+      <LandingPage installUrl={installUrl} />
+    );
+  }
+  if (resource.status === "error") {
+    return (
       <main className="sign-in">
         <Brand />
         <ErrorState error={resource.error} onRetry={reload} />
@@ -151,5 +181,5 @@ export function App(): ReactNode {
     // Whatever the answer, ask again who is signed in: that decides what is shown next.
     void api.signOut().then(reload, reload);
   };
-  return <Shell me={resource.data} installUrl={installUrl} onSignOut={signOut} />;
+  return <Shell me={resource.data} installUrl={installUrl} service={service} onSignOut={signOut} />;
 }

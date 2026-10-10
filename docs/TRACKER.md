@@ -20,6 +20,7 @@ The one current figure. Counts in the sections below are what was true when each
 accepted and are kept as history.
 
 | Date | Command | Result |
+| 2026-10-10 | `docker compose run --rm dev npm run check` | Passed: 1,812 tests (engine 474, AI reviewer 186, GitHub client 266, API 621, web 265) |
 | 2026-10-10 | `docker compose run --rm dev npm run check` | Passed: 1,732 tests (engine 474, AI reviewer 186, GitHub client 266, API 584, web 222). The clean-checkout check for `v0.2.0` passed on `a092c81` with 1,655 |
 | 2026-10-10 | `docker compose run --rm dev npm run check` | Passed: 1,655 tests (engine 474, AI reviewer 186, GitHub client 266, API 556, web 173) |
 | 2026-10-10 | `docker compose run --rm dev npm run check` | Passed: 1,581 tests (engine 474, AI reviewer 186, GitHub client 266, API 504, web 151) |
@@ -29,12 +30,44 @@ accepted and are kept as history.
 
 ## Milestone 5 — a hosted service
 
-| Part | Contents                        | Status |
-| ---- | ------------------------------- | ------ |
-| 1    | An installation's own AI key    | ✅     |
-| 2    | A first public deployment       | ✅     |
-| 3    | Onboarding                      | 🟡     |
-| —    | Later parts are not planned yet | ⬜     |
+| Part | Contents                       | Status |
+| ---- | ------------------------------ | ------ |
+| 1    | An installation's own AI key   | ✅     |
+| 2    | A first public deployment      | ✅     |
+| 3    | Onboarding                     | ✅     |
+| 4    | Operations: backups and alerts | 🟡     |
+| 5    | Who runs the service           | 🟡     |
+| 6    | A fair share of the queue      | 🟡     |
+
+### Parts 4 to 6 — operations, the operator's page, the queue
+
+Design: [DESIGN-OPERATIONS.md](DESIGN-OPERATIONS.md). Decisions D-086 to D-091. Threats O1 to
+O10.
+
+| Task                                                                      | Requirement             | Status |
+| ------------------------------------------------------------------------- | ----------------------- | ------ |
+| A fair queue between installations, with a cap per installation           | FR-107, FR-108, NFR-103 | ✅     |
+| Operator settings, the start-up warning and `GET /auth/service`           | FR-105, FR-106, NFR-102 | ✅     |
+| The `/privacy` page and the links to it                                   | FR-104 to FR-106        | ✅     |
+| `deploy/backup.sh`: dump, check, upload, prune, alert on failure          | FR-101, NFR-99, NFR-100 | ✅     |
+| `deploy/watch.sh`: six checks, alert on change                            | FR-102, FR-103, NFR-101 | ✅     |
+| On the public deployment: bucket, write-only credential, schedule, alerts | FR-101, FR-102          | ✅     |
+| A restore from the bucket                                                 | NFR-100                 | ✅     |
+
+The public deployment: a private S3 bucket in Mumbai with versioning and a 30-day expiry, an
+IAM user that may only write to it and publish to one SNS topic, and both scripts in cron.
+
+| Check                         | Result                                                                                                                                                                                                                                                                                              |
+| ----------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Backup, live                  | Passed on 2026-10-10: `deploy/backup.sh` dumped, listed the dump, and copied it to the bucket, encrypted at rest                                                                                                                                                                                    |
+| The server's credential, live | Passed: reading a backup, listing the bucket and deleting a backup each answered `403`; only writing worked                                                                                                                                                                                         |
+| Restore from the bucket, live | Passed: the object was downloaded with the operator's credential and restored into a scratch database on another machine; the counts of reviews, findings, keys, audit events and migrations matched the server, and the stored key was ciphertext                                                  |
+| Alert on change, live         | Passed as a rehearsal with `WATCH_URL` pointed at an address that does not answer `200`: one message when it failed, none on the next run, one when it recovered, none after. SNS counted two messages published                                                                                    |
+| A real failure, live          | Seen by accident: the first backup run failed to upload because the stored secret carried a carriage return; the script exited 1, kept the dump locally and said why                                                                                                                                |
+| Schedule                      | Installed with `crontab deploy/crontab.example` on the server                                                                                                                                                                                                                                       |
+| Privacy page, live            | Passed in the built image on `http://localhost:3000`, signed out: seven sections, the retention of 365 days from the service, and "has not published who they are" with no operator set; no layout overflow and no policy violation                                                                 |
+| Not done                      | Nobody is subscribed to the alert topic yet, so no alert has reached a person. No alarm outside the server yet. The operator's name and contact are not set on the public deployment. A scheduled run has not been observed overnight. Fairness of the queue under real load from two installations |
+| —                             | Later parts are not planned yet                                                                                                                                                                                                                                                                     | ✅  |
 
 ### Part 3 — onboarding
 
@@ -46,7 +79,7 @@ Design: [DESIGN-DASHBOARD.md](DESIGN-DASHBOARD.md), section 8. Decisions D-083 t
 | The page a signed-out visitor sees                                | FR-97, FR-98  | ✅     |
 | "Getting started" on the overview, from stored state              | FR-100        | ✅     |
 | The Install button in the notice for someone with no installation | FR-98, NFR-97 | ✅     |
-| The Setup URL in the guide, and on the public deployment          | FR-99         | 🟡     |
+| The Setup URL in the guide, and on the public deployment          | FR-99         | ✅     |
 
 | Check                    | Result                                                                                                                                                                                                                          |
 | ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
