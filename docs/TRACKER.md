@@ -41,17 +41,28 @@ published image. Decision D-082.
 
 | Task                                                            | Status |
 | --------------------------------------------------------------- | ------ |
-| CI publishes the API image; the stack can pull it and not build | 🟡     |
-| A server with Docker, swap and the stack running                | ⬜     |
-| The GitHub App's webhook and callback point at the domain       | ⬜     |
-| HTTPS sign-in, a review from a real webhook, backup and restore | ⬜     |
+| CI publishes the API image; the stack can pull it and not build | ✅     |
+| A server with Docker, swap and the stack running                | ✅     |
+| The GitHub App's webhook and callback point at the domain       | ✅     |
+| HTTPS sign-in, a review from a real webhook, backup and restore | ✅     |
 | An upgrade from one published image to the next                 | ⬜     |
 
-| Check    | Result                                                                                                                                                                   |
-| -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Scripts  | Passed: `scripts/image-tags.test.sh`; `scripts/check-pins.sh` accepts the operator-named image and still refuses a tag given as a default                                |
-| Compose  | Passed with `docker compose config`: with the second file the API uses the named image and has no build; without it the stack builds as before; no image named, no start |
-| Not done | The publishing workflow has not run: it runs only for `main` and version tags, so its first run is the merge of this change                                              |
+The deployment: AWS Lightsail in Mumbai, 1 GB of memory with 1 GB of swap, Ubuntu 24.04, Docker
+29.1 with Compose 2.40 from Ubuntu's packages, `https://prbuddy.apsidnal.in`.
+
+| Check                    | Result                                                                                                                                                                                                                                 |
+| ------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Scripts                  | Passed: `scripts/image-tags.test.sh`; `scripts/check-pins.sh` accepts the operator-named image and still refuses a tag given as a default                                                                                              |
+| Compose                  | Passed with `docker compose config`: with the second file the API uses the named image and has no build; without it the stack builds as before; no image named, no start                                                               |
+| Publishing, live         | Passed on 2026-10-10: the first run, for the merge to `main`, built and pushed `edge`                                                                                                                                                  |
+| Pull on the server       | Passed: after `docker login` with a `read:packages` token the server pulled the private image by digest and started it without building                                                                                                |
+| HTTPS, live              | Passed: Caddy obtained a Let's Encrypt certificate; `/healthz` answered `200` over it; HTTP redirected with `308`; the HSTS and Content-Security-Policy headers were present                                                           |
+| Memory                   | With the stack running, about 430 MB of 909 MB available and 7 MB of swap used                                                                                                                                                         |
+| Sign-in over HTTPS, live | Passed: the maintainer signed in on the public address; one session was stored                                                                                                                                                         |
+| Installation key, live   | Passed: a Bedrock key was saved on the public dashboard and "Test key" answered `working`                                                                                                                                              |
+| Webhook, live            | Passed: reopening a pull request reached the server directly from GitHub, without a relay; the review completed and updated the comment, with 5 AI suggestions from the installation's own key (the server has no provider of its own) |
+| Backup and restore, live | Passed: `pg_dump` on the server, restored into a scratch database; row counts of reviews, findings, keys, audit events, sessions and migrations matched, and the scratch database was dropped                                          |
+| Not done                 | An upgrade from one published image to the next. A release image: only `edge` exists until the next tag. Uninstall and suspend events on the public address                                                                            |
 
 ### Part 1 — an installation's own AI key
 

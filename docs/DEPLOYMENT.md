@@ -16,9 +16,13 @@ Internet ──► Caddy :443 ──► API :3000 ──► PostgreSQL :5432
 
 - A machine with Docker and the Compose plugin (version 2.24 or newer). 1 GB of memory is
   enough to run the stack with a published image; building the image on the machine needs
-  about 2 GB (section 3).
+  about 2 GB (section 3). On Ubuntu 24.04, `sudo apt-get install docker.io docker-compose-v2`
+  provides both.
 - A host name whose DNS points at that machine, with ports 80 and 443 reachable. Caddy uses them
-  to obtain and renew a certificate.
+  to obtain and renew a certificate. The record must point straight at the machine: with a
+  proxying DNS service such as Cloudflare, set the record to "DNS only". Behind such a proxy
+  Caddy may not get its certificate, and rate limits would count the proxy's address unless
+  `TRUST_PROXY` is raised.
 - A registered GitHub App: its ID, private key and webhook secret ([GITHUB_APP.md](GITHUB_APP.md),
   section 2).
 
