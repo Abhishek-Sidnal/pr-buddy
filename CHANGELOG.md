@@ -6,6 +6,11 @@ change behaviour or configuration; such changes are listed under "Upgrade notes"
 
 ## [Unreleased]
 
+## [0.2.0] — 2026-10-10
+
+PR Buddy can now be run for other people: each installation brings its own AI provider, and
+the stack runs on a small server from an image that CI publishes.
+
 ### Added
 
 - An installation can store its own AI provider and key, so that its reviews go to a provider it
@@ -35,6 +40,33 @@ change behaviour or configuration; such changes are listed under "Upgrade notes"
 - Dependabot no longer proposes a new major version of PostgreSQL for the Compose files: such an
   upgrade needs a dump and a restore. Upgrade guidance belongs in the deployment guide when the
   project moves to a new major.
+
+### Verified, and not
+
+Verified on a public deployment (one 1 GB server, the example stack, a published image pulled
+by digest): a certificate from Let's Encrypt and the security headers; sign-in over HTTPS; a
+review started by a webhook delivered straight from GitHub; an installation's Bedrock key saved
+on the dashboard, tested, and used by that review while the server had no provider of its own;
+a backup restored into a scratch database with matching row counts; an upgrade from one
+published image to the next, healthy again in 12 seconds with its data intact.
+
+Verified against a real provider with a made-up key: saving refuses it and stores nothing, and
+"Test key" reports the provider's `401`.
+
+Not verified:
+
+- Azure against a real Azure resource. The address and the `api-key` header follow Microsoft's
+  documentation and nothing has confirmed them live.
+- The owner check for an organisation. Every installation so far is on a personal account. If
+  GitHub refuses the membership lookup, nobody is treated as an owner there: the safe failure,
+  but the feature would be unusable for that organisation.
+- Anthropic and OpenAI keys that work, as an installation's key. Only Bedrock has been used.
+- Uninstalling or suspending the app on the public deployment.
+- More than one installation on one deployment at the same time.
+
+Known limits: the published image is for x86-64, is not signed and has no provenance
+attestation; `edge` is published before its commit's checks finish; backups are a command, not
+a schedule.
 
 ## [0.1.0] — 2026-10-10
 
@@ -126,4 +158,5 @@ Not verified against real services, and covered by automated tests only:
 None: this is the first release. From this version on, reviews older than
 `REVIEW_RETENTION_DAYS` (365 unless set) are deleted at start-up and daily.
 
+[0.2.0]: https://github.com/Abhishek-Sidnal/pr-buddy/releases/tag/v0.2.0
 [0.1.0]: https://github.com/Abhishek-Sidnal/pr-buddy/releases/tag/v0.1.0

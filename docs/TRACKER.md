@@ -31,7 +31,7 @@ accepted and are kept as history.
 | Part | Contents                        | Status |
 | ---- | ------------------------------- | ------ |
 | 1    | An installation's own AI key    | ✅     |
-| 2    | A first public deployment       | 🟡     |
+| 2    | A first public deployment       | ✅     |
 | —    | Later parts are not planned yet | ⬜     |
 
 ### Part 2 — a first public deployment
@@ -45,7 +45,7 @@ published image. Decision D-082.
 | A server with Docker, swap and the stack running                | ✅     |
 | The GitHub App's webhook and callback point at the domain       | ✅     |
 | HTTPS sign-in, a review from a real webhook, backup and restore | ✅     |
-| An upgrade from one published image to the next                 | ⬜     |
+| An upgrade from one published image to the next                 | ✅     |
 
 The deployment: AWS Lightsail in Mumbai, 1 GB of memory with 1 GB of swap, Ubuntu 24.04, Docker
 29.1 with Compose 2.40 from Ubuntu's packages, `https://prbuddy.apsidnal.in`.
@@ -62,7 +62,8 @@ The deployment: AWS Lightsail in Mumbai, 1 GB of memory with 1 GB of swap, Ubunt
 | Installation key, live   | Passed: a Bedrock key was saved on the public dashboard and "Test key" answered `working`                                                                                                                                              |
 | Webhook, live            | Passed: reopening a pull request reached the server directly from GitHub, without a relay; the review completed and updated the comment, with 5 AI suggestions from the installation's own key (the server has no provider of its own) |
 | Backup and restore, live | Passed: `pg_dump` on the server, restored into a scratch database; row counts of reviews, findings, keys, audit events, sessions and migrations matched, and the scratch database was dropped                                          |
-| Not done                 | An upgrade from one published image to the next. A release image: only `edge` exists until the next tag. Uninstall and suspend events on the public address                                                                            |
+| Upgrade, live            | Passed: `PR_BUDDY_IMAGE` was changed to the next published digest, then `pull` and `up -d`; the API was healthy again 12 seconds later and the counts of reviews, keys and sessions were unchanged                                     |
+| Not done                 | Uninstall and suspend events on the public address. More than one installation on the deployment. A scheduled backup kept somewhere other than the server                                                                              |
 
 ### Part 1 — an installation's own AI key
 
