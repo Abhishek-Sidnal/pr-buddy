@@ -176,13 +176,10 @@ process with a message that names the variable and never prints its value.
 Subscribed event: **Pull request**. PR Buddy does not request access to repository contents,
 issues, checks or workflows.
 
-**Not yet verified against GitHub.** "Single file" is a real GitHub App permission: GitHub's REST
-documentation lists `single_file` among an app's permissions and `single_file_paths` on an
-installation. What has not been tested is that reading the file at a given commit through the
-Contents API succeeds with that permission alone. The live test in [GITHUB_APP.md](GITHUB_APP.md)
-settles it. If it fails, the fallback is **Contents: read**, which lets the app read all code in
-the repository; that wider access would then have to be stated plainly to people installing it.
-See D-028 in [BRAIN.md](BRAIN.md).
+**Verified against GitHub on 2026-10-10.** An app registered with exactly these three permissions
+read `.github/pr-buddy.json` at a pull request's base commit and applied it. "Single file" is
+listed in GitHub's REST documentation as `single_file`, with the paths in `single_file_paths`;
+in an app manifest the path is given as `single_file_name`. See D-028 in [BRAIN.md](BRAIN.md).
 
 ## 9. Logging
 

@@ -6,12 +6,12 @@ Legend: ✅ done · 🚧 in progress · ⬜ not started
 
 ## Milestones
 
-| Milestone | Deliverable                  | Status                                   |
-| --------- | ---------------------------- | ---------------------------------------- |
-| M1        | Deterministic review engine  | ✅                                       |
-| M2        | GitHub App integration       | 🚧 built and tested; live test remaining |
-| M3        | AI review, policy, dashboard | ⬜                                       |
-| M4        | Hardening and `v0.1.0`       | ⬜                                       |
+| Milestone | Deliverable                  | Status |
+| --------- | ---------------------------- | ------ |
+| M1        | Deterministic review engine  | ✅     |
+| M2        | GitHub App integration       | ✅     |
+| M3        | AI review, policy, dashboard | ⬜     |
+| M4        | Hardening and `v0.1.0`       | ⬜     |
 
 ## Milestone 2 — GitHub App
 
@@ -61,25 +61,37 @@ Last run on 2026-10-10 with `docker compose run --rm dev npm run check` (Node.js
 | Coverage, statements                | Engine 100%, GitHub client 100%, API 98.7%                                                                                     |
 | Audit                               | `npm audit`: no known vulnerabilities                                                                                          |
 | Container smoke test                | Passed: health, `401` unsigned, `401` wrong secret, `202` signed, duplicate detected, unprivileged user, read-only file system |
-| Real GitHub API                     | **Not run.** Needs a registered GitHub App                                                                                     |
+| Real GitHub API                     | Passed; see "Live test" below                                                                                                  |
 
 ### External review, 2026-10-10
 
 | Finding                                            | Verdict                          | Outcome                                                                                       |
 | -------------------------------------------------- | -------------------------------- | --------------------------------------------------------------------------------------------- |
-| GitHub has no single-file permission               | Incorrect: the permission exists | Kept; marked unverified until the live test, with a documented fallback (D-028)               |
+| GitHub has no single-file permission               | Incorrect: the permission exists | Kept; verified in the live test (D-028)                                                       |
 | No total limit on patch size                       | Valid                            | ✅ 10 million characters per review, enforced on retrieval, mapping and in the engine (D-023) |
 | Malformed hunks can verify invented lines          | Valid                            | ✅ Only hunks that match their header verify locations (D-024)                                |
 | Rate limits are not retried                        | Valid                            | ✅ Bounded wait and retry; failed reviews can be redelivered (D-025, D-026)                   |
 | Stale result can publish between check and comment | Valid                            | ✅ Documents now state the real guarantee (D-027)                                             |
 
-### Remaining for Milestone 2
+### Live test, 2026-10-10
 
-| Item                                                                                   | Owner      |
-| -------------------------------------------------------------------------------------- | ---------- |
-| Register a GitHub App and install it on a test repository ([guide](GITHUB_APP.md))     | Maintainer |
-| Open a test pull request; confirm one comment appears and is updated, never duplicated | Maintainer |
-| Fix anything the live test reveals                                                     | —          |
+Run against the real GitHub API with the app `pr-buddy-abhishek-sidnal` installed on the private
+repository `pr-buddy-test`, webhooks relayed through smee.io to the API container.
+
+| Scenario                                                          | Result                                                          |
+| ----------------------------------------------------------------- | --------------------------------------------------------------- |
+| Pull request opened with no description and one source file       | ✅ One comment, two findings                                    |
+| Description edited                                                | ✅ Same comment updated to one finding                          |
+| Commit pushed adding a test file                                  | ✅ Same comment updated to "No findings", naming the new commit |
+| `.github/pr-buddy.json` on the base branch, new pull request      | ✅ Configuration applied: rule disabled, severity raised        |
+| Configuration read with the single-file permission only           | ✅ Works; no Contents permission needed                         |
+| Draft pull request opened                                         | ✅ Skipped, no comment                                          |
+| Draft marked ready for review                                     | ✅ Reviewed, one comment                                        |
+| Signature verification with the real webhook secret, through smee | ✅ All six deliveries accepted                                  |
+| Warnings or errors in the API log                                 | ✅ None                                                         |
+
+Not exercised live: redelivery, rate limits, very large pull requests, a push during a review.
+These are covered by automated tests only.
 
 ## Milestone 1 — review engine
 
@@ -123,3 +135,4 @@ Complete. Engine, three rules, 348 tests at 100% coverage. Details are in the ch
 | 2026-10-10 | Milestone 2: GitHub client package, API service, production image, CI image build                                 |
 | 2026-10-10 | Milestone 2 merged; dependency bumps merged; TypeScript 7 held back in Dependabot                                 |
 | 2026-10-10 | Hardening after an external review: patch budget, stricter patch parser, rate-limit retry, redeliverable failures |
+| 2026-10-10 | GitHub App registered and verified live on a test repository; Milestone 2 complete                                |

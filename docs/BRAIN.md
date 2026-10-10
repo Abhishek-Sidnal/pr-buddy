@@ -203,15 +203,17 @@ publishing, and the next review corrects the comment.
 compare-and-set for comments, so the window cannot be closed, only kept short. Earlier wording
 ("never published") claimed more than the code can promise.
 
-### D-028 — The single-file permission stays, flagged as unverified
+### D-028 — The single-file permission stays; verified live
 
-**Decision.** The app keeps requesting read access to one named file instead of all repository
-contents.
+**Decision.** The app requests read access to one named file instead of all repository contents.
 **Why.** An external review said GitHub has no such permission. It does: GitHub's REST
 documentation lists `single_file` among an app's permissions and `single_file_paths` on an
-installation. What is not yet proven is that reading the file through the Contents API works with
-that permission alone; the live test will show it. If it does not, the fallback is the
-repository Contents read permission, which exposes all code and must then be explained to users.
+installation.
+**Verified on 2026-10-10.** An app registered with only metadata, pull requests and single file
+`.github/pr-buddy.json` read that file at a base commit through the Contents API and applied it:
+a pull request in the test repository was reviewed with the severity and disabled rule the file
+set. A missing file returns 404, which is treated as "no configuration".
+**Registration note.** In an app manifest the path is given as `single_file_name`.
 
 ## 3. Glossary
 
