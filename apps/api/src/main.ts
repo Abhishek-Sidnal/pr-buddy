@@ -1,15 +1,18 @@
-import { createRepositoryClientFactory } from "@pr-buddy/github-client";
-import { createApp } from "./app.js";
+import { fileURLToPath } from "node:url";
+import { createRepositoryClientFactory, createUserAuthClient } from "@pr-buddy/github-client";
+import { createApp, type DashboardDependencies } from "./app.js";
 import { EnvironmentError, loadConfig, type AppConfig } from "./config/env.js";
 import { createDatabase, isReachable, type Database } from "./database/database.js";
 import { migrate } from "./database/migrate.js";
 import { createLogger, describeError, type Logger } from "./logger.js";
+import { createPostgresSessionStore } from "./modules/auth/postgres-session-store.js";
 import {
   createInMemoryDeliveryStore,
   type DeliveryStore,
 } from "./modules/github/delivery-store.js";
 import { createPostgresDeliveryStore } from "./modules/github/postgres-delivery-store.js";
 import { createReviewErrorLogger } from "./modules/github/webhook.router.js";
+import { createPostgresHistoryStore } from "./modules/history/postgres-history-store.js";
 import { createPostgresReviewStore } from "./modules/reviews/postgres-review-store.js";
 import { createReviewQueue } from "./modules/reviews/review-queue.js";
 import { createDiscardingReviewStore, type ReviewStore } from "./modules/reviews/review-store.js";
@@ -17,6 +20,11 @@ import { createReviewService } from "./modules/reviews/review.service.js";
 
 /** How long running reviews are given to finish after a shutdown signal. */
 const SHUTDOWN_GRACE_MS = 25_000;
+/** Requests allowed per minute from one client address. */
+const AUTH_RATE_LIMIT = 30;
+const API_RATE_LIMIT = 300;
+/** The built web application, next to the API in the image: apps/web/dist. */
+const WEB_ROOT = fileURLToPath(new URL("../../web/dist", import.meta.url));
 
 function loadConfigOrExit(): AppConfig {
   try {
@@ -76,6 +84,28 @@ try {
 }
 const { database } = storage;
 
+/** The dashboard needs its settings and the database; without either it does not exist. */
+function buildDashboard(): DashboardDependencies | undefined {
+  if (config.dashboard === undefined || database === undefined) {
+    logger.info({}, "Dashboard is off: it needs a database and its three settings");
+    return undefined;
+  }
+  logger.info({ publicUrl: config.dashboard.publicUrl }, "Dashboard is on");
+  return {
+    authClient: createUserAuthClient({
+      clientId: config.dashboard.clientId,
+      clientSecret: config.dashboard.clientSecret,
+    }),
+    sessionStore: createPostgresSessionStore(database),
+    historyStore: createPostgresHistoryStore(database),
+    publicUrl: config.dashboard.publicUrl,
+    webRoot: WEB_ROOT,
+    authRateLimit: AUTH_RATE_LIMIT,
+    apiRateLimit: API_RATE_LIMIT,
+  };
+}
+const dashboard = buildDashboard();
+
 const reviewQueue = createReviewQueue({
   concurrency: config.reviewConcurrency,
   maxWaiting: config.reviewQueueLimit,
@@ -97,6 +127,7 @@ const app = createApp({
   trustProxy: config.trustProxy,
   webhookRateLimit: config.webhookRateLimit,
   ...(database === undefined ? {} : { isReady: () => isReachable(database) }),
+  ...(dashboard === undefined ? {} : { dashboard }),
 });
 
 const server = app.listen(config.port, () => {

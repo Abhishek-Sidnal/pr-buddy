@@ -121,7 +121,7 @@ with a hard kill is a later option.
 | S1  | SQL injection through repository names, rule output or delivery IDs | Every statement is parameterised; no SQL text is built from input. The only identifier placed in SQL, a test schema name, is checked against a strict pattern | `api/database/`, `api/modules/**/postgres-*.ts` |
 | S2  | The database password leaks                                         | It is read from `DATABASE_URL` only, never logged; start-up errors name the variable; connection errors are logged by name and code, not message              | `api/config/env.ts`, `api/logger.ts`            |
 | S3  | Stored source code becomes a liability                              | Titles, descriptions, patches, file contents and error messages are never stored                                                                              | `api/modules/reviews/postgres-review-store.ts`  |
-| S4  | One tenant reads another's history                                  | There is no read endpoint yet. Every review is tied to an installation so that reads can be scoped when they are added                                        | [DESIGN-STORAGE.md](DESIGN-STORAGE.md)          |
+| S4  | One tenant reads another's history                                  | Every read is limited in SQL to the installations of the signed-in session; see W1 in section 6C                                                              | `api/modules/history/postgres-history-store.ts` |
 | S5  | A half-written review misleads later readers                        | A review, its rule executions and findings are written in one transaction                                                                                     | `postgres-review-store.ts`                      |
 | S6  | Two instances both accept one delivery                              | Claiming is a single atomic statement that returns a row only to the first claimant                                                                           | `postgres-delivery-store.ts`                    |
 | S7  | A storage outage takes reviews down                                 | Saving happens after publishing and its failure is logged, not raised. Readiness reports the outage                                                           | `review.service.ts`, `app.ts`                   |
@@ -173,6 +173,37 @@ operator adds one.
 | Disclosure  | Document which service receives code, and its retention and training terms          |
 | Credentials | The key comes from the environment, is redacted in logs and never appears in errors |
 | Limits      | Honour the request's abort signal and output-token limit                            |
+
+## 6C. Threats and controls in Milestone 3 — dashboard
+
+Design: [DESIGN-DASHBOARD.md](DESIGN-DASHBOARD.md).
+
+| #   | Threat                                                     | Control                                                                                                                 | Where                                              |
+| --- | ---------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------- |
+| W1  | One tenant reads another's history                         | Every statement filters by the session's installation IDs; hidden and missing both answer `404`                         | `api/modules/history/postgres-history-store.ts`    |
+| W2  | Someone is signed in to an attacker's account (login CSRF) | Random `state` in a cookie and in the request, compared in constant time; the cookie is cleared after one use           | `api/modules/auth/auth.router.ts`                  |
+| W3  | A GitHub user token leaks                                  | Used once at sign-in and dropped: never stored, logged or sent to the browser                                           | `auth.router.ts`, `github-client/oauth/`           |
+| W4  | A session cookie is stolen by a script or over plain HTTP  | `HttpOnly`; `Secure` with the `__Host-` prefix on HTTPS; `PUBLIC_URL` must be HTTPS except on localhost                 | `api/modules/auth/session-cookie.ts`, `config/env` |
+| W5  | A copy of the database yields working sessions             | Only the SHA-256 of each 256-bit random token is stored                                                                 | `api/modules/auth/postgres-session-store.ts`       |
+| W6  | A session outlives its welcome                             | Fixed 8-hour lifetime, no renewal; sign-out deletes the row; expired rows are purged                                    | `postgres-session-store.ts`                        |
+| W7  | Another site makes the browser act (CSRF)                  | The API is read-only; sign-out is a `POST` behind a `SameSite=Lax` cookie and an `Origin` check                         | `auth.router.ts`                                   |
+| W8  | Stored text runs as script in the dashboard                | React renders all API data as text; no HTML insertion; CSP allows scripts from the dashboard's origin only, none inline | `apps/web/src`, `api/modules/web/`                 |
+| W9  | A stored value becomes a malicious link                    | GitHub links are built from values checked against strict patterns; otherwise no link is rendered                       | `apps/web/src/github-links.ts`                     |
+| W10 | The dashboard is framed to trick clicks                    | `frame-ancestors 'none'` and `X-Frame-Options: DENY`                                                                    | `api/modules/web/`                                 |
+| W11 | The callback is used as an open redirect                   | It only ever redirects to fixed paths on the dashboard's own origin                                                     | `auth.router.ts`                                   |
+| W12 | Sign-in or the read API is hammered                        | Rate limits per client address on `/auth` and `/api`; page size fixed at 25                                             | `api/app.ts`                                       |
+| W13 | A hostile ID or cursor reaches a query                     | Path and query values are validated with Zod first, and every statement is parameterised                                | `api/modules/history/history.router.ts`            |
+| W14 | The client secret leaks                                    | Read from the environment only, redacted in logs, never part of an error or a response                                  | `config/env.ts`, `logger.ts`                       |
+| W15 | A half-configured dashboard exposes something              | Without all its settings and a database, its routes are not registered                                                  | `api/main.ts`, `config/env.ts`                     |
+
+### Known limits
+
+- **Access is a snapshot.** Losing access to an installation takes effect when the session ends,
+  at most 8 hours later (D-050).
+- **Anyone with access to an installation sees all of its history.** There are no roles, and
+  GitHub lists an installation for a person who can reach any one of its repositories.
+- **File paths are visible** in findings to everyone who can sign in for that installation.
+- **Sessions store a GitHub ID and login** for up to 8 hours after sign-in, plus cleanup time.
 
 ## 8. What PR Buddy does not claim
 

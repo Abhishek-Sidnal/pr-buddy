@@ -59,3 +59,13 @@ export {
   type InlineCommentPlan,
   type InlinePublishResult,
 } from "./output/inline-comments.js";
+
+export {
+  createUserAuthClient,
+  SignInError,
+  type GitHubUser,
+  type SignInFailure,
+  type UserAccess,
+  type UserAuthClient,
+  type UserAuthClientOptions,
+} from "./oauth/user-auth-client.js";

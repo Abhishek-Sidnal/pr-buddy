@@ -1,0 +1,100 @@
+/*
+ * Design tokens: Graphite / Signal Lime (docs/ADR/0001-visual-direction.md).
+ * This is the only file that holds raw colour values. Components use the semantic names.
+ * The dark values appear twice because CSS cannot share a block between a media query and an
+ * attribute selector: once for "follow the system", once for an explicit choice.
+ */
+
+:root {
+  color-scheme: light;
+  --color-bg: #f5f7f4;
+  --color-surface: #ffffff;
+  --color-surface-raised: #edf1eb;
+  --color-text: #172019;
+  --color-text-secondary: #5c675f;
+  --color-border: #d9e1d8;
+  --color-accent: #477b1b;
+  --color-on-accent: #ffffff;
+  --color-focus: #477b1b;
+  --color-success: #16784b;
+  --color-warning: #956000;
+  --color-danger: #bd3535;
+  --color-info: #245fc4;
+
+  --color-severity-high: color-mix(in srgb, var(--color-danger) 55%, var(--color-warning));
+  --color-accent-soft: color-mix(in srgb, var(--color-accent) 14%, var(--color-surface));
+
+  --font-sans: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+
+  --text-title: 1.75rem;
+  --text-heading: 1.125rem;
+  --text-list-title: 0.9375rem;
+  --text-body: 0.875rem;
+  --text-support: 0.8125rem;
+  --text-code: 0.8125rem;
+
+  --space-1: 0.25rem;
+  --space-2: 0.5rem;
+  --space-3: 0.75rem;
+  --space-4: 1rem;
+  --space-5: 1.25rem;
+  --space-6: 1.5rem;
+  --space-8: 2rem;
+  --space-10: 2.5rem;
+  --space-12: 3rem;
+  --space-16: 4rem;
+
+  --radius-small: 6px;
+  --radius: 8px;
+  --radius-large: 12px;
+
+  --control-height: 2.5rem;
+  --row-height: 3rem;
+  --sidebar-width: 15rem;
+  --content-width: 80rem;
+  --content-width-wide: 90rem;
+  --transition: 140ms ease;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --color-bg: #101318;
+    --color-surface: #171c23;
+    --color-surface-raised: #1d242d;
+    --color-text: #f2f5f7;
+    --color-text-secondary: #a5afb8;
+    --color-border: #303944;
+    --color-accent: #b8f36b;
+    --color-on-accent: #18210f;
+    --color-focus: #d4ff9a;
+    --color-success: #68d6a0;
+    --color-warning: #f2c66d;
+    --color-danger: #ff827c;
+    --color-info: #83b8ff;
+  }
+}
+
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --color-bg: #101318;
+  --color-surface: #171c23;
+  --color-surface-raised: #1d242d;
+  --color-text: #f2f5f7;
+  --color-text-secondary: #a5afb8;
+  --color-border: #303944;
+  --color-accent: #b8f36b;
+  --color-on-accent: #18210f;
+  --color-focus: #d4ff9a;
+  --color-success: #68d6a0;
+  --color-warning: #f2c66d;
+  --color-danger: #ff827c;
+  --color-info: #83b8ff;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --transition: 0ms;
+  }
+}

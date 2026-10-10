@@ -106,7 +106,36 @@ Optional. Add `.github/pr-buddy.json` to the repository's default branch:
 The file is read from the pull request's base commit, so a change to it takes effect for pull
 requests opened or updated after it is merged. The options are described in [RULES.md](RULES.md).
 
-## 7. Troubleshooting
+## 7. Turn on the dashboard
+
+Optional. The dashboard lets people sign in with GitHub and read the review history. It needs the
+database and three more settings; design and limits are in
+[DESIGN-DASHBOARD.md](DESIGN-DASHBOARD.md).
+
+1. Open your app's settings on GitHub: **Settings → Developer settings → GitHub Apps → your app**.
+2. Under **Callback URL**, add the address of the service followed by `/auth/callback`. For a
+   local run that is `http://localhost:3000/auth/callback`.
+3. Copy the **Client ID** shown near the top of the page.
+4. Under **Client secrets**, choose **Generate a new client secret** and copy it. GitHub shows it
+   once.
+5. Add to `.env`:
+
+   ```
+   GITHUB_CLIENT_ID=<the client ID>
+   GITHUB_CLIENT_SECRET=<the client secret>
+   PUBLIC_URL=http://localhost:3000
+   ```
+
+6. Start the API again and open `PUBLIC_URL` in a browser.
+
+`PUBLIC_URL` is the address people type, not the webhook address. It must be `https://` unless it
+is `http://localhost` or `http://127.0.0.1`. Setting only some of the three stops the service at
+start-up with a message that names what is missing.
+
+A person sees the repositories of the installations GitHub lists for them, as of the moment they
+signed in. Sessions last 8 hours.
+
+## 8. Troubleshooting
 
 | Symptom                                       | Likely cause                                                                                       |
 | --------------------------------------------- | -------------------------------------------------------------------------------------------------- |
@@ -115,3 +144,6 @@ requests opened or updated after it is merged. The options are described in [RUL
 | The log shows an authentication error         | Wrong `GITHUB_APP_ID`, or the private key lost its line breaks                                     |
 | The comment says the configuration is invalid | `.github/pr-buddy.json` on the base branch has a mistake; the comment names the field              |
 | Deliveries show `429` or `503`                | Rate limit or full queue; redeliver later                                                          |
+| The dashboard address answers `404`           | The dashboard is off: the log says so at start-up. Set the database and all three settings         |
+| Sign-in returns with "did not complete"       | The callback URL in the app's settings does not match `PUBLIC_URL`, or the client secret is wrong  |
+| Signed in, but no repositories                | The app is not installed where you have access, or nothing has been reviewed since storage was on  |

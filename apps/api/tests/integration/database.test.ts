@@ -216,6 +216,7 @@ describe("the project's migrations", () => {
         "reviews",
         "rule_executions",
         "schema_migrations",
+        "sessions",
         "webhook_deliveries",
       ]);
     } finally {

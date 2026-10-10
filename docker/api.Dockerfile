@@ -10,6 +10,7 @@ COPY packages/review-engine/package.json packages/review-engine/
 COPY packages/ai-reviewer/package.json packages/ai-reviewer/
 COPY packages/github-client/package.json packages/github-client/
 COPY apps/api/package.json apps/api/
+COPY apps/web/package.json apps/web/
 RUN npm ci
 
 COPY tsconfig.base.json ./
@@ -33,6 +34,8 @@ COPY --from=build /app/packages/github-client/dist packages/github-client/dist
 COPY --from=build /app/apps/api/package.json apps/api/
 COPY --from=build /app/apps/api/dist apps/api/dist
 COPY --from=build /app/apps/api/migrations apps/api/migrations
+# The dashboard, as static files the API serves. Its sources and build tools stay behind.
+COPY --from=build /app/apps/web/dist apps/web/dist
 
 # The service needs no write access and no privileges.
 USER node

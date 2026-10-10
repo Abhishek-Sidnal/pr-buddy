@@ -35,6 +35,30 @@ function isPostgresUrl(value: string): boolean {
   }
 }
 
+/**
+ * Where people reach the service. Plain HTTP would send the session cookie in the clear, so it
+ * is accepted only for the local machine. A path, query or credentials are refused: cookies and
+ * the callback are built from the origin alone.
+ */
+function isPublicUrl(value: string): boolean {
+  let url: URL;
+  try {
+    url = new URL(value);
+  } catch {
+    return false;
+  }
+  const isLocal = url.hostname === "localhost" || url.hostname === "127.0.0.1";
+  const isSafeScheme = url.protocol === "https:" || (url.protocol === "http:" && isLocal);
+  return (
+    isSafeScheme &&
+    url.username === "" &&
+    url.password === "" &&
+    url.search === "" &&
+    url.hash === "" &&
+    (url.pathname === "/" || url.pathname === "")
+  );
+}
+
 const environmentSchema = z.object({
   GITHUB_APP_ID: z.coerce.number().int().positive(),
   GITHUB_PRIVATE_KEY: z
@@ -55,6 +79,12 @@ const environmentSchema = z.object({
     .refine(isPostgresUrl, "must be a postgres:// or postgresql:// URL")
     .optional(),
   DATABASE_POOL_SIZE: integerSetting(1, 100, 5),
+  GITHUB_CLIENT_ID: z.string().min(1).max(100).optional(),
+  GITHUB_CLIENT_SECRET: z.string().min(1).max(200).optional(),
+  PUBLIC_URL: z
+    .string()
+    .refine(isPublicUrl, "must be an https:// origin, or http://localhost for development")
+    .optional(),
 });
 
 export interface AppConfig {
@@ -76,6 +106,13 @@ export interface AppConfig {
     readonly url: string;
     readonly poolSize: number;
   };
+  /** Absent when the dashboard is off. Contains a secret: never log it. */
+  readonly dashboard?: {
+    readonly clientId: string;
+    readonly clientSecret: string;
+    /** The origin people use to reach the service, without a trailing slash. */
+    readonly publicUrl: string;
+  };
 }
 
 /** Thrown at start-up. Its message names the faulty variables and never contains a value. */
@@ -91,6 +128,38 @@ export class EnvironmentError extends Error {
   }
 }
 
+const DASHBOARD_VARIABLES = ["GITHUB_CLIENT_ID", "GITHUB_CLIENT_SECRET", "PUBLIC_URL"] as const;
+
+/**
+ * The dashboard is all or nothing: a sign-in that is half configured should stop the service at
+ * start-up, not fail for the first visitor. It also needs the database, where sessions and the
+ * history live.
+ */
+function readDashboardSettings(values: z.infer<typeof environmentSchema>): AppConfig["dashboard"] {
+  const missing = DASHBOARD_VARIABLES.filter((name) => values[name] === undefined);
+  if (missing.length === DASHBOARD_VARIABLES.length) {
+    return undefined;
+  }
+  const { GITHUB_CLIENT_ID, GITHUB_CLIENT_SECRET, PUBLIC_URL, DATABASE_URL } = values;
+  if (
+    GITHUB_CLIENT_ID === undefined ||
+    GITHUB_CLIENT_SECRET === undefined ||
+    PUBLIC_URL === undefined
+  ) {
+    throw new EnvironmentError(
+      missing.map((name) => `${name}: is required when the other dashboard variables are set`),
+    );
+  }
+  if (DATABASE_URL === undefined) {
+    throw new EnvironmentError(["DATABASE_URL: is required for the dashboard"]);
+  }
+  return {
+    clientId: GITHUB_CLIENT_ID,
+    clientSecret: GITHUB_CLIENT_SECRET,
+    publicUrl: new URL(PUBLIC_URL).origin,
+  };
+}
+
 /**
  * Reads and validates the service configuration from environment variables.
  * @throws {EnvironmentError}
@@ -104,7 +173,9 @@ export function loadConfig(environment: Readonly<Record<string, string | undefin
     );
   }
   const values = parsed.data;
+  const dashboard = readDashboardSettings(values);
   return {
+    ...(dashboard === undefined ? {} : { dashboard }),
     github: {
       appId: values.GITHUB_APP_ID,
       privateKey: values.GITHUB_PRIVATE_KEY,

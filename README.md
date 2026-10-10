@@ -6,8 +6,8 @@ actionable findings, shows the evidence behind each one, and leaves the merge de
 > **Status: Milestone 3 in progress.** The review engine and the GitHub App are implemented and
 > verified against the real GitHub API. Seven rules run, findings on a line are posted on that line,
 > and review history is stored in PostgreSQL. An optional AI reviewer is built but has no model
-> provider yet, so nothing is sent to any AI service. Reading history over HTTP and the dashboard
-> are planned. See the [tracker](docs/TRACKER.md).
+> provider yet, so nothing is sent to any AI service. A dashboard lets people sign in with GitHub
+> and read the history; it is off until configured. See the [tracker](docs/TRACKER.md).
 
 ## What exists today
 
@@ -16,7 +16,8 @@ actionable findings, shows the evidence behind each one, and leaves the merge de
 | [`@pr-buddy/review-engine`](packages/review-engine) | The deterministic rules and the pipeline that runs them       |
 | [`@pr-buddy/ai-reviewer`](packages/ai-reviewer)     | Optional AI review behind a provider interface; none included |
 | [`@pr-buddy/github-client`](packages/github-client) | Webhook verification, GitHub API access, the summary comment  |
-| [`@pr-buddy/api`](apps/api)                         | The HTTP service that receives webhooks and runs reviews      |
+| [`@pr-buddy/api`](apps/api)                         | The HTTP service: webhooks, reviews, sign-in and the read API |
+| [`@pr-buddy/web`](apps/web)                         | The dashboard, a React application the API serves             |
 
 ### As a GitHub App
 
@@ -162,7 +163,12 @@ More detail: [architecture](docs/ARCHITECTURE.md) · [engine design](docs/DESIGN
 
 - The live test covered one small private repository. Large pull requests, rate limits and
   redelivery have only been exercised in automated tests.
-- Review history is recorded but there is no way to read it over HTTP yet; query the database.
+- The dashboard is read-only and shows what is stored: no pull request titles, authors, diffs or
+  AI suggestion text, and no way to re-run a review or edit rules from it.
+- Sign-in with GitHub is covered by tests against a fake GitHub; it has not been run against the
+  real one yet.
+- Dashboard access is read at sign-in. Losing access on GitHub takes effect when the session
+  ends, at most eight hours later.
 - Reviews waiting in the queue are lost when the service restarts. Without a database, so is the
   memory of webhook deliveries.
 - There is no check run: PR Buddy comments but does not set a pass or fail status.
@@ -182,29 +188,31 @@ More detail: [architecture](docs/ARCHITECTURE.md) · [engine design](docs/DESIGN
 
 ## Documentation
 
-| Document                                   | Contents                                            |
-| ------------------------------------------ | --------------------------------------------------- |
-| [Context](docs/CONTEXT.md)                 | Start here: orientation, commands, ground rules     |
-| [Product requirements](docs/PRD.md)        | What is being built and why                         |
-| [Architecture](docs/ARCHITECTURE.md)       | Modules and their boundaries                        |
-| [Engine design](docs/DESIGN.md)            | Data contracts, pipeline, limits                    |
-| [GitHub App design](docs/DESIGN-GITHUB.md) | Webhook, queue, review service, permissions         |
-| [GitHub App setup](docs/GITHUB_APP.md)     | Registering the app and running the service         |
-| [Storage design](docs/DESIGN-STORAGE.md)   | Database schema and what is stored                  |
-| [AI reviewer design](docs/DESIGN-AI.md)    | What is sent to a model and how replies are checked |
-| [Rules](docs/RULES.md)                     | Reference for the built-in rules                    |
-| [Security](docs/SECURITY.md)               | Threat model and controls                           |
-| [Brain](docs/BRAIN.md)                     | Decisions and their reasons                         |
-| [Tracker](docs/TRACKER.md)                 | Status of the work                                  |
+| Document                                     | Contents                                            |
+| -------------------------------------------- | --------------------------------------------------- |
+| [Context](docs/CONTEXT.md)                   | Start here: orientation, commands, ground rules     |
+| [Product requirements](docs/PRD.md)          | What is being built and why                         |
+| [Architecture](docs/ARCHITECTURE.md)         | Modules and their boundaries                        |
+| [Engine design](docs/DESIGN.md)              | Data contracts, pipeline, limits                    |
+| [GitHub App design](docs/DESIGN-GITHUB.md)   | Webhook, queue, review service, permissions         |
+| [GitHub App setup](docs/GITHUB_APP.md)       | Registering the app and running the service         |
+| [Storage design](docs/DESIGN-STORAGE.md)     | Database schema and what is stored                  |
+| [AI reviewer design](docs/DESIGN-AI.md)      | What is sent to a model and how replies are checked |
+| [Dashboard design](docs/DESIGN-DASHBOARD.md) | Sign-in, sessions, the read API, the web app        |
+| [Design system](docs/DESIGN-SYSTEM.md)       | Colours, type, components, rules for every screen   |
+| [Rules](docs/RULES.md)                       | Reference for the built-in rules                    |
+| [Security](docs/SECURITY.md)                 | Threat model and controls                           |
+| [Brain](docs/BRAIN.md)                       | Decisions and their reasons                         |
+| [Tracker](docs/TRACKER.md)                   | Status of the work                                  |
 
 ## Roadmap
 
-| Milestone | Deliverable                                              | Status                            |
-| --------- | -------------------------------------------------------- | --------------------------------- |
-| M1        | Deterministic review engine                              | Implemented                       |
-| M2        | GitHub App: webhooks, diffs, published reviews           | Implemented                       |
-| M3        | Storage, then rules and thresholds, AI review, dashboard | Dashboard and an AI provider left |
-| M4        | Hardening and `v0.1.0`                                   | Planned                           |
+| Milestone | Deliverable                                              | Status                 |
+| --------- | -------------------------------------------------------- | ---------------------- |
+| M1        | Deterministic review engine                              | Implemented            |
+| M2        | GitHub App: webhooks, diffs, published reviews           | Implemented            |
+| M3        | Storage, then rules and thresholds, AI review, dashboard | An AI provider is left |
+| M4        | Hardening and `v0.1.0`                                   | Planned                |
 
 PR Buddy does not merge pull requests or change code.
 
