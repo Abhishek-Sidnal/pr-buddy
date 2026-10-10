@@ -12,7 +12,9 @@ of actionable, evidence-backed findings. Humans keep the merge decision.
 - **Milestone 1**, the deterministic review engine, is done.
 - **Milestone 2**, the GitHub App, is done. It was verified against the real GitHub API on a
   private test repository on 2026-10-10; results are in the tracker.
-- There is no database, dashboard or AI integration yet.
+- **Milestone 3** has started. Its first part, PostgreSQL storage for review history and webhook
+  deliveries, is done. History is written but cannot be read over HTTP yet.
+- There is no dashboard, sign-in or AI integration yet.
 - Live status: [TRACKER.md](TRACKER.md).
 
 ## Where things are
@@ -40,6 +42,7 @@ of actionable, evidence-backed findings. Humans keep the merge decision.
 | [ARCHITECTURE.md](ARCHITECTURE.md)       | Packages, modules and the rules for dependencies                  |
 | [DESIGN.md](DESIGN.md)                   | Review engine: data contracts, pipeline, limits                   |
 | [DESIGN-GITHUB.md](DESIGN-GITHUB.md)     | GitHub App: webhook, queue, review service, permissions           |
+| [DESIGN-STORAGE.md](DESIGN-STORAGE.md)   | Database schema, what is and is not stored, migrations            |
 | [GITHUB_APP.md](GITHUB_APP.md)           | Registering the app and running the API                           |
 | [RULES.md](RULES.md)                     | Reference for each built-in review rule                           |
 | [SECURITY.md](SECURITY.md)               | Threat model and controls                                         |

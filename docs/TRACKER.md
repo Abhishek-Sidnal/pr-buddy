@@ -6,12 +6,44 @@ Legend: ✅ done · 🚧 in progress · ⬜ not started
 
 ## Milestones
 
-| Milestone | Deliverable                  | Status |
-| --------- | ---------------------------- | ------ |
-| M1        | Deterministic review engine  | ✅     |
-| M2        | GitHub App integration       | ✅     |
-| M3        | AI review, policy, dashboard | ⬜     |
-| M4        | Hardening and `v0.1.0`       | ⬜     |
+| Milestone | Deliverable                                         | Status          |
+| --------- | --------------------------------------------------- | --------------- |
+| M1        | Deterministic review engine                         | ✅              |
+| M2        | GitHub App integration                              | ✅              |
+| M3        | Storage, rules and thresholds, AI review, dashboard | 🚧 storage done |
+| M4        | Hardening and `v0.1.0`                              | ⬜              |
+
+## Milestone 3, part 1 — storage
+
+| Task                                                               | Requirement          | Status |
+| ------------------------------------------------------------------ | -------------------- | ------ |
+| Storage design, requirements, threats and decisions D-029 to D-034 | —                    | ✅     |
+| Schema and first migration                                         | FR-40, FR-41         | ✅     |
+| Migration runner: one transaction, advisory lock, checksums        | FR-43                | ✅     |
+| Connection pool with transactions                                  | NFR-41, NFR-43       | ✅     |
+| Delivery store in PostgreSQL                                       | FR-42                | ✅     |
+| Review store in PostgreSQL                                         | FR-40, FR-41, NFR-40 | ✅     |
+| Review service records completed, skipped and failed reviews       | FR-40, NFR-44        | ✅     |
+| Service runs without a database                                    | FR-44                | ✅     |
+| Readiness endpoint                                                 | FR-45                | ✅     |
+| Development database in Compose; PostgreSQL service in CI          | NFR-46               | ✅     |
+
+### Acceptance
+
+| Check                               | Result                                                                                                                                             |
+| ----------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `npm run check`                     | Passed: 734 tests (engine 358, GitHub client 178, API 198)                                                                                         |
+| Storage tests against PostgreSQL 17 | Passed, including concurrent claims and concurrent migrations                                                                                      |
+| Live run                            | Passed: migration applied at start-up in the read-only container; a real review of `pr-buddy-test#2` was stored with its finding and rule versions |
+| Stored content                      | Verified by test: no title, description or patch reaches the database                                                                              |
+
+### Next parts of Milestone 3
+
+| Part                 | Contents                                                                  |
+| -------------------- | ------------------------------------------------------------------------- |
+| Rules and thresholds | Rules that inspect code, inline comments, severity and confidence filters |
+| AI reviewer          | Provider interface and mock first; the real provider is undecided         |
+| Dashboard            | Sign-in, reading history scoped by installation, the React app            |
 
 ## Milestone 2 — GitHub App
 
@@ -109,20 +141,22 @@ Complete. Engine, three rules, 348 tests at 100% coverage. Details are in the ch
 
 ## Backlog
 
-| Item                                                                 | Milestone |
-| -------------------------------------------------------------------- | --------- |
-| PostgreSQL: durable delivery memory, review history, organisations   | M3        |
-| Durable job queue so queued reviews survive a restart                | M3        |
-| Inline review comments, once a rule reports lines                    | M3        |
-| Check run with a pass or fail conclusion                             | M3        |
-| Rules: debug code, risky configuration changes, change size by lines | M3        |
-| AI reviewer behind a provider interface                              | M3        |
-| Severity and confidence thresholds                                   | M3        |
-| Dashboard: overview, repositories, review details, settings          | M3        |
-| YAML repository configuration                                        | M3        |
-| Run third-party rules in a worker thread with a hard time limit      | M3        |
-| Pin GitHub Actions and base images to digests                        | M4        |
-| Release `v0.1.0`                                                     | M4        |
+| Item                                                                     | Milestone |
+| ------------------------------------------------------------------------ | --------- |
+| Read review history over HTTP, with sign-in and per-installation scoping | M3        |
+| Organisations and users                                                  | M3        |
+| Retention limit for stored reviews                                       | M3        |
+| Durable job queue so queued reviews survive a restart                    | M3        |
+| Inline review comments, once a rule reports lines                        | M3        |
+| Check run with a pass or fail conclusion                                 | M3        |
+| Rules: debug code, risky configuration changes, change size by lines     | M3        |
+| AI reviewer behind a provider interface                                  | M3        |
+| Severity and confidence thresholds                                       | M3        |
+| Dashboard: overview, repositories, review details, settings              | M3        |
+| YAML repository configuration                                            | M3        |
+| Run third-party rules in a worker thread with a hard time limit          | M3        |
+| Pin GitHub Actions and base images to digests                            | M4        |
+| Release `v0.1.0`                                                         | M4        |
 
 ## Change log
 
@@ -136,3 +170,4 @@ Complete. Engine, three rules, 348 tests at 100% coverage. Details are in the ch
 | 2026-10-10 | Milestone 2 merged; dependency bumps merged; TypeScript 7 held back in Dependabot                                 |
 | 2026-10-10 | Hardening after an external review: patch budget, stricter patch parser, rate-limit retry, redeliverable failures |
 | 2026-10-10 | GitHub App registered and verified live on a test repository; Milestone 2 complete                                |
+| 2026-10-10 | Milestone 3 started: PostgreSQL storage for review history and webhook deliveries                                 |

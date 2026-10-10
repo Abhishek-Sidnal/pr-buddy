@@ -26,6 +26,15 @@ function looksLikePemPrivateKey(value: string): boolean {
   );
 }
 
+function isPostgresUrl(value: string): boolean {
+  try {
+    const { protocol, hostname } = new URL(value);
+    return (protocol === "postgres:" || protocol === "postgresql:") && hostname !== "";
+  } catch {
+    return false;
+  }
+}
+
 const environmentSchema = z.object({
   GITHUB_APP_ID: z.coerce.number().int().positive(),
   GITHUB_PRIVATE_KEY: z
@@ -41,6 +50,11 @@ const environmentSchema = z.object({
   REVIEW_CONCURRENCY: integerSetting(1, 32, 2),
   REVIEW_QUEUE_LIMIT: integerSetting(1, 10_000, 100),
   WEBHOOK_RATE_LIMIT: integerSetting(1, 100_000, 300),
+  DATABASE_URL: z
+    .string()
+    .refine(isPostgresUrl, "must be a postgres:// or postgresql:// URL")
+    .optional(),
+  DATABASE_POOL_SIZE: integerSetting(1, 100, 5),
 });
 
 export interface AppConfig {
@@ -57,6 +71,11 @@ export interface AppConfig {
   readonly reviewQueueLimit: number;
   /** Webhook requests allowed per minute from one client address. */
   readonly webhookRateLimit: number;
+  /** Absent when the service runs without a database. Contains a password: never log it. */
+  readonly database?: {
+    readonly url: string;
+    readonly poolSize: number;
+  };
 }
 
 /** Thrown at start-up. Its message names the faulty variables and never contains a value. */
@@ -97,5 +116,8 @@ export function loadConfig(environment: Readonly<Record<string, string | undefin
     reviewConcurrency: values.REVIEW_CONCURRENCY,
     reviewQueueLimit: values.REVIEW_QUEUE_LIMIT,
     webhookRateLimit: values.WEBHOOK_RATE_LIMIT,
+    ...(values.DATABASE_URL === undefined
+      ? {}
+      : { database: { url: values.DATABASE_URL, poolSize: values.DATABASE_POOL_SIZE } }),
   };
 }

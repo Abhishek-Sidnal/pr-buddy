@@ -215,6 +215,52 @@ a pull request in the test repository was reviewed with the severity and disable
 set. A missing file returns 404, which is treated as "no configuration".
 **Registration note.** In an app manifest the path is given as `single_file_name`.
 
+### D-029 — PostgreSQL through `pg` and SQL files, without an ORM
+
+**Decision.** Storage uses the `pg` driver with hand-written, parameterised SQL and plain SQL
+migrations applied by a small runner. This answers open question Q1 with "neither".
+**Why.** The service runs about ten statements. An ORM would add a code generator or a query
+builder, a migration tool and their upgrade paths, to save very little code. Plain SQL is also
+the easiest thing to audit, and the statements that matter here (`ON CONFLICT`, advisory locks)
+are clearest written as SQL.
+**Revisit when.** The dashboard needs many filtered, joined queries. That is the point at which a
+query builder starts to pay for itself.
+**Rejected.** Prisma (generator, larger image) and Drizzle (fine, but unnecessary at this size).
+
+### D-030 — The database is optional
+
+**Decision.** Without `DATABASE_URL` the service runs as in Milestone 2: deliveries in memory, no
+history.
+**Why.** Self-hosting should stay a three-variable setup for people who only want the comment.
+The in-memory stores are needed for tests anyway.
+
+### D-031 — Pull request content is not stored
+
+**Decision.** The database holds identifiers, commit IDs, findings, counts and timings. It never
+holds titles, descriptions, patches, file contents or error messages.
+**Why.** Stored source is a liability: it must be protected, retained and deleted correctly.
+Findings already carry what a reader needs. File paths inside findings are the one piece of
+repository content that is kept, and the design documents say so.
+
+### D-032 — History is written now and read later
+
+**Decision.** This step records history but adds no endpoint to read it.
+**Why.** Reading needs to know who is asking and which installations they may see. That belongs
+with sign-in, which arrives with the dashboard. An unauthenticated read endpoint would leak file
+names across tenants.
+
+### D-033 — Storage tests use a real PostgreSQL
+
+**Decision.** No mocked driver. Each test file gets its own schema in a real server.
+**Why.** Conflict handling, transactions, cascades and locks are the behaviour under test, and a
+mock would only confirm that the code sends the SQL it sends.
+
+### D-034 — A storage failure does not fail a published review
+
+**Decision.** If saving a review fails, the error is logged and the review still counts as done.
+**Why.** By then the comment is on the pull request. Failing would release the delivery and
+invite a redelivery that repeats work the user has already received.
+
 ## 3. Glossary
 
 | Term       | Meaning                                                                                 |

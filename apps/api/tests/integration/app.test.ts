@@ -27,6 +27,7 @@ let deliveryCounter = 0;
 interface AppOverrides {
   deliveryStore?: DeliveryStore;
   webhookRateLimit?: number;
+  isReady?: () => Promise<boolean>;
   concurrency?: number;
   maxWaiting?: number;
 }
@@ -45,6 +46,7 @@ function buildApp(overrides: AppOverrides = {}): Express {
     logger,
     trustProxy: 0,
     webhookRateLimit: overrides.webhookRateLimit ?? 1_000,
+    ...(overrides.isReady === undefined ? {} : { isReady: overrides.isReady }),
   });
 }
 
@@ -104,6 +106,28 @@ describe("service endpoints", () => {
 
     expect(response.status).toBe(200);
     expect(response.body).toEqual({ status: "ok" });
+  });
+
+  it("reports ready when it has no dependencies to check", async () => {
+    const response = await request(app).get("/readyz");
+
+    expect(response.status).toBe(200);
+    expect(response.body).toEqual({ status: "ready" });
+  });
+
+  it("reports ready or unavailable as its dependencies say", async () => {
+    const ready = await request(buildApp({ isReady: () => Promise.resolve(true) })).get("/readyz");
+    const down = await request(buildApp({ isReady: () => Promise.resolve(false) })).get("/readyz");
+
+    expect(ready.status).toBe(200);
+    expect(down.status).toBe(503);
+    expect(down.body).toEqual({ status: "unavailable" });
+  });
+
+  it("stays alive while it is not ready", async () => {
+    const notReady = buildApp({ isReady: () => Promise.resolve(false) });
+
+    expect((await request(notReady).get("/healthz")).status).toBe(200);
   });
 
   it("answers unknown routes with a JSON 404", async () => {

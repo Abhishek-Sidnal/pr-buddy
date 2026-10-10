@@ -25,8 +25,8 @@ Review engine ── validate input → run rules → validate findings         
 Summary comment ── rendered and published by the GitHub client           packages/github-client
 ```
 
-Planned and not in the repository: an optional AI reviewer and policy thresholds (M3), a database
-and dashboard (M3).
+Planned and not in the repository: reading history over HTTP with sign-in, the dashboard, policy
+thresholds and an optional AI reviewer (all M3).
 
 ## 2. Repository layout
 
@@ -115,9 +115,11 @@ apps/api/src/
 ├── app.ts            Express application: headers, rate limit, routes, error handling
 ├── logger.ts         Structured logging with redaction
 ├── config/           Environment variables, validated at start-up
+├── database/         Connection pool, transactions, migration runner
 └── modules/
-    ├── github/       Webhook endpoint; delivery store
-    └── reviews/      Review queue; review service
+    ├── github/       Webhook endpoint; delivery store, in memory and in PostgreSQL
+    └── reviews/      Review queue; review service; review store
+apps/api/migrations/  SQL files that create and upgrade the schema
 ```
 
 `main.ts` is the only file that reads the environment or creates real clients. Everything else
@@ -147,7 +149,7 @@ These hold for every change. Several are enforced by ESLint or the compiler.
 | ----------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
 | A built-in rule         | Create `rules/<name>.rule.ts` with `defineRule`, add it to `rules/builtin.ts`, add tests, document it in [RULES.md](RULES.md) |
 | A custom rule           | Call `defineRule` in your own code and `register` it on a `RuleRegistry` passed to `createReviewEngine`                       |
-| Durable delivery memory | Implement the `DeliveryStore` interface over a database                                                                       |
+| Another storage backend | Implement the `DeliveryStore` and `ReviewStore` interfaces                                                                    |
 | Another platform        | Add a client package that produces a `ReviewContext` and publishes a `ReviewResult`                                           |
 | An AI reviewer (M3)     | Produce findings with the same schema and pass them through the same location validation                                      |
 
@@ -161,6 +163,7 @@ These hold for every change. Several are enforced by ESLint or the compiler.
 | Glob matching           | Own matcher in `utils/glob.ts`                        | Bounded cost on hostile input; see D-011 in [BRAIN.md](BRAIN.md) |
 | HTTP                    | Express 5                                             | Small, widely understood, async error handling built in          |
 | GitHub API              | Octokit with GitHub App authentication                | Official client; issues and refreshes installation tokens        |
+| Storage                 | PostgreSQL through `pg`, plain SQL migrations         | Few statements; easiest to audit. See D-029                      |
 | Logging                 | pino                                                  | Structured JSON with redaction                                   |
 | Tests                   | Vitest, Supertest                                     | Fast, native TypeScript and ESM; HTTP tests without a network    |
 | Lint and format         | ESLint (typescript-eslint, type-checked) and Prettier | Standard tooling                                                 |

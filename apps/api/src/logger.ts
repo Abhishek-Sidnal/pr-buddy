@@ -26,6 +26,12 @@ const REDACTED_PATHS = [
   "*.secret",
   "webhookSecret",
   "*.webhookSecret",
+  "connectionString",
+  "*.connectionString",
+  "databaseUrl",
+  "*.databaseUrl",
+  "password",
+  "*.password",
 ];
 
 export interface LogDestination {
@@ -49,6 +55,7 @@ export function createLogger(
 }
 
 const MAX_ERROR_MESSAGE_LENGTH = 500;
+const MAX_ERROR_CODE_LENGTH = 40;
 
 /**
  * Reduces an error to fields that are safe to log: its name, a bounded message and, for HTTP
@@ -59,9 +66,12 @@ export function describeError(error: unknown): LogFields {
     return { errorName: "NonError" };
   }
   const status: unknown = "status" in error ? error.status : undefined;
+  // Database and network errors identify themselves with a short code, such as "23505".
+  const code: unknown = "code" in error ? error.code : undefined;
   return {
     errorName: error.name,
     errorMessage: error.message.slice(0, MAX_ERROR_MESSAGE_LENGTH),
     ...(typeof status === "number" ? { status } : {}),
+    ...(typeof code === "string" ? { errorCode: code.slice(0, MAX_ERROR_CODE_LENGTH) } : {}),
   };
 }
