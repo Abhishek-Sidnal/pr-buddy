@@ -7,6 +7,13 @@ updates:
     groups:
       development-tools:
         dependency-type: development
+    ignore:
+      # typescript-eslint supports TypeScript below 6.1. Remove this once it supports 7.
+      - dependency-name: typescript
+        versions: [">=6.1.0"]
+      # Node.js types follow the oldest Node.js version in use, not the newest release.
+      - dependency-name: "@types/node"
+        update-types: ["version-update:semver-major"]
 
   - package-ecosystem: github-actions
     directory: /
