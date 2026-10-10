@@ -64,8 +64,8 @@ describe("signed out", () => {
     expect(hrefOf("Sign in with GitHub")).toBe("/auth/login");
     expect(screen.queryByRole("navigation")).toBeNull();
     expect(screen.queryByRole("alert")).toBeNull();
-    // Nothing else is asked for until someone is signed in.
-    expect(requests).toEqual(["GET /api/me"]);
+    // Only what a visitor may know is asked for until someone is signed in.
+    expect(requests).toEqual(["GET /api/me", "GET /auth/service"]);
   });
 
   it("says what GitHub will share before the person leaves for GitHub", async () => {
@@ -73,7 +73,9 @@ describe("signed out", () => {
 
     renderApp();
 
-    expect(await screen.findByRole("heading", { name: "What GitHub will share" })).toBeDefined();
+    expect(
+      await screen.findByRole("heading", { name: "What GitHub shares when you sign in" }),
+    ).toBeDefined();
     expect(screen.getByText(/Your GitHub login and ID/)).toBeDefined();
     expect(screen.getByText(/PR Buddy keeps no GitHub token/)).toBeDefined();
   });
@@ -85,7 +87,7 @@ describe("signed out", () => {
 
     const alert = await screen.findByRole("alert");
     expect(alert.textContent).toContain("Sign-in did not complete");
-    expect(alert.textContent).toContain("Start again with the button below.");
+    expect(alert.textContent).toContain("Start again with the sign-in button below.");
   });
 
   it("shows a loading label while the session is checked", () => {
@@ -318,8 +320,9 @@ describe("the overview", () => {
 
     renderApp();
 
-    expect(await screen.findByText("No reviews yet")).toBeDefined();
-    expect(screen.getByText(/Open or push to a pull request there/)).toBeDefined();
+    expect(await screen.findByRole("heading", { name: "Getting started" })).toBeDefined();
+    expect(screen.getByText(/Open or push to a pull request in a repository/)).toBeDefined();
+    expect(screen.queryByRole("heading", { name: "Recent reviews" })).toBeNull();
     expect(screen.queryByRole("table")).toBeNull();
   });
 

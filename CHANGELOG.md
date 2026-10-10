@@ -6,6 +6,27 @@ change behaviour or configuration; such changes are listed under "Upgrade notes"
 
 ## [Unreleased]
 
+### Added
+
+- The dashboard's first page now explains PR Buddy to someone who is new: what it does, how to
+  start, what it stores, and what GitHub shares at sign-in. With `GITHUB_APP_SLUG` set it offers
+  an **Install on GitHub** button.
+- Until a first review exists, the overview shows a "Getting started" list. Each step's state
+  comes from what the service knows: whether the app is installed, whether a review exists, and
+  whether an installation has an AI key.
+- `GET /auth/service` tells a visitor's browser the app's name. It needs no session and answers
+  nothing else.
+
+### Changed
+
+- The sign-in page is replaced by that first page. Sign-in works as before.
+- The service warns at start-up when the dashboard is on and `GITHUB_APP_SLUG` is not set.
+
+### Upgrade notes
+
+- To send people to the dashboard after they install the app, set the app's **Setup URL** on
+  GitHub to `<PUBLIC_URL>/auth/login`. See `docs/GITHUB_APP.md`, section 7.
+
 ## [0.2.0] — 2026-10-10
 
 PR Buddy can now be run for other people: each installation brings its own AI provider, and

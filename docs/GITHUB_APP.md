@@ -135,6 +135,28 @@ start-up with a message that names what is missing.
 A person sees the repositories of the installations GitHub lists for them, as of the moment they
 signed in. Sessions last 8 hours.
 
+**Let new people start from the dashboard.** Two more settings turn the dashboard's first page
+into a way in for someone who has never used PR Buddy:
+
+1. Add the app's name to `.env`. It is the last part of the app's public page,
+   `https://github.com/apps/<name>`:
+
+   ```
+   GITHUB_APP_SLUG=<name>
+   ```
+
+   The page for visitors then shows an **Install on GitHub** button. Without it there is no
+   such button, and the service says so in a warning at start-up.
+
+2. In the app's settings on GitHub, under **Post installation**, set **Setup URL** to the
+   address of the service followed by `/auth/login`, and tick **Redirect on update**. After
+   installing, a person is then sent through sign-in and arrives on the dashboard with the new
+   installation visible.
+
+Other people can install the app only when it is public: in the app's settings, **Advanced →
+Make public**. They never need the developer settings; those are for the person who runs the
+service.
+
 ## 8. Turn on AI review
 
 Optional. With it on, PR Buddy asks a language model for suggestions and shows them apart from

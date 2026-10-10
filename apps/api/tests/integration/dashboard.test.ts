@@ -70,6 +70,7 @@ interface AppOverrides {
   publicUrl?: string;
   authRateLimit?: number;
   withDashboard?: boolean;
+  appSlug?: string;
 }
 
 function buildApp(overrides: AppOverrides = {}): Express {
@@ -93,6 +94,7 @@ function buildApp(overrides: AppOverrides = {}): Express {
             webRoot,
             authRateLimit: overrides.authRateLimit ?? 1_000,
             apiRateLimit: 1_000,
+            ...(overrides.appSlug === undefined ? {} : { appSlug: overrides.appSlug }),
           },
         }),
   });
@@ -380,6 +382,77 @@ describe("signing in", () => {
 
     expect(third.status).toBe(429);
     expect(third.body).toEqual({ error: "rate_limited" });
+  });
+});
+
+describe("what a visitor who is not signed in may learn", () => {
+  it("names the app to install, without a session", async () => {
+    const named = buildApp({ appSlug: "pr-buddy-acme" });
+
+    const response = await request(named).get("/auth/service");
+
+    expect(response.status).toBe(200);
+    expect(response.body).toEqual({ appSlug: "pr-buddy-acme" });
+    expect(response.headers["set-cookie"]).toBeUndefined();
+  });
+
+  it("says so when the operator has not named the app", async () => {
+    const response = await request(app).get("/auth/service");
+
+    expect(response.status).toBe(200);
+    expect(response.body).toEqual({ appSlug: null });
+  });
+
+  it("answers the same whatever is sent with the request", async () => {
+    const named = buildApp({ appSlug: "pr-buddy-acme" });
+
+    const response = await request(named)
+      .get("/auth/service?appSlug=evil&callback=alert")
+      .set("Cookie", "prbuddy_session=not-a-session")
+      .set("Origin", "https://evil.example");
+
+    expect(response.body).toEqual({ appSlug: "pr-buddy-acme" });
+    expect(response.headers["content-type"]).toMatch(/^application\/json/);
+    expect(response.headers["access-control-allow-origin"]).toBeUndefined();
+  });
+
+  it("reveals nothing but the name", async () => {
+    const response = await request(buildApp({ appSlug: "pr-buddy-acme" })).get("/auth/service");
+
+    expect(Object.keys(response.body as object)).toEqual(["appSlug"]);
+  });
+
+  it("is rate limited with the other sign-in routes", async () => {
+    const limited = buildApp({ authRateLimit: 2 });
+
+    await request(limited).get("/auth/service");
+    await request(limited).get("/auth/service");
+
+    expect((await request(limited).get("/auth/service")).status).toBe(429);
+  });
+
+  it("does not exist without the dashboard", async () => {
+    expect((await request(buildApp({ withDashboard: false })).get("/auth/service")).status).toBe(
+      404,
+    );
+  });
+});
+
+describe("arriving from GitHub after installing the app", () => {
+  it("starts the ordinary sign-in and reads nothing GitHub appended", async () => {
+    const response = await request(app).get(
+      "/auth/login?installation_id=9009&setup_action=install&state=ATTACKER&code=abc",
+    );
+
+    const state = setCookieValue(response, STATE_COOKIE) ?? "";
+    expect(response.status).toBe(302);
+    expect(state).toMatch(/^[A-Za-z0-9_-]{43}$/);
+    expect(response.headers["location"]).toBe(
+      `https://github.example/authorize?state=${state}&redirect_uri=${encodeURIComponent(`${PUBLIC_URL}/auth/callback`)}`,
+    );
+    expect(response.headers["location"]).not.toContain("9009");
+    expect(response.headers["location"]).not.toContain("ATTACKER");
+    expect(setCookieValue(response, SESSION_COOKIE)).toBeUndefined();
   });
 });
 

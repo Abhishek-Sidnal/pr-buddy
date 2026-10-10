@@ -221,6 +221,40 @@ describe("loadConfig for the dashboard", () => {
     );
   });
 
+  it("carries the app's name when it is set, and has none otherwise", () => {
+    expect(loadConfig(environment(DASHBOARD)).dashboard).not.toHaveProperty("appSlug");
+    expect(
+      loadConfig(environment({ ...DASHBOARD, GITHUB_APP_SLUG: "pr-buddy-acme" })).dashboard,
+    ).toMatchObject({ appSlug: "pr-buddy-acme" });
+  });
+
+  it.each(["a", "pr-buddy", "pr-buddy-2", "a".repeat(100)])("accepts the app name %s", (slug) => {
+    expect(
+      loadConfig(environment({ ...DASHBOARD, GITHUB_APP_SLUG: slug })).dashboard?.appSlug,
+    ).toBe(slug);
+  });
+
+  it.each([
+    "",
+    "PR-Buddy",
+    "pr buddy",
+    "-pr-buddy",
+    "pr-buddy-",
+    "pr_buddy",
+    "pr.buddy",
+    "pr-buddy/installations",
+    "../settings",
+    "pr-buddy?x=1",
+    "pr-buddy#x",
+    "evil.example/x",
+    "https://github.com/apps/pr-buddy",
+    "a".repeat(101),
+  ])("refuses the app name %j", (slug) => {
+    expect(issuesOf({ ...DASHBOARD, GITHUB_APP_SLUG: slug })).toEqual([
+      "GITHUB_APP_SLUG: must be the app's name in github.com/apps/<name>",
+    ]);
+  });
+
   it("is on when all of them and the database are set", () => {
     expect(loadConfig(environment(DASHBOARD)).dashboard).toEqual({
       clientId: "Iv1.abcdef",
@@ -447,6 +481,7 @@ describe("findConfigurationWarnings", () => {
     GITHUB_CLIENT_ID: "Iv1.abcdef",
     GITHUB_CLIENT_SECRET: "secret",
     PUBLIC_URL: "https://buddy.example",
+    GITHUB_APP_SLUG: "pr-buddy-acme",
   };
   const warningsFor = (overrides: Record<string, string | undefined>): string[] =>
     findConfigurationWarnings(loadConfig(environment(overrides)));
@@ -480,6 +515,21 @@ describe("findConfigurationWarnings", () => {
 
   it("does not warn about an encrypted database connection", () => {
     expect(warningsFor({ DATABASE_URL: "postgres://u:p@db:5432/p?sslmode=require" })).toEqual([]);
+  });
+
+  it("warns when the dashboard is on and the app is not named", () => {
+    const warnings = warningsFor({
+      ...dashboard,
+      GITHUB_APP_SLUG: undefined,
+      PUBLIC_URL: "http://localhost:3000",
+    });
+
+    expect(warnings).toHaveLength(1);
+    expect(warnings[0]).toContain("GITHUB_APP_SLUG is not set");
+  });
+
+  it("does not ask for the app's name when the dashboard is off", () => {
+    expect(warningsFor({ GITHUB_APP_SLUG: undefined })).toEqual([]);
   });
 });
 

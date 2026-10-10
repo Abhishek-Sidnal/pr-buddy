@@ -36,6 +36,8 @@ export interface DashboardDependencies {
   readonly historyStore: HistoryStore;
   /** The origin people use to reach the service, without a trailing slash. */
   readonly publicUrl: string;
+  /** The app's name in github.com/apps/<slug>, if the operator configured it. */
+  readonly appSlug?: string;
   /** Folder holding the built web application. */
   readonly webRoot: string;
   /** Sign-in requests allowed per minute from one client address. */

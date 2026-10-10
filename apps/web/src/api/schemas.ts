@@ -76,6 +76,9 @@ export const reviewDetailsSchema = reviewSummarySchema.extend({
   newerReviewId: z.string().nullable(),
 });
 
+/** What a visitor may learn before signing in: the name of the app to install, if configured. */
+export const serviceInfoSchema = z.object({ appSlug: z.string().nullable() });
+
 export const meSchema = z.object({
   login: z.string(),
   installationCount: count,
@@ -118,6 +121,7 @@ export type RuleExecution = z.infer<typeof ruleExecutionSchema>;
 export type AiReview = z.infer<typeof aiReviewSchema>;
 export type ReviewDetails = z.infer<typeof reviewDetailsSchema>;
 export type Me = z.infer<typeof meSchema>;
+export type ServiceInfo = z.infer<typeof serviceInfoSchema>;
 export type Overview = z.infer<typeof overviewSchema>;
 export type RepositoryList = z.infer<typeof repositoryListSchema>;
 export type ReviewListing = z.infer<typeof reviewListingSchema>;

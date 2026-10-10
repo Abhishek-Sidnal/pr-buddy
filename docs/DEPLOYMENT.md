@@ -53,6 +53,9 @@ Then, in the GitHub App's settings:
 - **Webhook URL:** `https://<SITE_ADDRESS>/webhooks/github`. A relay such as smee.io is for
   development only and is not needed here.
 - **Callback URL** (dashboard only): `https://<SITE_ADDRESS>/auth/callback`.
+- **Setup URL** (dashboard only, optional): `https://<SITE_ADDRESS>/auth/login`, with
+  `GITHUB_APP_SLUG` set in `deploy/.env`, so that new people can install the app from the
+  dashboard and land on it afterwards ([GITHUB_APP.md](GITHUB_APP.md), section 7).
 
 ## 3. Start
 

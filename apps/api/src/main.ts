@@ -145,6 +145,7 @@ function buildDashboard(): DashboardDependencies | undefined {
     sessionStore: createPostgresSessionStore(database),
     historyStore: createPostgresHistoryStore(database),
     publicUrl: config.dashboard.publicUrl,
+    ...(config.dashboard.appSlug === undefined ? {} : { appSlug: config.dashboard.appSlug }),
     webRoot: WEB_ROOT,
     authRateLimit: AUTH_RATE_LIMIT,
     apiRateLimit: API_RATE_LIMIT,

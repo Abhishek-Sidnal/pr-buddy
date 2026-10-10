@@ -10,6 +10,7 @@ import {
   reviewDetailsSchema,
   reviewListingSchema,
   reviewPageSchema,
+  serviceInfoSchema,
   type AiKeySummary,
   type AiKeyTest,
   type CustomerProvider,
@@ -21,6 +22,7 @@ import {
   type ReviewListing,
   type ReviewPage,
   type ReviewStatus,
+  type ServiceInfo,
 } from "./schemas.js";
 
 export type ApiErrorKind = "unauthenticated" | "not-found" | "failed";
@@ -88,6 +90,10 @@ async function getJson<Schema extends z.ZodType>(
 
 export const api = {
   me: (signal?: AbortSignal): Promise<Me> => getJson("/api/me", meSchema, signal),
+
+  /** Needs no session: it is what the page for signed-out visitors is built from. */
+  service: (signal?: AbortSignal): Promise<ServiceInfo> =>
+    getJson("/auth/service", serviceInfoSchema, signal),
 
   overview: (signal?: AbortSignal): Promise<Overview> =>
     getJson("/api/overview", overviewSchema, signal),

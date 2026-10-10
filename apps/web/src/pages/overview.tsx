@@ -4,6 +4,7 @@ import { api } from "../api/client.js";
 import { EmptyState, Loaded, PageHeader } from "../components/common.js";
 import { ReviewTable } from "../components/review-table.js";
 import { useResource } from "../use-resource.js";
+import { GettingStarted } from "./getting-started.js";
 
 function Metric(props: {
   readonly label: string;
@@ -31,7 +32,11 @@ export function NoReviewsYet(): ReactNode {
   );
 }
 
-export function OverviewPage(): ReactNode {
+export function OverviewPage(props: {
+  readonly installationCount: number;
+  /** Where the operator's app is installed; absent when the service does not know its app. */
+  readonly installUrl: string | undefined;
+}): ReactNode {
   const { resource, reload } = useResource((signal) => api.overview(signal), "overview");
   return (
     <>
@@ -59,23 +64,24 @@ export function OverviewPage(): ReactNode {
                 />
               </dl>
             </section>
-            <section aria-labelledby="recent-heading">
-              <h2 id="recent-heading">Recent reviews</h2>
-              {overview.recentReviews.length === 0 ? (
-                <NoReviewsYet />
-              ) : (
-                <>
-                  <ReviewTable
-                    reviews={overview.recentReviews}
-                    showRepository
-                    caption="Recent reviews"
-                  />
-                  <p className="list-end">
-                    <Link to="/history">See the full review history</Link>
-                  </p>
-                </>
-              )}
-            </section>
+            {overview.recentReviews.length === 0 ? (
+              <GettingStarted
+                installationCount={props.installationCount}
+                installUrl={props.installUrl}
+              />
+            ) : (
+              <section aria-labelledby="recent-heading">
+                <h2 id="recent-heading">Recent reviews</h2>
+                <ReviewTable
+                  reviews={overview.recentReviews}
+                  showRepository
+                  caption="Recent reviews"
+                />
+                <p className="list-end">
+                  <Link to="/history">See the full review history</Link>
+                </p>
+              </section>
+            )}
           </>
         )}
       </Loaded>

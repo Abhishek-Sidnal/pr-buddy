@@ -100,6 +100,16 @@ All in `apps/web/src/components/`. Reuse them; do not restyle one-off copies.
 | Skipped   | `--color-text-secondary` | Skip     |
 | Failed    | `--color-danger`         | Cross    |
 
+### Onboarding
+
+| Element        | Rule                                                                                          |
+| -------------- | --------------------------------------------------------------------------------------------- |
+| Visitor's page | One column, 44rem wide. One main action. Install is the main action only when it exists       |
+| Step list      | A card per step: its state in words (Done, Next, Later, Optional), a title, what to do        |
+| The next step  | The only card with an accent border, and the only one that may carry a main action            |
+| A step's state | Always text, with a check icon beside "Done"; never colour alone                              |
+| Data handling  | The shared `DataHandling` list; the visitor's page and the settings never have their own copy |
+
 ### Interaction
 
 - Hover: a surface or border change over 140 ms.

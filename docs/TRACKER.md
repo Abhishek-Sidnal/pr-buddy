@@ -20,6 +20,7 @@ The one current figure. Counts in the sections below are what was true when each
 accepted and are kept as history.
 
 | Date | Command | Result |
+| 2026-10-10 | `docker compose run --rm dev npm run check` | Passed: 1,732 tests (engine 474, AI reviewer 186, GitHub client 266, API 584, web 222). The clean-checkout check for `v0.2.0` passed on `a092c81` with 1,655 |
 | 2026-10-10 | `docker compose run --rm dev npm run check` | Passed: 1,655 tests (engine 474, AI reviewer 186, GitHub client 266, API 556, web 173) |
 | 2026-10-10 | `docker compose run --rm dev npm run check` | Passed: 1,581 tests (engine 474, AI reviewer 186, GitHub client 266, API 504, web 151) |
 | 2026-10-10 | `docker compose run --rm dev npm run check` | Passed: 1,448 tests (engine 474, AI reviewer 186, GitHub client 250, API 418, web 120) |
@@ -41,11 +42,17 @@ Design: [DESIGN-DASHBOARD.md](DESIGN-DASHBOARD.md), section 8. Decisions D-083 t
 
 | Task                                                              | Requirement   | Status |
 | ----------------------------------------------------------------- | ------------- | ------ |
-| `GITHUB_APP_SLUG`, a start-up warning, and `GET /auth/service`    | FR-98, NFR-98 | ⬜     |
-| The page a signed-out visitor sees                                | FR-97, FR-98  | ⬜     |
-| "Getting started" on the overview, from stored state              | FR-100        | ⬜     |
-| The Install button in the notice for someone with no installation | FR-98, NFR-97 | ⬜     |
-| The Setup URL in the guide, and on the public deployment          | FR-99         | ⬜     |
+| `GITHUB_APP_SLUG`, a start-up warning, and `GET /auth/service`    | FR-98, NFR-98 | ✅     |
+| The page a signed-out visitor sees                                | FR-97, FR-98  | ✅     |
+| "Getting started" on the overview, from stored state              | FR-100        | ✅     |
+| The Install button in the notice for someone with no installation | FR-98, NFR-97 | ✅     |
+| The Setup URL in the guide, and on the public deployment          | FR-99         | 🟡     |
+
+| Check                    | Result                                                                                                                                                                                                                          |
+| ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| The visitor's page, live | Passed in the built image on `http://localhost:3000`: signed out, the page showed the Install button linking to the app's installation page on GitHub, sign-in as the second action, no layout overflow and no policy violation |
+| Getting started, live    | Passed with a session created by hand for an installation without reviews: "Install the app" was done, "Get a first review" was next, and the AI step was optional with a link to the settings                                  |
+| Not done                 | The Setup URL on GitHub and the journey of a second person: install from the page, come back signed in. The public deployment still runs `0.2.0`, which does not have this page                                                 |
 
 ### Part 2 — a first public deployment
 
