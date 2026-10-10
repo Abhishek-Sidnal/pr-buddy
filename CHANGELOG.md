@@ -4,6 +4,10 @@ Notable changes to PR Buddy. The format follows [Keep a Changelog](https://keepa
 and versions follow [Semantic Versioning](https://semver.org/). Before 1.0.0, a minor version may
 change behaviour or configuration; such changes are listed under "Upgrade notes".
 
+## [Unreleased]
+
+Nothing yet.
+
 ## [0.1.0] — 2026-10-10
 
 The first release. PR Buddy is a GitHub App that reviews pull requests with deterministic rules,

@@ -6,12 +6,12 @@ Legend: ✅ done · 🚧 in progress · ⬜ not started
 
 ## Milestones
 
-| Milestone | Deliverable                                         | Status                                 |
-| --------- | --------------------------------------------------- | -------------------------------------- |
-| M1        | Deterministic review engine                         | ✅                                     |
-| M2        | GitHub App integration                              | ✅                                     |
-| M3        | Storage, rules and thresholds, AI review, dashboard | ✅                                     |
-| M4        | Hardening and `v0.1.0`                              | 🚧 parts 1 to 3 done, release prepared |
+| Milestone | Deliverable                                         | Status                  |
+| --------- | --------------------------------------------------- | ----------------------- |
+| M1        | Deterministic review engine                         | ✅                      |
+| M2        | GitHub App integration                              | ✅                      |
+| M3        | Storage, rules and thresholds, AI review, dashboard | ✅                      |
+| M4        | Hardening and `v0.1.0`                              | ✅ released as `v0.1.0` |
 
 ## Latest verified check
 
@@ -31,7 +31,7 @@ accepted and are kept as history.
 | 1    | Deployment behind HTTPS: example stack, guide, start-up checks              | ✅     |
 | 2    | Data lifecycle and recovery: pending reviews, retention, uninstall clean-up | ✅     |
 | 3    | Supply chain: actions and base images pinned to digests                     | ✅     |
-| 4    | Release `v0.1.0`: changelog, procedure, clean-checkout check, tag           | 🚧     |
+| 4    | Release `v0.1.0`: changelog, procedure, clean-checkout check, tag           | ✅     |
 
 ### Part 1 — deployment behind HTTPS
 
@@ -115,7 +115,7 @@ How a release is made: [RELEASING.md](RELEASING.md). Notes: [CHANGELOG.md](../CH
 | Changelog with what is verified, what is not, and limits | ✅                                                                                                                                                                                                                                                                                  |
 | Release procedure written down                           | ✅                                                                                                                                                                                                                                                                                  |
 | Clean-checkout check of the committed files              | ✅ Passed on commit `6929d67`, Node.js 24.21: 236 committed files exported with `git archive` into a fresh container, `npm ci`, then 1,448 tests, audit with 0 vulnerabilities, 358 registry signatures verified, pin check. Log kept as `release-check-v0.1.0.log` for the release |
-| Tag `v0.1.0` and publish the release                     | ⬜ Waits for the maintainer's go-ahead                                                                                                                                                                                                                                              |
+| Tag `v0.1.0` and publish the release                     | ✅ Tagged on `d7b8d6e` on 2026-10-10, after the clean-checkout check was run again on that exact commit and CI had passed on it; the log is attached to the release                                                                                                                 |
 
 ## Milestone 3, part 4 — the dashboard
 
@@ -346,7 +346,6 @@ the dashboard. Items that once carried "M3" here were optional extras; they are 
 
 | Item                                                                                                            | When                            |
 | --------------------------------------------------------------------------------------------------------------- | ------------------------------- |
-| Release `v0.1.0`                                                                                                | M4, part 4                      |
 | Run Anthropic, OpenAI, Azure and OpenAI-compatible, and Bedrock with an access key, against their real services | M4, needs the maintainer's keys |
 
 | A queue shared by several instances | Later |
@@ -381,4 +380,5 @@ the dashboard. Items that once carried "M3" here were optional extras; they are 
 | 2026-10-10 | Milestone 4 started: example HTTPS deployment, deployment guide, start-up warnings, HSTS                          |
 | 2026-10-10 | Recovery of requested reviews after a restart, a retention limit, clean-up on uninstall; tracker reconciled       |
 | 2026-10-10 | Actions and images pinned; changelog and release procedure written; clean-checkout check passed                   |
+| 2026-10-10 | `v0.1.0` released                                                                                                 |
 | 2026-10-10 | Second external review: tracker row corrected; kill during a running review and the retry limit staged live       |
