@@ -6,12 +6,12 @@ Legend: ✅ done · 🚧 in progress · ⬜ not started
 
 ## Milestones
 
-| Milestone | Deliverable                                         | Status                   |
-| --------- | --------------------------------------------------- | ------------------------ |
-| M1        | Deterministic review engine                         | ✅                       |
-| M2        | GitHub App integration                              | ✅                       |
-| M3        | Storage, rules and thresholds, AI review, dashboard | 🚧 a live AI run is left |
-| M4        | Hardening and `v0.1.0`                              | ⬜                       |
+| Milestone | Deliverable                                         | Status |
+| --------- | --------------------------------------------------- | ------ |
+| M1        | Deterministic review engine                         | ✅     |
+| M2        | GitHub App integration                              | ✅     |
+| M3        | Storage, rules and thresholds, AI review, dashboard | ✅     |
+| M4        | Hardening and `v0.1.0`                              | ⬜     |
 
 ## Milestone 3, part 4 — the dashboard
 
@@ -55,31 +55,33 @@ Design: [DESIGN-AI.md](DESIGN-AI.md). Five providers are included (AWS Bedrock, 
 Azure AI Foundry, any OpenAI-compatible service). Nothing is sent anywhere until the operator sets
 `AI_PROVIDER` and a repository opts in.
 
-| Task                                                            | Requirement           | Status |
-| --------------------------------------------------------------- | --------------------- | ------ |
-| Requirements, design and decisions D-041 to D-048               | —                     | ✅     |
-| Package `@pr-buddy/ai-reviewer` with the `AiProvider` interface | FR-60, FR-67          | ✅     |
-| Repository switch `ai.enabled`, read at the base commit         | FR-61                 | ✅     |
-| File selection, budgets and the prompt                          | FR-62, NFR-60, NFR-63 | ✅     |
-| Reply parsing and verification against the files sent           | NFR-61, NFR-62        | ✅     |
-| One request with a time limit, no retry                         | NFR-64                | ✅     |
-| Suggestions in their own section of the comment                 | FR-63, FR-64, NFR-67  | ✅     |
-| Thresholds apply to suggestions                                 | FR-65                 | ✅     |
-| Failure never fails the review                                  | NFR-65                | ✅     |
-| `ai_reviews` table, without suggestion text                     | FR-66, NFR-66         | ✅     |
-| Providers: Bedrock, Anthropic, OpenAI, Azure, OpenAI-compatible | FR-60, FR-68          | ✅     |
-| A provider run against its real service                         | FR-60                 | ⬜     |
+| Task                                                              | Requirement           | Status |
+| ----------------------------------------------------------------- | --------------------- | ------ |
+| Requirements, design and decisions D-041 to D-048                 | —                     | ✅     |
+| Package `@pr-buddy/ai-reviewer` with the `AiProvider` interface   | FR-60, FR-67          | ✅     |
+| Repository switch `ai.enabled`, read at the base commit           | FR-61                 | ✅     |
+| File selection, budgets and the prompt                            | FR-62, NFR-60, NFR-63 | ✅     |
+| Reply parsing and verification against the files sent             | NFR-61, NFR-62        | ✅     |
+| One request with a time limit, no retry                           | NFR-64                | ✅     |
+| Suggestions in their own section of the comment                   | FR-63, FR-64, NFR-67  | ✅     |
+| Thresholds apply to suggestions                                   | FR-65                 | ✅     |
+| Failure never fails the review                                    | NFR-65                | ✅     |
+| `ai_reviews` table, without suggestion text                       | FR-66, NFR-66         | ✅     |
+| Providers: Bedrock, Anthropic, OpenAI, Azure, OpenAI-compatible   | FR-60, FR-68          | ✅     |
+| Bedrock run against the real service, with a Bedrock API key      | FR-60                 | ✅     |
+| Anthropic, OpenAI, Azure and compatible run against real services | FR-60                 | ⬜     |
+| Bedrock with an access key (request signing) against real AWS     | FR-60                 | ⬜     |
 
 ### Acceptance
 
-| Check                    | Result                                                                                                                                                                                       |
-| ------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `npm run check`          | Passed: 1,385 tests (engine 474, AI reviewer 186, GitHub client 236, API 369, web 120)                                                                                                       |
-| AWS request signing      | Passed: reproduces the signing key and the signature AWS publishes for its example request                                                                                                   |
-| Canary tests             | Passed: prompt text, reply text and provider error messages reach neither the logs nor the stored record                                                                                     |
-| Migration `0003`         | Applied at start-up on the running database, in the read-only container                                                                                                                      |
-| Live run, no provider    | Passed: `pr-buddy-test#3` reopened and reviewed as before; no AI fields in the log, no row in `ai_reviews`, line comments not repeated                                                       |
-| Live run with a provider | Not yet run: it needs the operator's credentials for a provider. How well the instructions resist prompt injection against a real model is unmeasured; the output checks do not depend on it |
+| Check                    | Result                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
+| ------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `npm run check`          | Passed: 1,385 tests (engine 474, AI reviewer 186, GitHub client 236, API 369, web 120)                                                                                                                                                                                                                                                                                                                                                                                           |
+| AWS request signing      | Passed: reproduces the signing key and the signature AWS publishes for its example request                                                                                                                                                                                                                                                                                                                                                                                       |
+| Canary tests             | Passed: prompt text, reply text and provider error messages reach neither the logs nor the stored record                                                                                                                                                                                                                                                                                                                                                                         |
+| Migration `0003`         | Applied at start-up on the running database, in the read-only container                                                                                                                                                                                                                                                                                                                                                                                                          |
+| Live run, no provider    | Passed: `pr-buddy-test#3` reopened and reviewed as before; no AI fields in the log, no row in `ai_reviews`, line comments not repeated                                                                                                                                                                                                                                                                                                                                           |
+| Live run with a provider | Passed on 2026-10-10 with Bedrock (`us.anthropic.claude-sonnet-4-6`, `us-east-1`, a Bedrock API key) on `pr-buddy-test#4`: one request of 955 input and 517 output tokens answered in 8.6 s; five suggestions, all on lines of the diff, none rejected; published in their own section, none as line comments; the record stored without their text. Not run live: the other four providers, and Bedrock with a signed access key. Resistance to prompt injection was not probed |
 
 ## Milestone 3, part 2 — rules, thresholds and line comments
 
@@ -268,3 +270,4 @@ Complete. Engine, three rules, 348 tests at 100% coverage. Details are in the ch
 | 2026-10-10 | Dashboard: sign-in with GitHub, sessions, read API, React app in the Graphite / Signal Lime design system         |
 | 2026-10-10 | Dashboard sign-in verified against real GitHub                                                                    |
 | 2026-10-10 | AI providers: Bedrock (with own request signing), Anthropic, OpenAI, Azure AI Foundry, OpenAI-compatible          |
+| 2026-10-10 | Bedrock verified live: five suggestions on a test pull request; Milestone 3 complete                              |

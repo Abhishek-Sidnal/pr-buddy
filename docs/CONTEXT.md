@@ -16,7 +16,7 @@ of actionable, evidence-backed findings. Humans keep the merge decision.
   deliveries, seven rules with reporting thresholds and line comments, and the AI reviewer.
 - The AI reviewer has five providers (AWS Bedrock, Anthropic, OpenAI, Azure AI Foundry, any
   OpenAI-compatible service). It is off until the operator sets `AI_PROVIDER` and a repository
-  sets `ai.enabled`. See the tracker for which providers have been run live.
+  sets `ai.enabled`. Bedrock was verified live on 2026-10-10; the others have not been run live.
 - The **dashboard** is built: sign-in with GitHub, a read-only API limited to the installations
   a person can access, and a React app (`apps/web`) in the Graphite / Signal Lime design. It is
   off unless the database and three settings are present. Sign-in was verified against real

@@ -186,8 +186,10 @@ The AWS account must have been granted access to that model in that region.
 
 ### What has been run against a real service
 
-Only what the tracker says. An adapter that has not been run live is written from the service's
-published API and tested against a stand-in; treat it as unproven until it has answered once.
+As of 2026-10-10: Bedrock with a Bedrock API key, using a Claude model through an inference
+profile. The other adapters, and Bedrock with a signed access key, are written from published
+APIs and tested against stand-ins; treat each as unproven until it has answered once. The tracker
+has the details.
 
 ### Adding another
 
