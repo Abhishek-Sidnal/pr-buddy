@@ -46,12 +46,18 @@ gh release create v0.1.0 --title "PR Buddy 0.1.0" --notes-file <notes> release-c
 The notes are the changelog entry for the version. The tag is annotated and is never moved: a
 mistake is fixed by a new version.
 
+Pushing the tag starts the "Publish image" workflow, which pushes the API image to GitHub's
+container registry under the version and `latest` (D-082). When it has finished, copy the
+digest from the run's summary into the release notes: it is what operators deploy.
+
 ## 4. After the release
 
+- Check that the "Publish image" run for the tag succeeded and that its digest is in the notes.
 - Start the next entry in `CHANGELOG.md` under "Unreleased" with the first change that follows.
 - Move what the release left open into the tracker's backlog.
 
 ## What a release does not include
 
-No package is published to npm and no image is pushed to a registry. People run PR Buddy by
-building the image from the tagged source ([DEPLOYMENT.md](DEPLOYMENT.md)).
+No package is published to npm. The image is not signed and has no provenance attestation.
+People run PR Buddy by pulling the published image or by building it from the tagged source
+([DEPLOYMENT.md](DEPLOYMENT.md), section 3).

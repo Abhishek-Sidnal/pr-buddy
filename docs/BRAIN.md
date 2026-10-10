@@ -642,6 +642,23 @@ save, with the stored key, and reports `working`, `refused` with the status, `un
 a failed AI review on someone's pull request.
 **Cost.** One tiny request billed to the customer per test.
 
+### D-082 — CI publishes the API image; a server may pull it and need not build
+
+**Decision.** A separate workflow builds the API image and pushes it to GitHub's container
+registry: `edge` for every commit on `main`, and the version plus `latest` for a release tag.
+`deploy/compose.image.yaml` makes the example stack use a published image, named by the
+operator in `PR_BUDDY_IMAGE`. Building on the server stays possible and stays the default.
+**Why.** Building needs about 2 GB of memory; running needs far less. Pulling lets the stack
+run on a 1 GB machine, makes upgrades quick, and means every server runs the bytes CI built.
+**How it stays safe.** The check workflow keeps its read-only token; only the publishing job
+may write packages, and it runs for `main` and version tags only, never for a pull request.
+The guide tells operators to name the image by digest, which cannot be moved.
+**Cost.** `edge` is published when a commit lands, not when its checks pass, so it is for
+trying things and not for production. The image is built for x86-64 only. While the repository
+is private, a server needs a token that may read packages.
+**Rejected.** A default image in the Compose file: it would be a tag, which D-070 forbids, or a
+digest that is wrong after every release.
+
 ## 3. Glossary
 
 | Term       | Meaning                                                                                 |

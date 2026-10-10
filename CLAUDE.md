@@ -106,7 +106,7 @@ or updates the comment.
 
 ## Invariants
 
-These are design decisions with reasons recorded in `docs/BRAIN.md` (D-001 to D-081). Read the
+These are design decisions with reasons recorded in `docs/BRAIN.md` (D-001 to D-082). Read the
 relevant entry before changing one.
 
 - A webhook body is only a trigger. What gets reviewed is fetched from the API.
@@ -198,4 +198,5 @@ The maintainer wants design documents written before code and kept current. In t
 
 Work on a branch and open a pull request; `main` is the default branch. CI (`.github/workflows/ci.yml`)
 runs the same steps as `npm run check` on Node.js 22 and 24, audits production dependencies and
-builds the API image.
+builds the API image. A second workflow, `publish-image.yml`, pushes that image to GitHub's container
+registry for `main` and version tags only (D-082); it is the only job that may write anything.

@@ -88,6 +88,9 @@ jobs:
       - name: Check that actions and images are pinned
         run: sh scripts/check-pins.sh
 
+      - name: Check how published images are named
+        run: sh scripts/image-tags.test.sh
+
       - name: Verify registry signatures
         run: npm audit signatures
 
