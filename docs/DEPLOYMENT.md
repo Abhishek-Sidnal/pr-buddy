@@ -28,14 +28,15 @@ cp deploy/.env.example deploy/.env
 
 Fill in `deploy/.env`. It is ignored by git; keep it readable by you alone.
 
-| Setting                 | Value                                                                                    |
-| ----------------------- | ---------------------------------------------------------------------------------------- |
-| `SITE_ADDRESS`          | The host name, without `https://`                                                        |
-| `POSTGRES_PASSWORD`     | A password you make up. Letters and digits only, for example from `openssl rand -hex 24` |
-| `GITHUB_APP_ID`         | From the app's settings                                                                  |
-| `GITHUB_PRIVATE_KEY`    | The private key on one line, with `\n` for each line break                               |
-| `GITHUB_WEBHOOK_SECRET` | The secret you gave the app                                                              |
-| `REVIEW_RETENTION_DAYS` | Optional. Days to keep reviews; 365 by default, `0` for ever                             |
+| Setting                  | Value                                                                                            |
+| ------------------------ | ------------------------------------------------------------------------------------------------ |
+| `SITE_ADDRESS`           | The host name, without `https://`                                                                |
+| `POSTGRES_PASSWORD`      | A password you make up. Letters and digits only, for example from `openssl rand -hex 24`         |
+| `GITHUB_APP_ID`          | From the app's settings                                                                          |
+| `GITHUB_PRIVATE_KEY`     | The private key on one line, with `\n` for each line break                                       |
+| `GITHUB_WEBHOOK_SECRET`  | The secret you gave the app                                                                      |
+| `REVIEW_RETENTION_DAYS`  | Optional. Days to keep reviews; 365 by default, `0` for ever                                     |
+| `SECRETS_ENCRYPTION_KEY` | Optional. A master key that lets customers store their own AI keys; see GITHUB_APP.md, section 9 |
 
 For the dashboard, also set `GITHUB_CLIENT_ID`, `GITHUB_CLIENT_SECRET` and
 `PUBLIC_URL=https://<SITE_ADDRESS>`: all three, or none. For AI review, add the provider's

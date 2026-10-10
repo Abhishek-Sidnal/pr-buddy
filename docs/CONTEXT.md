@@ -19,6 +19,8 @@ of actionable, evidence-backed findings. Humans keep the merge decision.
   sets `ai.enabled`. Bedrock was verified live on 2026-10-10; the others have not been run live.
 - With a database, a requested review survives a restart, reviews are deleted after 365 days by
   default, and uninstalling the app deletes that installation's history.
+- **Milestone 5** has started: an installation can store its own AI provider and key, encrypted,
+  managed by its owners on the settings page. It needs `SECRETS_ENCRYPTION_KEY`.
 - The **dashboard** is built: sign-in with GitHub, a read-only API limited to the installations
   a person can access, and a React app (`apps/web`) in the Graphite / Signal Lime design. It is
   off unless the database and three settings are present. Sign-in was verified against real
@@ -60,6 +62,7 @@ of actionable, evidence-backed findings. Humans keep the merge decision.
 | [DESIGN-SYSTEM.md](DESIGN-SYSTEM.md)       | Colours, type, components and the rules every screen follows      |
 | [GITHUB_APP.md](GITHUB_APP.md)             | Registering the app and running the API                           |
 | [DEPLOYMENT.md](DEPLOYMENT.md)             | Running on a server over HTTPS; upgrade, backup, what is exposed  |
+| [DESIGN-AI-KEYS.md](DESIGN-AI-KEYS.md)     | An installation's own AI key: who may set it, encryption, routes  |
 | [RULES.md](RULES.md)                       | Reference for each built-in review rule                           |
 | [SECURITY.md](SECURITY.md)                 | Threat model and controls                                         |
 | [BRAIN.md](BRAIN.md)                       | Decisions and their reasons, glossary, open questions             |

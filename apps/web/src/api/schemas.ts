@@ -122,3 +122,38 @@ export type Overview = z.infer<typeof overviewSchema>;
 export type RepositoryList = z.infer<typeof repositoryListSchema>;
 export type ReviewListing = z.infer<typeof reviewListingSchema>;
 export type ReviewPage = z.infer<typeof reviewPageSchema>;
+
+export const CUSTOMER_PROVIDERS = ["anthropic", "openai", "bedrock"] as const;
+export type CustomerProvider = (typeof CUSTOMER_PROVIDERS)[number];
+
+/** What may be shown about a stored AI key. The key itself is never sent to the browser. */
+export const aiKeySummarySchema = z.object({
+  provider: z.string(),
+  model: z.string(),
+  region: z.string().nullable(),
+  keyHint: z.string(),
+  updatedAt: z.string(),
+});
+
+export const installationListSchema = z.object({
+  installations: z.array(
+    z.object({
+      id: z.number().int().positive(),
+      account: z.string(),
+      /** Whether the signed-in person may change this installation's AI key. */
+      canManage: z.boolean(),
+      aiKey: aiKeySummarySchema.nullable(),
+    }),
+  ),
+});
+
+/** The parts of a refusal that the settings page explains to the person. */
+export const aiKeyErrorSchema = z.object({
+  error: z.string(),
+  providerStatus: z.number().optional(),
+  fields: z.array(z.string()).optional(),
+});
+
+export type AiKeySummary = z.infer<typeof aiKeySummarySchema>;
+export type InstallationList = z.infer<typeof installationListSchema>;
+export type Installation = InstallationList["installations"][number];

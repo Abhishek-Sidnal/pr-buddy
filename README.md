@@ -205,6 +205,7 @@ More detail: [architecture](docs/ARCHITECTURE.md) · [engine design](docs/DESIGN
 | [Storage design](docs/DESIGN-STORAGE.md)     | Database schema and what is stored                   |
 | [AI reviewer design](docs/DESIGN-AI.md)      | What is sent to a model and how replies are checked  |
 | [Dashboard design](docs/DESIGN-DASHBOARD.md) | Sign-in, sessions, the read API, the web app         |
+| [AI key design](docs/DESIGN-AI-KEYS.md)      | An installation's own AI key: owners, encryption     |
 | [Design system](docs/DESIGN-SYSTEM.md)       | Colours, type, components, rules for every screen    |
 | [Rules](docs/RULES.md)                       | Reference for the built-in rules                     |
 | [Security](docs/SECURITY.md)                 | Threat model and controls                            |

@@ -1,11 +1,17 @@
 import type { z } from "zod";
 import {
+  aiKeyErrorSchema,
+  aiKeySummarySchema,
+  installationListSchema,
   meSchema,
   overviewSchema,
   repositoryListSchema,
   reviewDetailsSchema,
   reviewListingSchema,
   reviewPageSchema,
+  type AiKeySummary,
+  type CustomerProvider,
+  type InstallationList,
   type Me,
   type Overview,
   type RepositoryList,
@@ -123,3 +129,96 @@ export const api = {
 
 /** Where the browser goes to start signing in. A navigation, not a fetch. */
 export const SIGN_IN_PATH = "/auth/login";
+
+/** What an owner submits to store a key. It leaves the browser once and is never read back. */
+export interface AiKeyInput {
+  readonly provider: CustomerProvider;
+  readonly model: string;
+  readonly region?: string;
+  readonly apiKey: string;
+}
+
+export type SaveAiKeyResult =
+  | { readonly ok: true; readonly key: AiKeySummary }
+  /** The provider answered and refused the key, the model or the region. */
+  | { readonly ok: false; readonly reason: "refused"; readonly providerStatus: number }
+  /** The provider could not be reached; nothing was stored. */
+  | { readonly ok: false; readonly reason: "unreachable" }
+  | { readonly ok: false; readonly reason: "invalid"; readonly fields: readonly string[] }
+  /** The person is not, or is no longer, an owner of the installation. */
+  | { readonly ok: false; readonly reason: "forbidden" }
+  | { readonly ok: false; readonly reason: "unauthenticated" }
+  | { readonly ok: false; readonly reason: "failed" };
+
+const WRITE_HEADERS = {
+  Accept: "application/json",
+  // A header that no form on another site can send; the API refuses a write without it.
+  "X-PR-Buddy-Request": "1",
+};
+const FORBIDDEN = 403;
+
+function keyPath(installationId: number): string {
+  return `/api/installations/${encodeURIComponent(String(installationId))}/ai-key`;
+}
+
+async function refusalOf(response: Response): Promise<SaveAiKeyResult> {
+  if (response.status === UNAUTHENTICATED) {
+    return { ok: false, reason: "unauthenticated" };
+  }
+  if (response.status === FORBIDDEN || response.status === NOT_FOUND) {
+    return { ok: false, reason: "forbidden" };
+  }
+  const body = aiKeyErrorSchema.safeParse(await response.json().catch(() => undefined));
+  if (!body.success) {
+    return { ok: false, reason: "failed" };
+  }
+  const { error, providerStatus, fields } = body.data;
+  if (error === "key_refused" && providerStatus !== undefined) {
+    return { ok: false, reason: "refused", providerStatus };
+  }
+  if (error === "provider_unreachable") {
+    return { ok: false, reason: "unreachable" };
+  }
+  return error === "invalid_input"
+    ? { ok: false, reason: "invalid", fields: fields ?? [] }
+    : { ok: false, reason: "failed" };
+}
+
+export const aiKeys = {
+  /** The session's installations and a summary of each one's key. `not-found` when the feature is off. */
+  list: (signal?: AbortSignal): Promise<InstallationList> =>
+    getJson("/api/installations", installationListSchema, signal),
+
+  /** Stores or replaces an installation's key. Never throws: the result says what happened. */
+  async save(installationId: number, input: AiKeyInput): Promise<SaveAiKeyResult> {
+    try {
+      const response = await fetch(keyPath(installationId), {
+        method: "PUT",
+        credentials: "same-origin",
+        headers: { ...WRITE_HEADERS, "Content-Type": "application/json" },
+        body: JSON.stringify(input),
+      });
+      if (!response.ok) {
+        return await refusalOf(response);
+      }
+      const key = aiKeySummarySchema.safeParse(await response.json().catch(() => undefined));
+      return key.success ? { ok: true, key: key.data } : { ok: false, reason: "failed" };
+    } catch {
+      return { ok: false, reason: "failed" };
+    }
+  },
+
+  /** Removes an installation's key. Resolves to whether the server confirmed it. */
+  async remove(installationId: number): Promise<boolean> {
+    try {
+      const response = await fetch(keyPath(installationId), {
+        method: "DELETE",
+        credentials: "same-origin",
+        headers: WRITE_HEADERS,
+      });
+      return response.ok;
+    } catch {
+      return false;
+    }
+  },
+};

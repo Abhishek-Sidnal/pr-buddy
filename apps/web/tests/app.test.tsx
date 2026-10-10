@@ -235,6 +235,8 @@ describe("signing out", () => {
     signedIn();
     renderApp();
     await screen.findByRole("button", { name: "Sign out" });
+    // The page has finished loading, so the only requests from here on are the ones under test.
+    await screen.findByRole("heading", { name: "Last 30 days" });
     const requests: string[] = [];
     vi.stubGlobal("fetch", (input: string, init?: RequestInit) => {
       requests.push(`${init?.method ?? "GET"} ${input}`);
@@ -1078,7 +1080,7 @@ describe("settings", () => {
         ?.getAttribute("datetime"),
     ).toBe(ME.expiresAt);
     expect(screen.getByText(/Never stored: pull request titles and descriptions/)).toBeDefined();
-    expect(screen.getByText(/This dashboard is read-only and cannot change them/)).toBeDefined();
+    expect(screen.getByText(/This dashboard cannot change them/)).toBeDefined();
   });
 
   it("switches the theme at once and remembers it", async () => {
