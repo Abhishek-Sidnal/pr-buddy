@@ -1,10 +1,16 @@
 import express, { type ErrorRequestHandler, type Express, type RequestHandler } from "express";
 import { rateLimit } from "express-rate-limit";
+import type { UserAuthClient } from "@pr-buddy/github-client";
 import { describeError, type Logger } from "./logger.js";
+import { createAuthRouter, createRequireSession } from "./modules/auth/auth.router.js";
+import type { SessionStore } from "./modules/auth/session-store.js";
 import {
   createWebhookRouter,
   type WebhookRouterDependencies,
 } from "./modules/github/webhook.router.js";
+import type { HistoryStore } from "./modules/history/history-store.js";
+import { createHistoryRouter } from "./modules/history/history.router.js";
+import { createWebRouter, setDashboardHeaders } from "./modules/web/web.router.js";
 
 const ONE_MINUTE_MS = 60_000;
 const PAYLOAD_TOO_LARGE = 413;
@@ -17,6 +23,22 @@ export interface AppDependencies extends WebhookRouterDependencies {
   readonly webhookRateLimit: number;
   /** Reports whether the service's dependencies are reachable. Must not throw. Defaults to yes. */
   readonly isReady?: () => Promise<boolean>;
+  /** Sign-in, the read API and the web application. Without it none of their routes exist. */
+  readonly dashboard?: DashboardDependencies;
+}
+
+export interface DashboardDependencies {
+  readonly authClient: UserAuthClient;
+  readonly sessionStore: SessionStore;
+  readonly historyStore: HistoryStore;
+  /** The origin people use to reach the service, without a trailing slash. */
+  readonly publicUrl: string;
+  /** Folder holding the built web application. */
+  readonly webRoot: string;
+  /** Sign-in requests allowed per minute from one client address. */
+  readonly authRateLimit: number;
+  /** Read requests allowed per minute from one client address. */
+  readonly apiRateLimit: number;
 }
 
 const setSecurityHeaders: RequestHandler = (_request, response, next) => {
@@ -87,6 +109,32 @@ export function createApp(dependencies: AppDependencies): Express {
     }),
     createWebhookRouter(dependencies),
   );
+
+  const { dashboard } = dependencies;
+  if (dashboard !== undefined) {
+    const perMinute = (limit: number): RequestHandler =>
+      rateLimit({
+        windowMs: ONE_MINUTE_MS,
+        limit,
+        standardHeaders: "draft-8",
+        legacyHeaders: false,
+        message: { error: "rate_limited" },
+      });
+    app.use(
+      "/auth",
+      perMinute(dashboard.authRateLimit),
+      createAuthRouter({ ...dashboard, logger: dependencies.logger }),
+    );
+    // An unknown path under /api is an error in JSON, never the web page.
+    app.use(
+      "/api",
+      perMinute(dashboard.apiRateLimit),
+      createRequireSession(dashboard.sessionStore, dashboard.publicUrl),
+      createHistoryRouter(dashboard.historyStore),
+      notFound,
+    );
+    app.use(setDashboardHeaders, createWebRouter(dashboard.webRoot));
+  }
 
   app.use(notFound);
   app.use(createErrorHandler(dependencies.logger));

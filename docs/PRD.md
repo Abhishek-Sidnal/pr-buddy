@@ -270,6 +270,42 @@ language model for suggestions and keeps them apart from the deterministic findi
 A real provider (the choice is open), line comments for suggestions, sending whole files or the
 rest of the repository, follow-up questions to the model, automatic fixes, per-repository budgets.
 
+## 6E. Milestone 3, part 4 — the dashboard
+
+History has been written since part 1 and could only be read with SQL. This part lets a person
+sign in and read it. Design: [DESIGN-DASHBOARD.md](DESIGN-DASHBOARD.md).
+
+### Functional requirements
+
+| ID    | Requirement                                                                                     |
+| ----- | ----------------------------------------------------------------------------------------------- |
+| FR-70 | A person signs in with GitHub. There are no passwords and no accounts to create.                |
+| FR-71 | A signed-in person sees the repositories of the installations GitHub says they can access.      |
+| FR-72 | An overview shows reviews, findings and failed reviews of the last 30 days, and recent reviews. |
+| FR-73 | A repository page lists its reviews, newest first, with paging.                                 |
+| FR-74 | A review page shows its outcome, findings with evidence, the rules that ran and the AI record.  |
+| FR-75 | Reviews and commits link to GitHub.                                                             |
+| FR-76 | A person can sign out.                                                                          |
+| FR-77 | The dashboard is served by the API itself and needs no second service.                          |
+
+### Non-functional requirements
+
+| ID     | Requirement                                                                                        |
+| ------ | -------------------------------------------------------------------------------------------------- |
+| NFR-70 | Every read is limited, in SQL, to the installations of the session. Hidden and missing look alike. |
+| NFR-71 | The GitHub user token is used once at sign-in and never stored, logged or sent to the browser.     |
+| NFR-72 | Session tokens are random, kept in an `HttpOnly` cookie, and stored only as a hash.                |
+| NFR-73 | Sign-in is protected against cross-site request forgery with a `state` value.                      |
+| NFR-74 | The dashboard is read-only; its one state-changing request, sign-out, cannot be forged cross-site. |
+| NFR-75 | Without its settings the dashboard does not exist and the service runs as before.                  |
+| NFR-76 | The browser receives no secrets, renders API data as text only, and runs under a strict CSP.       |
+| NFR-77 | Sign-in and read routes are rate limited.                                                          |
+
+### Out of scope for this part
+
+Editing settings in the dashboard, roles within an installation, charts, exporting data, e-mail or
+other notifications, retention limits, signing in without GitHub.
+
 ## 7. Success metrics (from M2 onward)
 
 These cannot be measured until PR Buddy reviews real pull requests.

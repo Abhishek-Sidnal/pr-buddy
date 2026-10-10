@@ -369,6 +369,63 @@ the rule findings are published regardless. The provider's error message is not 
 **Why.** The suggestions are optional (same reasoning as D-040). A retry doubles cost. Provider
 errors can echo the prompt.
 
+### D-049 — Sign-in is GitHub's; the user token is used once and dropped
+
+**Decision.** People sign in through the GitHub App's own authorisation flow. The token GitHub
+returns reads the person's ID, login and accessible installations, and is then discarded.
+**Why.** PR Buddy already is a GitHub App, so there is nothing new to register and no password to
+protect. A token that is not kept cannot leak.
+**Cost.** Access cannot be re-checked during a session (see D-050).
+
+### D-050 — What a person may see is GitHub's list of their installations, taken at sign-in
+
+**Decision.** A session stores the installation IDs GitHub returned. Every read filters by them.
+Sessions last 8 hours and are not renewed.
+**Why.** GitHub already knows who can access what; copying its permission model would drift.
+**Cost.** A person who loses access keeps seeing that history for up to 8 hours.
+**Revisit when.** Someone needs revocation sooner; then listen for installation webhooks.
+
+### D-051 — Sessions are rows in PostgreSQL, stored as a hash of the cookie
+
+**Decision.** The cookie holds 32 random bytes. The table holds their SHA-256.
+**Why.** Server-side sessions can be ended and survive restarts; a signed cookie cannot be
+revoked. Hashing means a copy of the table is not a set of working cookies. The token is random,
+so a plain hash is enough: there is nothing to brute-force.
+
+### D-052 — The API serves the dashboard from its own origin
+
+**Decision.** `apps/web` is built to static files that the API serves next to `/api` and `/auth`.
+**Why.** One origin means no CORS, a `SameSite=Lax` cookie that never crosses sites, and one
+container to run.
+**Cost.** The dashboard cannot be scaled or deployed apart from the API.
+
+### D-053 — The dashboard is optional
+
+**Decision.** It exists only when the database and the three dashboard variables are set. A
+partial set stops start-up.
+**Why.** The service must keep working with only the three GitHub App variables (D-030), and a
+half-configured sign-in should fail loudly, not at the first visitor.
+
+### D-054 — Hidden and missing are the same answer
+
+**Decision.** A review or repository outside the session's installations answers `404`, exactly
+like one that does not exist. The limit is part of each SQL statement, not a check afterwards.
+**Why.** A `403` would confirm that an ID exists. A filter in the query cannot be forgotten by a
+later caller of the same function.
+
+### D-055 — React and Vite, with no component library
+
+**Decision.** Runtime dependencies of the web app are React and React Router. Styles are plain
+CSS.
+**Why.** Four read-only pages do not need more, and every dependency in the browser is code that
+runs with the user's session.
+
+### D-056 — The dashboard is read-only
+
+**Decision.** It shows history. Repository settings stay in `.github/pr-buddy.json`.
+**Why.** That file is reviewed like code and read at the base commit (D-020). A second place to
+change settings would need its own permissions and would bypass both.
+
 ## 3. Glossary
 
 | Term       | Meaning                                                                                 |

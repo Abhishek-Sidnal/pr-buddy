@@ -32,6 +32,10 @@ const REDACTED_PATHS = [
   "*.databaseUrl",
   "password",
   "*.password",
+  "clientSecret",
+  "*.clientSecret",
+  "cookie",
+  "*.cookie",
 ];
 
 export interface LogDestination {

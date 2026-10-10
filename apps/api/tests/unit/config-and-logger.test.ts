@@ -196,6 +196,82 @@ describe("loadConfig", () => {
   });
 });
 
+describe("loadConfig for the dashboard", () => {
+  const DASHBOARD = {
+    DATABASE_URL: "postgres://user:pw@db.example:5432/prbuddy",
+    GITHUB_CLIENT_ID: "Iv1.abcdef",
+    GITHUB_CLIENT_SECRET: "CLIENT-SECRET-CANARY",
+    PUBLIC_URL: "https://buddy.example",
+  };
+
+  it("is off when none of its variables are set", () => {
+    expect(loadConfig(environment())).not.toHaveProperty("dashboard");
+    expect(loadConfig(environment({ DATABASE_URL: DASHBOARD.DATABASE_URL }))).not.toHaveProperty(
+      "dashboard",
+    );
+  });
+
+  it("is on when all of them and the database are set", () => {
+    expect(loadConfig(environment(DASHBOARD)).dashboard).toEqual({
+      clientId: "Iv1.abcdef",
+      clientSecret: "CLIENT-SECRET-CANARY",
+      publicUrl: "https://buddy.example",
+    });
+  });
+
+  it("reduces the public URL to its origin", () => {
+    const config = loadConfig(environment({ ...DASHBOARD, PUBLIC_URL: "https://Buddy.Example/" }));
+
+    expect(config.dashboard?.publicUrl).toBe("https://buddy.example");
+  });
+
+  it.each(["http://localhost:3000", "http://127.0.0.1:3000"])(
+    "accepts plain HTTP for %s",
+    (publicUrl) => {
+      const config = loadConfig(environment({ ...DASHBOARD, PUBLIC_URL: publicUrl }));
+
+      expect(config.dashboard?.publicUrl).toBe(publicUrl);
+    },
+  );
+
+  it.each([
+    ["plain HTTP on another host", "http://buddy.example"],
+    ["a host that only starts with localhost", "http://localhost.evil.example"],
+    ["a path", "https://buddy.example/app"],
+    ["a query", "https://buddy.example/?next=x"],
+    ["credentials", "https://user:pw@buddy.example"],
+    ["another scheme", "javascript:alert(1)"],
+    ["text that is not a URL", "buddy"],
+  ])("rejects a public URL with %s", (_name, publicUrl) => {
+    expect(issuesOf({ ...DASHBOARD, PUBLIC_URL: publicUrl })).toEqual([
+      "PUBLIC_URL: must be an https:// origin, or http://localhost for development",
+    ]);
+  });
+
+  it("names what is missing when only some variables are set", () => {
+    expect(
+      issuesOf({ DATABASE_URL: DASHBOARD.DATABASE_URL, PUBLIC_URL: DASHBOARD.PUBLIC_URL }),
+    ).toEqual([
+      "GITHUB_CLIENT_ID: is required when the other dashboard variables are set",
+      "GITHUB_CLIENT_SECRET: is required when the other dashboard variables are set",
+    ]);
+  });
+
+  it("requires the database", () => {
+    expect(issuesOf({ ...DASHBOARD, DATABASE_URL: undefined })).toEqual([
+      "DATABASE_URL: is required for the dashboard",
+    ]);
+  });
+
+  it("rejects an empty client secret without repeating any value", () => {
+    const issues = issuesOf({ ...DASHBOARD, GITHUB_CLIENT_SECRET: "" });
+
+    expect(issues).toHaveLength(1);
+    expect(issues[0]).toContain("GITHUB_CLIENT_SECRET");
+    expect(issuesOf({ ...DASHBOARD, PUBLIC_URL: "x" }).join()).not.toContain("CANARY");
+  });
+});
+
 describe("createLogger", () => {
   function capture(level: Parameters<typeof createLogger>[0]): {
     lines: string[];
