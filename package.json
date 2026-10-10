@@ -12,7 +12,8 @@
     "packages/review-engine",
     "packages/ai-reviewer",
     "packages/github-client",
-    "apps/api"
+    "apps/api",
+    "apps/web"
   ],
   "scripts": {
     "build": "npm run build --workspaces --if-present",

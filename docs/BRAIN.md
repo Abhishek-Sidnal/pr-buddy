@@ -443,7 +443,7 @@ change settings would need its own permissions and would bypass both.
 
 | #   | Question                                                                               | Needed by                    |
 | --- | -------------------------------------------------------------------------------------- | ---------------------------- |
-| Q1  | Prisma or Drizzle for database access?                                                 | M3, with the dashboard       |
+| Q1  | Answered by D-029: neither; SQL is hand-written                                        | —                            |
 | Q2  | Answered by D-018: an in-process queue is enough until reviews must survive a restart  | —                            |
 | Q3  | Should findings also be allowed on removed lines (the old side)?                       | M2                           |
 | Q4  | Which static-analysis and secret-scanning tools to integrate rather than re-implement? | M3                           |

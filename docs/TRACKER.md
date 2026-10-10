@@ -6,12 +6,12 @@ Legend: ✅ done · 🚧 in progress · ⬜ not started
 
 ## Milestones
 
-| Milestone | Deliverable                                         | Status                         |
-| --------- | --------------------------------------------------- | ------------------------------ |
-| M1        | Deterministic review engine                         | ✅                             |
-| M2        | GitHub App integration                              | ✅                             |
-| M3        | Storage, rules and thresholds, AI review, dashboard | 🚧 AI provider, dashboard left |
-| M4        | Hardening and `v0.1.0`                              | ⬜                             |
+| Milestone | Deliverable                                         | Status                        |
+| --------- | --------------------------------------------------- | ----------------------------- |
+| M1        | Deterministic review engine                         | ✅                            |
+| M2        | GitHub App integration                              | ✅                            |
+| M3        | Storage, rules and thresholds, AI review, dashboard | 🚧 a real AI provider is left |
+| M4        | Hardening and `v0.1.0`                              | ⬜                            |
 
 ## Milestone 3, part 3 — the AI reviewer
 
@@ -93,11 +93,11 @@ Not exercised live: thresholds from a repository file, the 20-comment cap, a fai
 
 ### Next parts of Milestone 3
 
-| Part                 | Contents                                                       |
-| -------------------- | -------------------------------------------------------------- |
-| Rules and thresholds | Done; see part 2 above                                         |
-| AI reviewer          | Done except for a real provider; see part 3 above              |
-| Dashboard            | Sign-in, reading history scoped by installation, the React app |
+| Part                 | Contents                                          |
+| -------------------- | ------------------------------------------------- |
+| Rules and thresholds | Done; see part 2 above                            |
+| AI reviewer          | Done except for a real provider; see part 3 above |
+| Dashboard            | Done; see part 4 above                            |
 
 ## Milestone 2 — GitHub App
 
@@ -197,17 +197,17 @@ Complete. Engine, three rules, 348 tests at 100% coverage. Details are in the ch
 
 | Item                                                                         | Milestone |
 | ---------------------------------------------------------------------------- | --------- |
-| Read review history over HTTP, with sign-in and per-installation scoping     | M3        |
-| Organisations and users                                                      | M3        |
 | Retention limit for stored reviews                                           | M3        |
 | Durable job queue so queued reviews survive a restart                        | M3        |
 | Check run with a pass or fail conclusion                                     | M3        |
 | A real AI provider: adapter, environment settings, disclosure                | M3        |
 | Line comments for AI suggestions, with a fingerprint that survives rewording | M3        |
 | Per-repository AI budget and usage report                                    | M3        |
-| Dashboard: overview, repositories, review details, settings                  | M3        |
+| Dashboard: editing settings, roles within an installation, charts            | Later     |
 | YAML repository configuration                                                | M3        |
 | Run third-party rules in a worker thread with a hard time limit              | M3        |
+| Revoke dashboard access as soon as GitHub does, from installation webhooks   | M4        |
+| Browser test of the dashboard and of sign-in against real GitHub in CI       | M4        |
 | Pin GitHub Actions and base images to digests                                | M4        |
 | Release `v0.1.0`                                                             | M4        |
 
