@@ -1,0 +1,37 @@
+{
+  "pullRequest": {
+    "number": 105,
+    "title": "Throw a clear error when a user does not exist",
+    "body": "## What\n<!-- Describe the change -->\ngetEmail now throws UserNotFoundError instead of failing on a null user.\n\n## How was it tested\nAdded a unit test for the missing-user case.",
+    "baseSha": "8a7b6c5d4e3f2a1b0c9d8e7f6a5b4c3d2e1f0a9b",
+    "headSha": "d4c3b2a1f0e9d8c7b6a5f4e3d2c1b0a9f8e7d6c5"
+  },
+  "files": [
+    {
+      "path": "src/services/user.service.ts",
+      "status": "modified",
+      "additions": 3,
+      "deletions": 0,
+      "patch": "@@ -5,6 +5,9 @@ export class UserService {\n \n   async getEmail(userId: string): Promise<string> {\n     const user = await this.users.findById(userId);\n+    if (user === null) {\n+      throw new UserNotFoundError(userId);\n+    }\n     return user.email;\n   }\n }"
+    },
+    {
+      "path": "tests/services/user.service.test.ts",
+      "status": "modified",
+      "additions": 6,
+      "deletions": 0,
+      "patch": "@@ -12,3 +12,9 @@ describe(\"UserService\", () => {\n     expect(email).toBe(\"ada@example.com\");\n   });\n+\n+  it(\"throws when the user does not exist\", async () => {\n+    const service = new UserService(repositoryReturning(null));\n+\n+    await expect(service.getEmail(\"missing\")).rejects.toThrow(UserNotFoundError);\n+  });\n });"
+    },
+    {
+      "path": "docs/images/lookup-flow.png",
+      "status": "added",
+      "additions": 0,
+      "deletions": 0
+    },
+    {
+      "path": "package-lock.json",
+      "status": "modified",
+      "additions": 12,
+      "deletions": 3
+    }
+  ]
+}

@@ -1,0 +1,25 @@
+{
+  "pullRequest": {
+    "number": 101,
+    "title": "Add user lookup service",
+    "body": null,
+    "baseSha": "3f2a9c1d5e7b8a0f4c6d2e1b9a8f7c6d5e4b3a21",
+    "headSha": "9b8c7d6e5f4a3b2c1d0e9f8a7b6c5d4e3f2a1b0c"
+  },
+  "files": [
+    {
+      "path": "src/repositories/user.repository.ts",
+      "status": "added",
+      "additions": 8,
+      "deletions": 0,
+      "patch": "@@ -0,0 +1,8 @@\n+export interface User {\n+  id: string;\n+  email: string;\n+}\n+\n+export interface UserRepository {\n+  findById(userId: string): Promise<User>;\n+}"
+    },
+    {
+      "path": "src/services/user.service.ts",
+      "status": "added",
+      "additions": 10,
+      "deletions": 0,
+      "patch": "@@ -0,0 +1,10 @@\n+import type { UserRepository } from \"../repositories/user.repository.js\";\n+\n+export class UserService {\n+  constructor(private readonly users: UserRepository) {}\n+\n+  async getEmail(userId: string): Promise<string> {\n+    const user = await this.users.findById(userId);\n+    return user.email;\n+  }\n+}"
+    }
+  ]
+}

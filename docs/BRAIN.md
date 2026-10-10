@@ -1,0 +1,150 @@
+# PR Buddy — Brain
+
+The project's memory: why things are the way they are. Read this before changing a decision, and
+add to it when you make one.
+
+## 1. Principles
+
+1. Reliable and explainable first; AI second; automation last.
+2. A finding never claims more than its evidence supports.
+3. Never invent a file or line. Verify it or drop it.
+4. Never execute code from a reviewed repository.
+5. Everything from outside is untrusted until a schema has parsed it.
+6. Build what the current milestone needs. Record the rest here or in the tracker.
+
+## 2. Decision log
+
+Each entry: the decision, the reason, and what was rejected.
+
+### D-001 — Build the review engine before anything else
+
+**Decision.** Milestone 1 is the engine alone: no GitHub App, database, dashboard or AI.
+**Why.** The engine is the product. It can be finished and tested with fixtures and no accounts.
+**Rejected.** Starting with the dashboard or webhook plumbing.
+
+### D-002 — Monorepo with npm workspaces
+
+**Decision.** One repository; packages under `packages/`, applications under `apps/`.
+**Why.** The API and dashboard will share the engine's types. npm workspaces need no extra tool.
+**Rejected.** Turborepo, Nx and pnpm: useful later, unnecessary for one package.
+
+### D-003 — Only create folders that have content
+
+**Decision.** `apps/api`, `apps/web` and `packages/github-client` are not created yet.
+**Why.** Empty scaffolding misleads readers about what exists.
+
+### D-004 — Zod schemas are the source of truth for types
+
+**Decision.** Data types are inferred with `z.infer`; they are not also written by hand.
+**Why.** One definition cannot drift from itself, and the same schema validates at runtime.
+
+### D-005 — Rules return drafts; the engine stamps identity and severity
+
+**Decision.** A rule returns message, evidence and optional location. The engine adds `ruleId`
+and resolves `severity`.
+**Why.** Less repetition in rules, and a rule cannot report under another rule's ID.
+
+### D-006 — The engine takes a configuration object, not a file
+
+**Decision.** No YAML parsing and no file reading in the engine. The example is JSON.
+**Why.** Keeps the engine free of I/O and of a YAML dependency. YAML parsing has a history of
+unsafe defaults; it belongs in the integration (M2), behind this same schema.
+**Rejected.** Loading `.prbuddy.yml` inside the engine.
+
+### D-007 — Unknown rule IDs in configuration are errors
+
+**Decision.** A setting for an unregistered rule fails engine creation.
+**Why.** A typo such as `max-change-files` would otherwise leave a check silently unconfigured.
+
+### D-008 — An unverifiable location is removed, not the finding
+
+**Decision.** If a file or line cannot be verified against the diff, the engine removes the
+location, keeps the finding and records a diagnostic.
+**Why.** The finding may still be useful in a summary. A wrong inline comment is worse than none.
+
+### D-009 — A failing rule does not fail the review
+
+**Decision.** Rule errors and timeouts are recorded per rule; other rules still report.
+**Why.** One faulty rule should not hide every other finding.
+
+### D-010 — `missing-test-changes` reports a signal with confidence 0.6
+
+**Decision.** The message says no test files changed and that existing tests may cover the change.
+**Why.** A missing test-file change does not prove a missing test.
+
+### D-011 — Own glob matcher instead of picomatch
+
+**Decision.** `utils/glob.ts` implements a small glob dialect (`*`, `?`, `**`, `{a,b}`) with no
+regular expressions and no recursion.
+**Why.** The first implementation used `picomatch`, which compiles a glob to a backtracking
+regular expression. Measured on 2026-10-10 in the development container: the pattern `*a*a*a*b`
+against a file name of 800 letters "a" took 26 seconds, and `*a*a*a*a*b` against 200 letters took
+31 seconds. Patterns come from configuration and paths come from pull requests, and both will be
+attacker-controlled once repository configuration files are read, so one pattern and one file name
+could hang the reviewer. The replacement makes at most pattern-length × path-length comparisons.
+It also leaves `zod` as the only runtime dependency.
+**Cost.** A smaller dialect: no character classes, negation, extglobs or escaping. `[`, `(` and
+`!` are literal, which suits framework paths such as `app/(shop)/[id]/page.tsx`.
+**Rejected.** Keeping picomatch and restricting which patterns are accepted: no restriction short
+of the same small dialect gave a bound that could be stated with confidence.
+
+### D-012 — Tests live in `tests/`, mirroring `src/`
+
+**Decision.** `tests/unit/<module>/…` rather than test files next to source files.
+**Why.** Tests share fixtures and builders, and the build excludes them with one line.
+
+### D-013 — Node.js 22 or newer, ES modules only
+
+**Decision.** `engines.node` is `>=22.12`. No CommonJS build.
+**Why.** Node.js 20 reached end of life in April 2026. A single module format halves the build.
+
+### D-014 — MIT license
+
+**Decision.** MIT.
+**Why.** Maximum adoption for a developer tool. Revisit before a hosted service launches if
+protection against closed forks becomes important.
+
+### D-015 — Develop inside Docker
+
+**Decision.** `compose.yaml` provides a `dev` service; all npm commands run in it.
+**Why.** No Node.js install on the host, the same version for everyone, and `node_modules` stays
+in a Docker volume instead of the working folder.
+
+### D-016 — File paths with backslashes or control characters are rejected
+
+**Decision.** The context schema rejects such paths even though Git permits them.
+**Why.** They are vanishingly rare in real repositories and common in attacks. The integration
+decides whether to skip such a file or the whole review.
+
+## 3. Glossary
+
+| Term       | Meaning                                                                                 |
+| ---------- | --------------------------------------------------------------------------------------- |
+| Context    | The validated description of one pull request given to the engine                       |
+| Rule       | A deterministic check with an ID, version, default severity and options schema          |
+| Draft      | What a rule returns, before the engine validates and stamps it                          |
+| Finding    | A validated, stamped result reported to the caller                                      |
+| Evidence   | The facts a finding is based on, as label and value pairs                               |
+| Diagnostic | A note that the engine rejected or corrected something a rule returned                  |
+| New side   | The lines of a file as they are after the change; the only lines a finding may point at |
+| Hunk       | One contiguous block of changes in a patch, introduced by an `@@` header                |
+
+## 4. Open questions
+
+| #   | Question                                                                               | Needed by                    |
+| --- | -------------------------------------------------------------------------------------- | ---------------------------- |
+| Q1  | Prisma or Drizzle for database access?                                                 | M2                           |
+| Q2  | Is a job queue needed at launch, or is an in-process job abstraction enough?           | M2                           |
+| Q3  | Should findings also be allowed on removed lines (the old side)?                       | M2                           |
+| Q4  | Which static-analysis and secret-scanning tools to integrate rather than re-implement? | M3                           |
+| Q5  | Should third-party rules run in a worker thread with a hard time limit?                | When third-party rules exist |
+
+## 5. Lessons learned
+
+Add an entry whenever something surprising costs time.
+
+| Date       | Lesson                                                                                                                                                                    |
+| ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 2026-10-10 | The project folder is inside OneDrive. Keep `node_modules` out of it (it lives in a Docker volume) so OneDrive does not try to sync tens of thousands of files.           |
+| 2026-10-10 | A well-known library is not automatically safe on hostile input. Measure the worst case of anything that touches pull request content before depending on it (see D-011). |
+| 2026-10-10 | typescript-eslint supports TypeScript below 6.1, so the project uses TypeScript 6 even though 7 is released. Check that peer range before upgrading TypeScript.           |

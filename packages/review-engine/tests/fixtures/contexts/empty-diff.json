@@ -1,0 +1,10 @@
+{
+  "pullRequest": {
+    "number": 104,
+    "title": "Trigger a rebuild",
+    "body": "An empty commit to trigger the deployment pipeline again after the outage; there are no file changes.",
+    "baseSha": "7e6d5c4b3a2f1e0d9c8b7a6f5e4d3c2b1a0f9e8d",
+    "headSha": "2b3c4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a0b1c"
+  },
+  "files": []
+}

@@ -1,0 +1,24 @@
+{
+  "rules": {
+    "pr-description": {
+      "options": {
+        "minLength": 50
+      }
+    },
+    "max-changed-files": {
+      "severity": "high",
+      "options": {
+        "maxFiles": 20,
+        "exclude": ["**/package-lock.json", "**/*.snap"]
+      }
+    },
+    "missing-test-changes": {
+      "enabled": true,
+      "options": {
+        "sourcePatterns": ["src/**/*.{ts,tsx}"],
+        "testPatterns": ["**/*.test.{ts,tsx}", "tests/**"],
+        "ignorePatterns": ["**/*.d.ts", "src/generated/**"]
+      }
+    }
+  }
+}
