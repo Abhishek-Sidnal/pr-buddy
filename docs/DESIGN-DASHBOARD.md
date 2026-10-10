@@ -80,19 +80,23 @@ query is limited to the session's installation IDs **in SQL**, so a row outside 
 selected, whatever ID is asked for. Something that exists but is not visible answers `404`, the
 same as something that does not exist.
 
-| Route                               | Returns                                                        |
-| ----------------------------------- | -------------------------------------------------------------- |
-| `GET /api/me`                       | The signed-in person's login and how many installations        |
-| `GET /api/overview`                 | Totals for the last 30 days and the most recent reviews        |
-| `GET /api/repositories`             | Visible repositories with their latest review                  |
-| `GET /api/repositories/:id/reviews` | Reviews of one repository, newest first, 25 per page           |
-| `GET /api/reviews/:id`              | One review: findings, rule executions and the AI review record |
+| Route                               | Returns                                                            |
+| ----------------------------------- | ------------------------------------------------------------------ |
+| `GET /api/me`                       | The signed-in person's login and how many installations            |
+| `GET /api/overview`                 | Totals for the last 30 days and the most recent reviews            |
+| `GET /api/repositories`             | Visible repositories with their latest review                      |
+| `GET /api/repositories/:id/reviews` | Reviews of one repository, newest first, 25 per page               |
+| `GET /api/reviews`                  | Reviews of every visible repository; `?status=` filters by outcome |
+| `GET /api/reviews/:id`              | One review: findings, rule executions and the AI review record     |
 
 Paging uses a cursor made of the last row's time and ID, so a page never shifts when new reviews
 arrive. IDs in paths and cursors are validated before they reach a query.
 
 The API returns what the database holds and nothing more: no titles, descriptions, patches or AI
 suggestion text exist there to return (D-031, D-046). Findings include file paths.
+
+A review carries `newerReviewId` when a later completed review of the same pull request exists at
+another commit. The dashboard uses it to mark the review as out of date (D-059).
 
 `POST /auth/logout` is the only request that changes anything. The session cookie is
 `SameSite=Lax`, so another site cannot make a browser send it with a `POST`, and the route also
@@ -103,13 +107,15 @@ rejects a request whose `Origin` header is not the dashboard's own.
 `apps/web` is a React application built with Vite. The API serves its built files, so the
 dashboard and its API share one origin: no CORS, and the cookie never crosses sites (D-052).
 
-| Page         | Path                 | Shows                                                          |
-| ------------ | -------------------- | -------------------------------------------------------------- |
-| Sign-in      | any, when signed out | One button                                                     |
-| Overview     | `/`                  | Reviews, findings and failures in 30 days; recent reviews      |
-| Repositories | `/repositories`      | Each visible repository and its latest review                  |
-| Repository   | `/repositories/:id`  | That repository's reviews, with paging                         |
-| Review       | `/reviews/:id`       | Outcome, findings with evidence, rules that ran, the AI record |
+| Page         | Path                 | Shows                                                            |
+| ------------ | -------------------- | ---------------------------------------------------------------- |
+| Sign-in      | any, when signed out | What GitHub will share, and one button                           |
+| Overview     | `/`                  | Reviews, findings and failures in 30 days; recent reviews        |
+| Repositories | `/repositories`      | Each visible repository and its latest review                    |
+| Repository   | `/repositories/:id`  | That repository's reviews, with paging                           |
+| Review       | `/reviews/:id`       | Outcome, counts by severity, findings list and detail, AI record |
+| History      | `/history`           | Every visible review, filtered by outcome through the address    |
+| Settings     | `/settings`          | Theme, the session, where configuration lives, what is stored    |
 
 - No secrets reach the browser. The application knows only what the read API returns.
 - Everything from the API is rendered as text by React. Nothing is inserted as HTML.
@@ -117,7 +123,11 @@ dashboard and its API share one origin: no CORS, and the cookie never crosses si
   against a strict pattern; a value that does not match gets no link.
 - Responses carry a Content-Security-Policy that allows scripts, styles and requests from the
   dashboard's own origin only, forbids framing, and has no inline-script allowance.
-- No component library and no analytics. Runtime dependencies: React and React Router (D-055).
+- No component library and no analytics. Runtime dependencies: React, React Router, Zod and the
+  bundled IBM Plex fonts (D-055). Every API answer is parsed with a Zod schema before it is shown.
+- Its look, components and states follow [DESIGN-SYSTEM.md](DESIGN-SYSTEM.md): Graphite / Signal
+  Lime, light and dark themes, a sidebar that becomes a row of links on small screens.
+- The theme choice is kept in the browser's local storage. Nothing else is stored in the browser.
 
 ## 7. Configuration
 

@@ -7,6 +7,8 @@ import {
   REVIEW_PAGE_SIZE,
   type HistoryStore,
   type RepositoryRef,
+  type ReviewCursor,
+  type ReviewListing,
   type ReviewStatus,
   type ReviewSummary,
   type StoredAiReview,
@@ -84,6 +86,46 @@ export function createPostgresHistoryStore(database: Queryable): HistoryStore {
     );
     const row = result.rows[0];
     return row === undefined ? undefined : { id: Number(row.id), owner: row.owner, name: row.name };
+  }
+
+  /**
+   * One page of reviews, newest first. The statement is fixed text: a filter that is not wanted
+   * is passed as NULL and switches itself off.
+   */
+  async function selectPage(
+    installations: string,
+    filter: {
+      readonly repositoryId?: number | undefined;
+      readonly status?: ReviewStatus | undefined;
+      readonly cursor?: ReviewCursor | undefined;
+    },
+  ): Promise<ReviewListing> {
+    // One more than a page is read, to learn whether another page follows.
+    const result = await database.query<ReviewRow>(
+      `${SELECT_REVIEWS}
+         AND ($2::bigint IS NULL OR r.repository_id = $2::bigint)
+         AND ($3::text IS NULL OR r.status = $3::text)
+         AND ($4::timestamptz IS NULL OR (r.started_at, r.id) < ($4::timestamptz, $5::uuid))
+       ORDER BY r.started_at DESC, r.id DESC
+       LIMIT $6`,
+      [
+        installations,
+        filter.repositoryId ?? null,
+        filter.status ?? null,
+        filter.cursor?.startedAt ?? null,
+        filter.cursor?.id ?? null,
+        REVIEW_PAGE_SIZE + 1,
+      ],
+    );
+    const page = result.rows.slice(0, REVIEW_PAGE_SIZE);
+    const last = page.at(-1);
+    return {
+      reviews: page.map(toSummary),
+      nextCursor:
+        result.rows.length > REVIEW_PAGE_SIZE && last !== undefined
+          ? { startedAt: last.started_at, id: last.id }
+          : null,
+    };
   }
 
   return {
@@ -170,31 +212,11 @@ export function createPostgresHistoryStore(database: Queryable): HistoryStore {
       if (repository === undefined) {
         return undefined;
       }
-      // One more than a page is read, to learn whether another page follows.
-      const limit = REVIEW_PAGE_SIZE + 1;
-      const result =
-        cursor === undefined
-          ? await database.query<ReviewRow>(
-              `${SELECT_REVIEWS} AND r.repository_id = $2
-               ORDER BY r.started_at DESC, r.id DESC LIMIT $3`,
-              [installations, repositoryId, limit],
-            )
-          : await database.query<ReviewRow>(
-              `${SELECT_REVIEWS} AND r.repository_id = $2
-                 AND (r.started_at, r.id) < ($4::timestamptz, $5::uuid)
-               ORDER BY r.started_at DESC, r.id DESC LIMIT $3`,
-              [installations, repositoryId, limit, cursor.startedAt, cursor.id],
-            );
-      const page = result.rows.slice(0, REVIEW_PAGE_SIZE);
-      const last = page.at(-1);
-      return {
-        repository,
-        reviews: page.map(toSummary),
-        nextCursor:
-          result.rows.length > REVIEW_PAGE_SIZE && last !== undefined
-            ? { startedAt: last.started_at, id: last.id }
-            : null,
-      };
+      return { repository, ...(await selectPage(installations, { repositoryId, cursor })) };
+    },
+
+    listAllReviews(installationIds, filter = {}) {
+      return selectPage(toBigintArrayLiteral(installationIds), filter);
     },
 
     async getReview(installationIds, reviewId) {
@@ -206,6 +228,18 @@ export function createPostgresHistoryStore(database: Queryable): HistoryStore {
       if (row === undefined) {
         return undefined;
       }
+
+      // A later review of the same pull request at another commit makes this one out of date.
+      const newer = await database.query<{ id: string }>(
+        `SELECT id FROM reviews
+         WHERE repository_id = $1 AND pull_request_number = $2
+           AND status = 'completed'
+           AND started_at > $3
+           AND head_sha IS DISTINCT FROM $4
+         ORDER BY started_at DESC, id DESC
+         LIMIT 1`,
+        [Number(row.repository_id), row.pull_request_number, row.started_at, row.head_sha],
+      );
 
       // The review is visible, so its details are too: they hang off its ID alone.
       const findings = await database.query<{
@@ -299,6 +333,7 @@ export function createPostgresHistoryStore(database: Queryable): HistoryStore {
           durationMs: rule.duration_ms,
         })),
         aiReview,
+        newerReviewId: newer.rows[0]?.id ?? null,
       };
     },
   };

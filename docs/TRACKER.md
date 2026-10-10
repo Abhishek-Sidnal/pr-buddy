@@ -13,6 +13,42 @@ Legend: ✅ done · 🚧 in progress · ⬜ not started
 | M3        | Storage, rules and thresholds, AI review, dashboard | 🚧 a real AI provider is left |
 | M4        | Hardening and `v0.1.0`                              | ⬜                            |
 
+## Milestone 3, part 4 — the dashboard
+
+Design: [DESIGN-DASHBOARD.md](DESIGN-DASHBOARD.md) and [DESIGN-SYSTEM.md](DESIGN-SYSTEM.md).
+Visual direction: [ADR 0001](ADR/0001-visual-direction.md).
+
+| Task                                                            | Requirement           | Status |
+| --------------------------------------------------------------- | --------------------- | ------ |
+| Requirements, design and decisions D-049 to D-059               | —                     | ✅     |
+| Sign-in with GitHub, protected by a state value                 | FR-70, NFR-71, NFR-73 | ✅     |
+| Sessions in PostgreSQL, stored as a hash, 8 hours               | NFR-72                | ✅     |
+| Read API limited in SQL to the session's installations          | FR-71, NFR-70         | ✅     |
+| Review history across repositories, filtered by outcome         | FR-73                 | ✅     |
+| Web application served by the API under a strict CSP            | FR-77, NFR-76         | ✅     |
+| Design system: tokens, light and dark themes, shared components | —                     | ✅     |
+| Shell, overview, repositories, history, review detail, settings | FR-72 to FR-76        | ✅     |
+| Out-of-date marker on a review that has been superseded         | —                     | ✅     |
+| Dashboard off unless fully configured                           | NFR-75                | ✅     |
+| Sign-in against real GitHub                                     | FR-70                 | ⬜     |
+
+### Acceptance
+
+| Check                        | Result                                                                                                                                                                             |
+| ---------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `npm run check`              | Passed: 1,279 tests (engine 474, AI reviewer 93, GitHub client 236, API 356, web 120)                                                                                              |
+| Tenant isolation             | Passed: two tenants in one database; every route tried with the other tenant's IDs answers `404`, the same as a missing ID                                                         |
+| Production image             | Passed: migration `0004` applied at start-up; the page is served with the Content-Security-Policy and no inline script; fonts load from the same origin                            |
+| Browser, real stored reviews | Passed with a session row created by hand in the development database: all six routes in the dark and light themes; no console CSP errors                                          |
+| Narrow screens               | Passed at 375 px on every route in both themes: no horizontal overflow, no text below 12 px                                                                                        |
+| Deep links                   | Passed: `?finding=2` restores the selected finding; `?status=` restores the history filter                                                                                         |
+| Sign-in against real GitHub  | **Not done.** It needs a client secret generated in the app's settings and a callback URL added there, which only the maintainer can do. The flow is covered against a fake GitHub |
+| Keyboard and screen reader   | Checked in tests by role and accessible name; not walked through by hand with a screen reader                                                                                      |
+
+Left out on purpose, with reasons, in [DESIGN-SYSTEM.md](DESIGN-SYSTEM.md) section 6: the pull
+request queue, titles and authors, diffs, AI suggestion text, "re-run review", editable rules and
+settings.
+
 ## Milestone 3, part 3 — the AI reviewer
 
 Design: [DESIGN-AI.md](DESIGN-AI.md). Built without a real provider: the choice of service is open
@@ -226,3 +262,4 @@ Complete. Engine, three rules, 348 tests at 100% coverage. Details are in the ch
 | 2026-10-10 | Milestone 3 started: PostgreSQL storage for review history and webhook deliveries                                 |
 | 2026-10-10 | Four rules, reporting thresholds and reconciled line comments; verified live                                      |
 | 2026-10-10 | AI reviewer package, repository switch, comment section and storage; no real provider yet                         |
+| 2026-10-10 | Dashboard: sign-in with GitHub, sessions, read API, React app in the Graphite / Signal Lime design system         |

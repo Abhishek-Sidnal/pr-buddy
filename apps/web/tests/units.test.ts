@@ -8,6 +8,7 @@ import {
   shortCommit,
 } from "../src/format.js";
 import { commitUrl, pullRequestUrl, repositoryUrl } from "../src/github-links.js";
+import { applyTheme, readThemePreference, saveThemePreference } from "../src/theme.js";
 import { fakeApi, HEAD_SHA, ME, OVERVIEW } from "./helpers.js";
 
 const REPOSITORY = { id: 1, owner: "acme", name: "widgets" };
@@ -174,5 +175,70 @@ describe("the API client", () => {
     await api.signOut();
 
     expect(requests).toEqual(["POST /auth/logout"]);
+  });
+});
+
+describe("the history listing", () => {
+  it("asks for all reviews, or for one outcome and one page", async () => {
+    const { requests } = fakeApi({ "/api/reviews": { reviews: [], nextCursor: null } });
+
+    await api.allReviews({});
+    await api.allReviews({ status: "failed" });
+    await api.allReviews({ status: "skipped", cursor: "2026-10-10T10:00:00.000Z~a&b" });
+
+    expect(requests).toEqual([
+      "GET /api/reviews",
+      "GET /api/reviews?status=failed",
+      "GET /api/reviews?status=skipped&cursor=2026-10-10T10%3A00%3A00.000Z%7Ea%26b",
+    ]);
+  });
+});
+
+describe("the theme preference", () => {
+  afterEach(() => {
+    // First, so that the real storage is back before it is cleared.
+    vi.unstubAllGlobals();
+    window.localStorage.clear();
+    document.documentElement.removeAttribute("data-theme");
+  });
+
+  it("is system until one is chosen", () => {
+    expect(readThemePreference()).toBe("system");
+  });
+
+  it("is remembered and applied to the page", () => {
+    saveThemePreference("dark");
+
+    expect(readThemePreference()).toBe("dark");
+    expect(document.documentElement.getAttribute("data-theme")).toBe("dark");
+  });
+
+  it("removes the attribute for system, so the style sheet follows the device", () => {
+    applyTheme("light");
+    applyTheme("system");
+
+    expect(document.documentElement.hasAttribute("data-theme")).toBe(false);
+  });
+
+  it("ignores a stored value that is not a theme", () => {
+    window.localStorage.setItem("prbuddy.theme", "<script>");
+
+    expect(readThemePreference()).toBe("system");
+  });
+
+  it("still applies a theme when the browser refuses storage", () => {
+    vi.stubGlobal("localStorage", {
+      getItem: () => {
+        throw new Error("denied");
+      },
+      setItem: () => {
+        throw new Error("denied");
+      },
+    });
+
+    saveThemePreference("light");
+
+    expect(document.documentElement.getAttribute("data-theme")).toBe("light");
+    expect(readThemePreference()).toBe("system");
   });
 });

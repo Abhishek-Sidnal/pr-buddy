@@ -16,7 +16,7 @@ import { createPostgresReviewStore } from "../../src/modules/reviews/postgres-re
 import { createReviewQueue } from "../../src/modules/reviews/review-queue.js";
 import type { ReviewRecord } from "../../src/modules/reviews/review-store.js";
 import { createReviewService } from "../../src/modules/reviews/review.service.js";
-import { BASE_SHA, FakeGitHub, HEAD_SHA } from "../helpers/fake-github.js";
+import { BASE_SHA, FakeGitHub, HEAD_SHA, NEWER_HEAD_SHA } from "../helpers/fake-github.js";
 import { createRecordingLogger, type RecordingLogger } from "../helpers/recording-logger.js";
 import { createTestDatabase, type TestDatabase } from "../helpers/test-database.js";
 
@@ -594,6 +594,87 @@ describe("the read API", () => {
     expect(response.body).toEqual({ error: "invalid_cursor" });
   });
 
+  describe("the history of every visible repository", () => {
+    interface Listing {
+      reviews: { id: string; status: string; repository: { owner: string } }[];
+      nextCursor: string | null;
+    }
+
+    it("lists reviews newest first and never another tenant's", async () => {
+      const body = (await get("/api/reviews")).body as Listing;
+
+      expect(body.reviews.map(({ id }) => id)).toEqual(await reviewIdsOf(OURS.repositoryId));
+      expect(body.nextCursor).toBeNull();
+      expect(JSON.stringify(body)).not.toContain("rival");
+    });
+
+    it("filters by outcome", async () => {
+      await seedReview(OURS, { outcome: { status: "skipped", reason: "draft" } });
+      await seedReview(OURS, { outcome: { status: "failed", errorName: "HttpError" } });
+
+      const statuses = async (status: string): Promise<string[]> =>
+        ((await get("/api/reviews").query({ status })).body as Listing).reviews.map(
+          (review) => review.status,
+        );
+
+      expect(await statuses("failed")).toEqual(["failed"]);
+      expect(await statuses("skipped")).toEqual(["skipped"]);
+      expect(await statuses("completed")).toEqual(["completed", "completed"]);
+    });
+
+    it("pages through a filtered list", async () => {
+      for (let index = 0; index < 26; index += 1) {
+        await seedReview(OURS, { outcome: { status: "skipped", reason: "draft" } });
+      }
+
+      const first = (await get("/api/reviews").query({ status: "skipped" })).body as Listing;
+      const second = (
+        await get("/api/reviews").query({ status: "skipped", cursor: first.nextCursor ?? "" })
+      ).body as Listing;
+
+      expect(first.reviews).toHaveLength(25);
+      expect(second.reviews).toHaveLength(1);
+      expect(second.nextCursor).toBeNull();
+      expect(new Set([...first.reviews, ...second.reviews].map(({ id }) => id)).size).toBe(26);
+    });
+
+    it.each([
+      [{ status: "done" }, "invalid_status"],
+      [{ status: "' OR 1=1 --" }, "invalid_status"],
+      [{ status: ["failed", "skipped"] }, "invalid_status"],
+      [{ cursor: "nonsense" }, "invalid_cursor"],
+    ])("rejects the query %o", async (query, error) => {
+      const response = await get("/api/reviews").query(query);
+
+      expect(response.status).toBe(400);
+      expect(response.body).toEqual({ error });
+    });
+
+    it("needs a session", async () => {
+      expect((await request(app).get("/api/reviews")).status).toBe(401);
+    });
+  });
+
+  it("points from an older review to the latest one of the same pull request", async () => {
+    await seedReview(OURS, { headSha: NEWER_HEAD_SHA });
+    await seedReview(THEIRS, { headSha: NEWER_HEAD_SHA });
+    const [latest, , oldest] = await reviewIdsOf(OURS.repositoryId);
+
+    const older = (await get(`/api/reviews/${oldest ?? ""}`)).body as { newerReviewId: unknown };
+    const newest = (await get(`/api/reviews/${latest ?? ""}`)).body as { newerReviewId: unknown };
+
+    expect(older.newerReviewId).toBe(latest);
+    expect(newest.newerReviewId).toBeNull();
+  });
+
+  it("does not call a review out of date when the same commit was reviewed again", async () => {
+    const [, oldest] = await reviewIdsOf(OURS.repositoryId);
+
+    const body = (await get(`/api/reviews/${oldest ?? ""}`)).body as { newerReviewId: unknown };
+
+    expect(body.newerReviewId).toBeNull();
+  });
+
   it("shows one review with its findings and the rules that ran", async () => {
     const [reviewId] = await reviewIdsOf(OURS.repositoryId);
 
@@ -613,6 +694,7 @@ describe("the read API", () => {
       errorName: null,
       errorStatus: null,
       aiReview: null,
+      newerReviewId: null,
     });
     expect(body.findings.map(({ ruleId }) => ruleId).sort()).toEqual([
       "missing-test-changes",

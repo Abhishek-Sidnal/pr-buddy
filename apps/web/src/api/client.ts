@@ -4,12 +4,15 @@ import {
   overviewSchema,
   repositoryListSchema,
   reviewDetailsSchema,
+  reviewListingSchema,
   reviewPageSchema,
   type Me,
   type Overview,
   type RepositoryList,
   type ReviewDetails,
+  type ReviewListing,
   type ReviewPage,
+  type ReviewStatus,
 } from "./schemas.js";
 
 export type ApiErrorKind = "unauthenticated" | "not-found" | "failed";
@@ -91,6 +94,22 @@ export const api = {
       reviewPageSchema,
       signal,
     );
+  },
+
+  /** Reviews of every visible repository, optionally with one outcome only. */
+  allReviews: (
+    filter: { readonly status?: ReviewStatus | undefined; readonly cursor?: string | undefined },
+    signal?: AbortSignal,
+  ): Promise<ReviewListing> => {
+    const query = new URLSearchParams();
+    if (filter.status !== undefined) {
+      query.set("status", filter.status);
+    }
+    if (filter.cursor !== undefined) {
+      query.set("cursor", filter.cursor);
+    }
+    const suffix = query.size === 0 ? "" : `?${query.toString()}`;
+    return getJson(`/api/reviews${suffix}`, reviewListingSchema, signal);
   },
 
   review: (reviewId: string, signal?: AbortSignal): Promise<ReviewDetails> =>

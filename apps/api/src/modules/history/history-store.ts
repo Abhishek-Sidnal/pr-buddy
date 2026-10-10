@@ -73,6 +73,22 @@ export interface ReviewDetails extends ReviewSummary {
   readonly findings: readonly StoredFinding[];
   readonly rules: readonly StoredRuleExecution[];
   readonly aiReview: StoredAiReview | null;
+  /**
+   * The latest review of the same pull request at another commit, when there is one: this
+   * review then describes code that has since changed.
+   */
+  readonly newerReviewId: string | null;
+}
+
+/** One page of reviews, newest first. */
+export interface ReviewListing {
+  readonly reviews: readonly ReviewSummary[];
+  /** `null` on the last page. */
+  readonly nextCursor: ReviewCursor | null;
+}
+
+export interface ReviewPage extends ReviewListing {
+  readonly repository: RepositoryRef;
 }
 
 export interface RepositorySummary extends RepositoryRef {
@@ -100,13 +116,6 @@ export interface ReviewCursor {
   readonly id: string;
 }
 
-export interface ReviewPage {
-  readonly repository: RepositoryRef;
-  readonly reviews: readonly ReviewSummary[];
-  /** `null` on the last page. */
-  readonly nextCursor: ReviewCursor | null;
-}
-
 /**
  * Reads review history. Every method takes the installations the caller may see and can return
  * nothing outside them; what is hidden is indistinguishable from what does not exist.
@@ -120,6 +129,14 @@ export interface HistoryStore {
     repositoryId: number,
     cursor?: ReviewCursor,
   ): Promise<ReviewPage | undefined>;
+  /** Reviews of every visible repository, optionally with one outcome only. */
+  listAllReviews(
+    installationIds: readonly number[],
+    filter?: {
+      readonly status?: ReviewStatus | undefined;
+      readonly cursor?: ReviewCursor | undefined;
+    },
+  ): Promise<ReviewListing>;
   /** `undefined` when the review is not visible. */
   getReview(
     installationIds: readonly number[],

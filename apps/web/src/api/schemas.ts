@@ -73,6 +73,7 @@ export const reviewDetailsSchema = reviewSummarySchema.extend({
   findings: z.array(findingSchema),
   rules: z.array(ruleExecutionSchema),
   aiReview: aiReviewSchema.nullable(),
+  newerReviewId: z.string().nullable(),
 });
 
 export const meSchema = z.object({
@@ -102,11 +103,12 @@ export const repositoryListSchema = z.object({
   ),
 });
 
-export const reviewPageSchema = z.object({
-  repository: repositoryRefSchema,
+export const reviewListingSchema = z.object({
   reviews: z.array(reviewSummarySchema),
   nextCursor: z.string().nullable(),
 });
+
+export const reviewPageSchema = reviewListingSchema.extend({ repository: repositoryRefSchema });
 
 export type ReviewStatus = z.infer<typeof reviewStatusSchema>;
 export type RepositoryRef = z.infer<typeof repositoryRefSchema>;
@@ -118,4 +120,5 @@ export type ReviewDetails = z.infer<typeof reviewDetailsSchema>;
 export type Me = z.infer<typeof meSchema>;
 export type Overview = z.infer<typeof overviewSchema>;
 export type RepositoryList = z.infer<typeof repositoryListSchema>;
+export type ReviewListing = z.infer<typeof reviewListingSchema>;
 export type ReviewPage = z.infer<typeof reviewPageSchema>;

@@ -2,10 +2,12 @@ import { render, type RenderResult } from "@testing-library/react";
 import { MemoryRouter } from "react-router";
 import { vi } from "vitest";
 import type {
+  Finding,
   Me,
   Overview,
   RepositoryList,
   ReviewDetails,
+  ReviewListing,
   ReviewPage,
   ReviewSummary,
 } from "../src/api/schemas.js";
@@ -37,6 +39,17 @@ export function buildSummary(overrides: Partial<ReviewSummary> = {}): ReviewSumm
   };
 }
 
+export const FINDING: Finding = {
+  ruleId: "debug-statements",
+  severity: "low",
+  confidence: 0.9,
+  message: "A debugging statement was added.",
+  filePath: "src/service.ts",
+  line: 12,
+  suggestion: "Remove it before merging.",
+  evidence: [{ label: "Statement", value: "console.log" }],
+};
+
 export function buildDetails(overrides: Partial<ReviewDetails> = {}): ReviewDetails {
   return {
     ...buildSummary(),
@@ -46,18 +59,7 @@ export function buildDetails(overrides: Partial<ReviewDetails> = {}): ReviewDeta
     omittedPatchCount: 0,
     errorName: null,
     errorStatus: null,
-    findings: [
-      {
-        ruleId: "debug-statements",
-        severity: "low",
-        confidence: 0.9,
-        message: "A debugging statement was added.",
-        filePath: "src/service.ts",
-        line: 12,
-        suggestion: "Remove it before merging.",
-        evidence: [{ label: "Statement", value: "console.log" }],
-      },
-    ],
+    findings: [FINDING],
     rules: [
       {
         ruleId: "debug-statements",
@@ -68,6 +70,7 @@ export function buildDetails(overrides: Partial<ReviewDetails> = {}): ReviewDeta
       },
     ],
     aiReview: null,
+    newerReviewId: null,
     ...overrides,
   };
 }
@@ -95,6 +98,8 @@ export const REPOSITORIES: RepositoryList = {
     },
   ],
 };
+
+export const HISTORY: ReviewListing = { reviews: [buildSummary()], nextCursor: null };
 
 export const FIRST_PAGE: ReviewPage = {
   repository: { id: 2002, owner: "acme", name: "widgets" },

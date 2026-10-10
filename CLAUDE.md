@@ -6,10 +6,10 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 PR Buddy is an open-source GitHub App that reviews pull requests with deterministic rules and
 keeps one summary comment on each pull request up to date. It never merges or changes code.
-Milestones 1 (review engine) and 2 (GitHub App) are built, and so are three parts of Milestone 3:
-PostgreSQL storage for review history, more rules with thresholds and line comments, and an
-optional AI reviewer that has no real provider yet. There is no dashboard or sign-in. Current
-status is in `docs/TRACKER.md`.
+Milestones 1 (review engine) and 2 (GitHub App) are built, and so are four parts of Milestone 3:
+PostgreSQL storage for review history, more rules with thresholds and line comments, an optional
+AI reviewer that has no real provider yet, and a dashboard (sign-in with GitHub, a read-only API
+and the React app in `apps/web`). Current status is in `docs/TRACKER.md`.
 
 ## Commands
 
@@ -33,7 +33,7 @@ docker compose run --rm dev npm test -w @pr-buddy/api -- tests/unit/review.servi
 ```
 
 Workspace names: `@pr-buddy/review-engine`, `@pr-buddy/ai-reviewer`, `@pr-buddy/github-client`,
-`@pr-buddy/api`.
+`@pr-buddy/api`, `@pr-buddy/web`.
 
 Run the API itself (needs `.env`, see `docs/GITHUB_APP.md`):
 
@@ -58,7 +58,8 @@ Things that will trip you up:
 
 ## Architecture
 
-Four workspaces with one-way dependencies:
+Five workspaces with one-way dependencies. `apps/web` depends on none of the others: it talks to
+the API over HTTP and is served by it as static files.
 
 ```
 apps/api ──► packages/github-client ──► packages/review-engine
@@ -76,6 +77,11 @@ apps/api ──► packages/github-client ──► packages/review-engine
   the prompt, asks an `AiProvider` once with a time limit, and keeps only suggestions it can
   verify against the files it sent. It never throws for a provider problem; it returns a status.
   Tests use `createScriptedProvider`. No real provider exists yet.
+- **`apps/web`** is the dashboard: React, React Router and plain CSS driven by the tokens in
+  `src/styles/tokens.css`. Shared components are in `src/components/`; reuse them. The rules are
+  in `docs/DESIGN-SYSTEM.md`. It is tested with Testing Library against a fake `fetch`.
+- In **`api`**, `modules/auth` holds sign-in and sessions, `modules/history` the read API, and
+  `modules/web` serves the built dashboard. All three exist only when the dashboard is configured.
 - **`github-client`** is the only package that knows GitHub: signature verification, event
   parsing, the `RepositoryClient` interface and its Octokit implementation, mapping GitHub files
   to engine input, and rendering and publishing the summary comment.
@@ -92,7 +98,7 @@ or updates the comment.
 
 ## Invariants
 
-These are design decisions with reasons recorded in `docs/BRAIN.md` (D-001 to D-048). Read the
+These are design decisions with reasons recorded in `docs/BRAIN.md` (D-001 to D-059). Read the
 relevant entry before changing one.
 
 - A webhook body is only a trigger. What gets reviewed is fetched from the API.
@@ -115,6 +121,14 @@ relevant entry before changing one.
   whole (D-043, D-044). Suggestions go in the summary only, never as line comments (D-045).
 - Never log or store prompt text, reply text, suggestion text or a provider's error message; the
   error's name only (D-046, D-048). An AI failure must not fail a review.
+- Every dashboard query is limited **in SQL** to the installations of the session, and a hidden
+  row answers `404` like a missing one (D-054). New read methods take `installationIds` first.
+- No GitHub user token is stored, logged or sent to the browser; session tokens are stored only
+  as a SHA-256 (D-049, D-051). The dashboard is read-only (D-056).
+- The dashboard shows only what the service can back: no sample data, no control that does
+  nothing (D-058). Web code uses design tokens, never raw colours; every API answer is parsed
+  with a Zod schema; stored text is rendered as text; GitHub links go through
+  `apps/web/src/github-links.ts`.
 - Text a contributor can choose (file names, config keys) is published as inline code or escaped;
   see `github-client/src/output/markdown.ts`.
 - Never log pull request titles, bodies, file names, patches, tokens or secrets. Tests assert this
@@ -145,14 +159,15 @@ relevant entry before changing one.
 
 The maintainer wants design documents written before code and kept current. In the same change:
 
-| When you…                        | Update                                                    |
-| -------------------------------- | --------------------------------------------------------- |
-| Start or finish a task           | `docs/TRACKER.md`                                         |
-| Make a design decision           | `docs/BRAIN.md` (next `D-0xx` entry)                      |
-| Add a threat or a control        | `docs/SECURITY.md`                                        |
-| Change a contract, limit or flow | `docs/DESIGN.md`, `-GITHUB.md`, `-STORAGE.md` or `-AI.md` |
-| Add or move a module             | `docs/ARCHITECTURE.md`                                    |
-| Change a rule                    | `docs/RULES.md`                                           |
+| When you…                        | Update                                                       |
+| -------------------------------- | ------------------------------------------------------------ |
+| Start or finish a task           | `docs/TRACKER.md`                                            |
+| Make a design decision           | `docs/BRAIN.md` (next `D-0xx` entry)                         |
+| Add a threat or a control        | `docs/SECURITY.md`                                           |
+| Change a contract, limit or flow | `docs/DESIGN.md`, `-GITHUB`, `-STORAGE`, `-AI`, `-DASHBOARD` |
+| Change how the dashboard looks   | `docs/DESIGN-SYSTEM.md`                                      |
+| Add or move a module             | `docs/ARCHITECTURE.md`                                       |
+| Change a rule                    | `docs/RULES.md`                                              |
 
 `docs/CONTEXT.md` is the orientation page; `CONTRIBUTING.md` has the full coding rules.
 

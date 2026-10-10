@@ -12,6 +12,7 @@ const repositoryIdSchema = z
   .regex(/^[1-9]\d{0,15}$/)
   .transform(Number);
 const reviewIdSchema = z.uuid();
+const statusSchema = z.enum(["completed", "skipped", "failed"]);
 
 /**
  * A cursor is the time and ID of the last review on the previous page, joined by `~`. It comes
@@ -84,6 +85,28 @@ export function createHistoryRouter(historyStore: HistoryStore): Router {
       notFound(response);
       return;
     }
+    response.json({ ...page, nextCursor: encodeCursor(page.nextCursor) });
+  });
+
+  router.get("/reviews", async (request, response) => {
+    const rawStatus = request.query["status"];
+    const status = rawStatus === undefined ? undefined : statusSchema.safeParse(rawStatus);
+    if (status !== undefined && !status.success) {
+      response.status(BAD_REQUEST).json({ error: "invalid_status" });
+      return;
+    }
+    const rawCursor = request.query["cursor"];
+    const cursor = rawCursor === undefined ? undefined : cursorSchema.safeParse(rawCursor);
+    if (cursor !== undefined && !cursor.success) {
+      response.status(BAD_REQUEST).json({ error: "invalid_cursor" });
+      return;
+    }
+
+    const { installationIds } = sessionOf(response.locals);
+    const page = await historyStore.listAllReviews(installationIds, {
+      status: status?.data,
+      cursor: cursor?.data,
+    });
     response.json({ ...page, nextCursor: encodeCursor(page.nextCursor) });
   });
 

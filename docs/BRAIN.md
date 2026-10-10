@@ -415,8 +415,8 @@ later caller of the same function.
 
 ### D-055 — React and Vite, with no component library
 
-**Decision.** Runtime dependencies of the web app are React and React Router. Styles are plain
-CSS.
+**Decision.** Runtime dependencies of the web app are React, React Router, Zod (to check every
+API answer) and the two bundled IBM Plex fonts. Styles are plain CSS driven by tokens.
 **Why.** Four read-only pages do not need more, and every dependency in the browser is code that
 runs with the user's session.
 
@@ -425,6 +425,30 @@ runs with the user's session.
 **Decision.** It shows history. Repository settings stay in `.github/pr-buddy.json`.
 **Why.** That file is reviewed like code and read at the base commit (D-020). A second place to
 change settings would need its own permissions and would bypass both.
+
+### D-057 — Visual direction: Graphite / Signal Lime
+
+**Decision.** The maintainer chose Palette A of the UI blueprint, with IBM Plex Sans and Mono, in
+a dark and a light theme. Recorded in [ADR 0001](ADR/0001-visual-direction.md); the rules are in
+[DESIGN-SYSTEM.md](DESIGN-SYSTEM.md).
+**Why.** Distinctive in a screenshot, high-contrast and quiet. Colours are semantic tokens in one
+file, so the palette can change without touching components.
+
+### D-058 — The dashboard shows only what the service can back
+
+**Decision.** Blueprint items without data behind them are left out, not mocked: the pull request
+queue, titles and authors, diffs, the text of AI suggestions, "re-run review", and editable rules
+or settings. The gaps are listed in DESIGN-SYSTEM.md, section 6.
+**Why.** A control that does nothing, or sample data in a production screen, misleads. Most of
+these are absent because of earlier decisions about what is stored (D-031, D-046, D-056).
+
+### D-059 — A review is marked out of date from stored history, not from GitHub
+
+**Decision.** A review page shows a notice when a later completed review of the same pull request
+exists at another commit, and links to it.
+**Why.** The dashboard holds no GitHub token (D-049), so it cannot ask what the head commit is
+now. The stored history answers the question that matters: has this been superseded?
+**Cost.** A push that was never reviewed, for example to a draft, is not noticed.
 
 ## 3. Glossary
 

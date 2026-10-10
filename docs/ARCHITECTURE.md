@@ -29,15 +29,20 @@ AI reviewer ── optional: prompt → provider → verify suggestions         
 Summary comment ── rendered and published by the GitHub client           packages/github-client
 ```
 
-Planned and not in the repository: reading history over HTTP with sign-in, the dashboard, and a
-real AI provider (all M3). The AI reviewer is built and inert until a provider is added.
+A second path serves people: sign-in with GitHub, then a read-only API and the dashboard
+(`apps/web`), all from the same origin. It exists only when it is configured;
+see [DESIGN-DASHBOARD.md](DESIGN-DASHBOARD.md).
+
+Planned and not in the repository: a real AI provider. The AI reviewer is built and inert until
+one is added.
 
 ## 2. Repository layout
 
 ```
 pr-buddy/
 ├── apps/
-│   └── api/                  HTTP service: webhooks, queue, review orchestration
+│   ├── api/                  HTTP service: webhooks, reviews, sign-in, read API
+│   └── web/                  The dashboard: a React application the API serves
 ├── packages/
 │   ├── review-engine/        Deterministic review engine
 │   ├── ai-reviewer/          Optional AI review: prompt, provider interface, output checks
@@ -51,10 +56,6 @@ pr-buddy/
 ├── tsconfig.base.json        Compiler settings shared by every package
 └── package.json              npm workspaces root and repository scripts
 ```
-
-| Planned path | Purpose         | Milestone |
-| ------------ | --------------- | --------- |
-| `apps/web/`  | React dashboard | M3        |
 
 ## 3. Package dependencies
 
@@ -108,7 +109,8 @@ packages/github-client/src/
 ├── webhook/          Signature verification; pull request event parsing
 ├── api/              RepositoryClient interface; its Octokit implementation; retry
 ├── mapping/          GitHub pull request data → review engine input
-└── output/           Summary and line comments as safe Markdown; publishing and reconciling
+├── output/           Summary and line comments as safe Markdown; publishing and reconciling
+└── oauth/            Sign-in: code exchange, identity and accessible installations
 ```
 
 `RepositoryClient` is the boundary. It lists the six GitHub operations PR Buddy needs. The API
@@ -142,7 +144,10 @@ apps/api/src/
 ├── database/         Connection pool, transactions, migration runner
 └── modules/
     ├── github/       Webhook endpoint; delivery store, in memory and in PostgreSQL
-    └── reviews/      Review queue; review service; review store
+    ├── reviews/      Review queue; review service; review store
+    ├── auth/         Sign-in with GitHub; session store and cookie
+    ├── history/      Read API over stored reviews, limited to the session
+    └── web/          Serves the built dashboard with its security headers
 apps/api/migrations/  SQL files that create and upgrade the schema
 ```
 

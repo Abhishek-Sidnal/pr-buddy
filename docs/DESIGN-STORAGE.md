@@ -43,6 +43,7 @@ schema_migrations
 | `rule_executions`    | rule in a completed review          | `review_id`, `rule_id`, `rule_version`, `status`                              |
 | `ai_reviews`         | review in which a model was asked   | `review_id`, `provider`, `model`, `status`, counts, token usage, duration     |
 | `webhook_deliveries` | delivery accepted in the last day   | `delivery_id`, `received_at`                                                  |
+| `sessions`           | signed-in browser, for 8 hours      | `token_hash`, `user_id`, `login`, `installation_ids`, `expires_at`            |
 | `schema_migrations`  | applied migration                   | `name`, `checksum`                                                            |
 
 `reviews.suppressed_finding_count` records how many findings a repository's reporting thresholds
@@ -126,7 +127,8 @@ The in-memory and PostgreSQL delivery stores run the same contract tests.
 
 ## 9. Looking at the history
 
-Until the dashboard exists, the history is read with SQL. With the development database:
+The dashboard reads the history for people ([DESIGN-DASHBOARD.md](DESIGN-DASHBOARD.md)). For
+anything it does not show, SQL still works. With the development database:
 
 ```bash
 docker compose exec postgres psql -U prbuddy -d prbuddy

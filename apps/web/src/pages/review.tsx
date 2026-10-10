@@ -1,218 +1,456 @@
-import type { ReactNode } from "react";
-import { Link, useParams } from "react-router";
+import { useState, type ReactNode } from "react";
+import { Link, useParams, useSearchParams } from "react-router";
 import { api } from "../api/client.js";
 import type { AiReview, Finding, ReviewDetails, RuleExecution } from "../api/schemas.js";
 import {
   ExternalLink,
+  isKnownSeverity,
   Loaded,
+  Notice,
+  PageHeader,
+  SEVERITIES,
   SeverityBadge,
+  SourceLabel,
   StatusBadge,
   Timestamp,
 } from "../components/common.js";
+import { Icon } from "../components/icon.js";
 import { formatDuration, formatPercent, plural, shortCommit } from "../format.js";
 import { commitUrl, pullRequestUrl } from "../github-links.js";
 import { useResource } from "../use-resource.js";
 
-function Field(props: { readonly label: string; readonly children: ReactNode }): ReactNode {
-  return (
-    <div className="field">
-      <dt>{props.label}</dt>
-      <dd>{props.children}</dd>
-    </div>
-  );
-}
-
-const COMMENT_ACTIONS: Readonly<Record<string, string>> = {
-  created: "A summary comment was posted",
-  updated: "The summary comment was updated",
-  none: "No comment was needed",
+const SKIP_EXPLANATIONS: Readonly<Record<string, string>> = {
+  draft: "The pull request was a draft. It is reviewed when it is marked ready for review.",
+  closed: "The pull request was closed or merged before it could be reviewed.",
+  stale:
+    "A newer commit arrived while this review ran, so its result was not published. That commit has its own review.",
 };
 
-function describeOutcome(review: ReviewDetails): string {
-  if (review.status === "skipped") {
-    return `Skipped: ${review.skipReason ?? "no reason recorded"}`;
-  }
+const COMMENT_ACTIONS: Readonly<Record<string, string>> = {
+  created: "A summary comment was posted on the pull request.",
+  updated: "The summary comment on the pull request was updated.",
+  none: "There was nothing to report, so no comment was posted.",
+};
+
+/** What happened, in a sentence, with what to do about it where something can be done. */
+function OutcomeNotice(props: { readonly review: ReviewDetails }): ReactNode {
+  const { review } = props;
   if (review.status === "failed") {
     const status = review.errorStatus === null ? "" : `, HTTP ${review.errorStatus}`;
-    return `Failed: ${review.errorName ?? "unknown error"}${status}`;
+    return (
+      <Notice tone="danger" title="This review did not finish">
+        <p>
+          Reason recorded: <code>{review.errorName ?? "unknown error"}</code>
+          {status}.
+        </p>
+        <p>
+          Running it again is safe: PR Buddy keeps one comment per pull request and updates it. A
+          new push starts a review, and the failed webhook delivery can be redelivered from the
+          app&apos;s settings on GitHub.
+        </p>
+      </Notice>
+    );
   }
-  return COMMENT_ACTIONS[review.commentAction ?? ""] ?? "Completed";
+  if (review.status === "skipped") {
+    return (
+      <Notice tone="info" title="This review was skipped">
+        <p>
+          {SKIP_EXPLANATIONS[review.skipReason ?? ""] ??
+            `Reason recorded: ${review.skipReason ?? "none"}.`}
+        </p>
+      </Notice>
+    );
+  }
+  return null;
 }
 
-function Summary(props: { readonly review: ReviewDetails }): ReactNode {
+function countBySeverity(findings: readonly Finding[], severity: string): number {
+  return findings.filter((finding) => finding.severity === severity).length;
+}
+
+/** The review at a glance. Counts come from the stored findings; nothing here is estimated. */
+function SummaryStrip(props: { readonly review: ReviewDetails }): ReactNode {
   const { review } = props;
   return (
-    <dl className="fields">
-      <Field label="Outcome">
-        <StatusBadge status={review.status} /> {describeOutcome(review)}
-      </Field>
-      <Field label="Pull request">
-        <ExternalLink href={pullRequestUrl(review.repository, review.pullRequestNumber)}>
-          #{review.pullRequestNumber}
-        </ExternalLink>
-      </Field>
-      <Field label="Commit">
-        {review.headSha === null ? (
-          "Not known: the review failed before the pull request was read"
-        ) : (
-          <ExternalLink href={commitUrl(review.repository, review.headSha)}>
-            <code>{shortCommit(review.headSha)}</code>
-          </ExternalLink>
+    <section aria-label="Summary">
+      <dl className="summary">
+        <div>
+          <dt>Outcome</dt>
+          <dd>
+            <StatusBadge status={review.status} />
+          </dd>
+        </div>
+        {review.status === "completed"
+          ? SEVERITIES.map((severity) => (
+              <div key={severity}>
+                <dt>
+                  <SeverityBadge severity={severity} />
+                </dt>
+                <dd className="summary-count">{countBySeverity(review.findings, severity)}</dd>
+              </div>
+            ))
+          : null}
+        {review.aiReview === null ? null : (
+          <div>
+            <dt>AI suggestions</dt>
+            <dd className="summary-count">{review.aiReview.findingCount}</dd>
+          </div>
         )}
-      </Field>
-      <Field label="Reviewed">
-        <Timestamp iso={review.startedAt} />, took {formatDuration(review.durationMs)}
-      </Field>
-      {review.suppressedFindingCount > 0 ? (
-        <Field label="Hidden by thresholds">
-          {plural(review.suppressedFindingCount, "finding")}
-        </Field>
+      </dl>
+      {review.status === "completed" ? (
+        <ul className="summary-notes">
+          <li>{COMMENT_ACTIONS[review.commentAction ?? ""] ?? "The review completed."}</li>
+          {review.suppressedFindingCount > 0 ? (
+            <li>
+              {plural(review.suppressedFindingCount, "finding")} below this repository&apos;s
+              reporting thresholds {review.suppressedFindingCount === 1 ? "is" : "are"} not shown.
+            </li>
+          ) : null}
+          {review.skippedFileCount > 0 ? (
+            <li>
+              {plural(review.skippedFileCount, "file")} could not be reviewed because of an unusual
+              path or format.
+            </li>
+          ) : null}
+          {review.omittedPatchCount > 0 ? (
+            <li>
+              {plural(review.omittedPatchCount, "diff")}{" "}
+              {review.omittedPatchCount === 1 ? "was" : "were"} too large to load; those files were
+              checked by name only.
+            </li>
+          ) : null}
+        </ul>
       ) : null}
-      {review.skippedFileCount > 0 ? (
-        <Field label="Files not reviewed">{review.skippedFileCount}</Field>
-      ) : null}
-      {review.omittedPatchCount > 0 ? (
-        <Field label="Diffs too large to load">{review.omittedPatchCount}</Field>
-      ) : null}
-    </dl>
+    </section>
   );
 }
 
-function FindingCard(props: { readonly finding: Finding }): ReactNode {
+function describeLocation(finding: Finding): string | undefined {
+  if (finding.filePath === null) {
+    return undefined;
+  }
+  return finding.line === null ? finding.filePath : `${finding.filePath}:${finding.line}`;
+}
+
+/** The findings, most severe first, as links that select one. The address keeps the selection. */
+function FindingList(props: {
+  readonly findings: readonly Finding[];
+  readonly selected: number;
+}): ReactNode {
+  const groups = [...SEVERITIES, "other"] as const;
+  return (
+    <nav aria-label="Findings" className="finding-list">
+      {groups.map((group) => {
+        const entries = props.findings
+          .map((finding, index) => ({ finding, index }))
+          .filter(({ finding }) =>
+            group === "other" ? !isKnownSeverity(finding.severity) : finding.severity === group,
+          );
+        if (entries.length === 0) {
+          return null;
+        }
+        return (
+          <div key={group}>
+            <h3>
+              {group === "other" ? "Other" : <SeverityBadge severity={group} />}
+              <span className="count">{entries.length}</span>
+            </h3>
+            <ul>
+              {entries.map(({ finding, index }) => (
+                <li key={index}>
+                  <Link
+                    to={`?finding=${index + 1}`}
+                    replace
+                    preventScrollReset
+                    aria-current={index === props.selected ? "true" : undefined}
+                  >
+                    <code>{finding.ruleId}</code>
+                    <span className="finding-list-message">{finding.message}</span>
+                    {finding.filePath === null ? null : (
+                      <span className="finding-list-path">{describeLocation(finding)}</span>
+                    )}
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </div>
+        );
+      })}
+    </nav>
+  );
+}
+
+type CopyState = "idle" | "copied" | "failed";
+
+const COPY_LABELS: Readonly<Record<CopyState, string>> = {
+  idle: "Copy path",
+  copied: "Path copied",
+  failed: "Could not copy",
+};
+
+function CopyPathButton(props: { readonly path: string }): ReactNode {
+  const [state, setState] = useState<CopyState>("idle");
+  const copy = (): void => {
+    navigator.clipboard.writeText(props.path).then(
+      () => {
+        setState("copied");
+      },
+      () => {
+        setState("failed");
+      },
+    );
+  };
+  return (
+    <button type="button" className="button button-quiet" onClick={copy}>
+      <Icon name="copy" />
+      <span aria-live="polite">{COPY_LABELS[state]}</span>
+    </button>
+  );
+}
+
+function FindingDetail(props: { readonly finding: Finding }): ReactNode {
   const { finding } = props;
   return (
-    <li className="finding">
-      <p className="finding-heading">
-        <SeverityBadge severity={finding.severity} /> <code>{finding.ruleId}</code>
+    <article className="finding-detail" aria-label="Selected finding">
+      <p className="finding-meta">
+        <SeverityBadge severity={finding.severity} />
+        <code>{finding.ruleId}</code>
+        <SourceLabel source="rule" />
       </p>
-      <p>{finding.message}</p>
-      <ul className="plain">
-        {finding.filePath === null ? null : (
-          <li>
-            Location: <code>{finding.filePath}</code>
-            {finding.line === null ? "" : `, line ${finding.line}`}
-          </li>
-        )}
+      <h3>{finding.message}</h3>
+
+      <dl className="facts">
+        <div>
+          <dt>Location</dt>
+          <dd>
+            {finding.filePath === null ? (
+              "The pull request as a whole"
+            ) : (
+              <>
+                <span>
+                  <code>{finding.filePath}</code>
+                  {finding.line === null ? "" : `, line ${finding.line}`}
+                </span>
+                {/* A new key resets the button when another finding is selected. */}
+                <CopyPathButton key={finding.filePath} path={finding.filePath} />
+              </>
+            )}
+          </dd>
+        </div>
         {finding.evidence.map((evidence, index) => (
-          <li key={index}>
-            {evidence.label}: <code>{evidence.value}</code>
-          </li>
+          <div key={index}>
+            <dt>{evidence.label}</dt>
+            <dd>
+              <code>{evidence.value}</code>
+            </dd>
+          </div>
         ))}
-      </ul>
-      {finding.suggestion === null ? null : (
-        <p>
-          <strong>Suggested action:</strong> {finding.suggestion}
-        </p>
-      )}
-      {finding.confidence < 1 ? (
-        <p className="muted">
-          Confidence {formatPercent(finding.confidence)}: a signal to check, not a certainty.
-        </p>
-      ) : null}
-    </li>
+        {finding.suggestion === null ? null : (
+          <div>
+            <dt>Suggested action</dt>
+            <dd>{finding.suggestion}</dd>
+          </div>
+        )}
+        {finding.confidence < 1 ? (
+          <div>
+            <dt>Confidence</dt>
+            <dd>{formatPercent(finding.confidence)}: a signal to check, not a certainty.</dd>
+          </div>
+        ) : null}
+      </dl>
+      <p className="hint">
+        PR Buddy stores no source code, so the line itself is not shown here. Open the pull request
+        on GitHub to see it.
+      </p>
+    </article>
   );
 }
 
-function RuleTable(props: { readonly rules: readonly RuleExecution[] }): ReactNode {
+function Findings(props: { readonly review: ReviewDetails }): ReactNode {
+  const { findings } = props.review;
+  const [search] = useSearchParams();
+  // The address counts from 1; anything that is not a finding of this review selects the first.
+  const requested = Number(search.get("finding")) - 1;
+  const selected = Number.isInteger(requested) && findings[requested] !== undefined ? requested : 0;
+  const finding = findings[selected];
+
   return (
-    <table>
-      <thead>
-        <tr>
-          <th scope="col">Rule</th>
-          <th scope="col">Version</th>
-          <th scope="col">Result</th>
-          <th scope="col">Findings</th>
-          <th scope="col">Time</th>
-        </tr>
-      </thead>
-      <tbody>
-        {props.rules.map((rule) => (
-          <tr key={rule.ruleId}>
-            <td>
-              <code>{rule.ruleId}</code>
-            </td>
-            <td>{rule.ruleVersion}</td>
-            <td>{rule.status}</td>
-            <td>{rule.findingCount}</td>
-            <td>{formatDuration(rule.durationMs)}</td>
-          </tr>
-        ))}
-      </tbody>
-    </table>
+    <section aria-labelledby="findings-heading">
+      <h2 id="findings-heading">
+        Findings from deterministic rules <span className="count">{findings.length}</span>
+      </h2>
+      {finding === undefined ? (
+        <p className="quiet-result">No findings from the enabled checks.</p>
+      ) : (
+        <div className="review-panels">
+          <FindingList findings={findings} selected={selected} />
+          <FindingDetail finding={finding} />
+        </div>
+      )}
+    </section>
   );
 }
 
 function AiSection(props: { readonly aiReview: AiReview }): ReactNode {
   const { aiReview } = props;
   return (
-    <>
-      <h2>AI review</h2>
-      <dl className="fields">
-        <Field label="Model">
-          <code>
-            {aiReview.provider}/{aiReview.model}
-          </code>
-        </Field>
-        <Field label="Result">
-          {aiReview.status}
-          {aiReview.failureReason === null ? "" : ` (${aiReview.failureReason})`}
-        </Field>
-        <Field label="Suggestions published">{aiReview.findingCount}</Field>
-        <Field label="Suggestions rejected">{aiReview.rejectedFindingCount}</Field>
-        <Field label="Files sent">
-          {aiReview.sentFileCount}, {aiReview.omittedFileCount} left out
-        </Field>
+    <section aria-labelledby="ai-heading" className="ai-section">
+      <h2 id="ai-heading">
+        AI suggestions <SourceLabel source="ai" />
+      </h2>
+      {aiReview.status === "failed" ? (
+        <p>
+          The AI review could not be completed ({aiReview.failureReason ?? "no reason recorded"}).
+          The deterministic checks above were not affected.
+        </p>
+      ) : (
+        <p>
+          {plural(aiReview.findingCount, "suggestion")} from a language model{" "}
+          {aiReview.findingCount === 1 ? "was" : "were"} published on the pull request. Their text
+          is not stored here, because a model that has read the code may quote it. Read them in PR
+          Buddy&apos;s comment on GitHub, and check each one before acting on it.
+        </p>
+      )}
+      <dl className="facts">
+        <div>
+          <dt>Model</dt>
+          <dd>
+            <code>
+              {aiReview.provider}/{aiReview.model}
+            </code>
+          </dd>
+        </div>
+        <div>
+          <dt>Suggestions rejected</dt>
+          <dd>{aiReview.rejectedFindingCount} (malformed, or pointing outside the diff)</dd>
+        </div>
+        <div>
+          <dt>Files sent</dt>
+          <dd>
+            {aiReview.sentFileCount}, {aiReview.omittedFileCount} left out
+          </dd>
+        </div>
         {aiReview.inputTokens === null || aiReview.outputTokens === null ? null : (
-          <Field label="Tokens">
-            {aiReview.inputTokens} in, {aiReview.outputTokens} out
-          </Field>
+          <div>
+            <dt>Tokens</dt>
+            <dd>
+              {aiReview.inputTokens} in, {aiReview.outputTokens} out
+            </dd>
+          </div>
         )}
-        <Field label="Time">{formatDuration(aiReview.durationMs)}</Field>
+        <div>
+          <dt>Time</dt>
+          <dd>{formatDuration(aiReview.durationMs)}</dd>
+        </div>
       </dl>
-      <p className="muted">
-        The text of AI suggestions is not stored. Read them in the summary comment on the pull
-        request.
-      </p>
-    </>
+    </section>
+  );
+}
+
+function RuleTable(props: { readonly rules: readonly RuleExecution[] }): ReactNode {
+  return (
+    <details className="disclosure">
+      <summary>Rules that ran ({props.rules.length})</summary>
+      <div className="table-wrap">
+        <table>
+          <caption className="visually-hidden">Rules that ran in this review</caption>
+          <thead>
+            <tr>
+              <th scope="col">Rule</th>
+              <th scope="col">Version</th>
+              <th scope="col">Result</th>
+              <th scope="col">Findings</th>
+              <th scope="col">Time</th>
+            </tr>
+          </thead>
+          <tbody>
+            {props.rules.map((rule) => (
+              <tr key={rule.ruleId}>
+                <td>
+                  <code>{rule.ruleId}</code>
+                </td>
+                <td>{rule.ruleVersion}</td>
+                <td>{rule.status}</td>
+                <td>{rule.findingCount}</td>
+                <td>{formatDuration(rule.durationMs)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </details>
+  );
+}
+
+function ReviewContent(props: { readonly review: ReviewDetails }): ReactNode {
+  const { review } = props;
+  const { repository } = review;
+  const pullRequest = pullRequestUrl(repository, review.pullRequestNumber);
+  return (
+    <div className="review">
+      <nav aria-label="Breadcrumb" className="breadcrumb">
+        <Link to="/repositories">Repositories</Link>
+        <span aria-hidden="true">/</span>
+        <Link to={`/repositories/${repository.id}`}>
+          {repository.owner}/{repository.name}
+        </Link>
+      </nav>
+      <PageHeader
+        title={`Pull request #${review.pullRequestNumber}`}
+        description={
+          <>
+            Reviewed <Timestamp iso={review.startedAt} /> in {formatDuration(review.durationMs)}
+            {review.headSha === null ? (
+              ". The commit is not known: the review failed before the pull request was read."
+            ) : (
+              <>
+                {" at commit "}
+                <ExternalLink href={commitUrl(repository, review.headSha)}>
+                  <code>{shortCommit(review.headSha)}</code>
+                </ExternalLink>
+                .
+              </>
+            )}
+          </>
+        }
+        {...(pullRequest === undefined
+          ? {}
+          : {
+              action: (
+                <ExternalLink className="button button-primary" href={pullRequest}>
+                  Open on GitHub <Icon name="external" />
+                </ExternalLink>
+              ),
+            })}
+      />
+
+      {review.newerReviewId === null ? null : (
+        <Notice tone="warning" title="This review is out of date">
+          <p>
+            A newer commit of this pull request has been reviewed since.{" "}
+            <Link to={`/reviews/${review.newerReviewId}`}>View the latest review</Link>
+          </p>
+        </Notice>
+      )}
+      <OutcomeNotice review={review} />
+      <SummaryStrip review={review} />
+
+      {review.status === "completed" ? <Findings review={review} /> : null}
+      {review.aiReview === null ? null : <AiSection aiReview={review.aiReview} />}
+      {review.rules.length === 0 ? null : <RuleTable rules={review.rules} />}
+    </div>
   );
 }
 
 export function ReviewPage(): ReactNode {
   const reviewId = useParams()["reviewId"] ?? "";
-  const { resource } = useResource((signal) => api.review(reviewId, signal), `review:${reviewId}`);
+  const { resource, reload } = useResource(
+    (signal) => api.review(reviewId, signal),
+    `review:${reviewId}`,
+  );
   return (
-    <Loaded resource={resource}>
-      {(review) => (
-        <>
-          <p>
-            <Link to={`/repositories/${review.repository.id}`}>
-              {review.repository.owner}/{review.repository.name}
-            </Link>
-          </p>
-          <h1>Review of pull request #{review.pullRequestNumber}</h1>
-          <Summary review={review} />
-
-          <h2>{plural(review.findings.length, "finding")}</h2>
-          {review.findings.length === 0 ? (
-            <p className="muted">Nothing was reported.</p>
-          ) : (
-            <ul className="findings">
-              {review.findings.map((finding, index) => (
-                <FindingCard key={index} finding={finding} />
-              ))}
-            </ul>
-          )}
-
-          {review.aiReview === null ? null : <AiSection aiReview={review.aiReview} />}
-
-          {review.rules.length === 0 ? null : (
-            <>
-              <h2>Rules</h2>
-              <RuleTable rules={review.rules} />
-            </>
-          )}
-        </>
-      )}
+    <Loaded resource={resource} loadingLabel="Loading the review…" onRetry={reload}>
+      {(review) => <ReviewContent review={review} />}
     </Loaded>
   );
 }
