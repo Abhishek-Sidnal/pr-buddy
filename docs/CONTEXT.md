@@ -12,9 +12,11 @@ of actionable, evidence-backed findings. Humans keep the merge decision.
 - **Milestone 1**, the deterministic review engine, is done.
 - **Milestone 2**, the GitHub App, is done. It was verified against the real GitHub API on a
   private test repository on 2026-10-10; results are in the tracker.
-- **Milestone 5**, a hosted service, has two parts done and `v0.2.0` is released: an
-  installation can store its own AI key, and CI publishes the API image so that the example
-  stack runs on a small server. A public deployment was verified on 2026-10-10.
+- **Milestone 5**, a hosted service, is done and `v0.3.0` is released. An installation
+  can store its own AI key; CI publishes the API image, so the example stack runs on a small
+  server; a first page lets a new person install the app; a public page says what is stored
+  and who runs the service; the review queue is shared fairly between installations; and the
+  example stack has nightly backups and alerts (DESIGN-OPERATIONS.md). A public deployment was verified on 2026-10-10.
 - **Milestones 3 and 4** are done and `v0.1.0` is released. Milestone 3 added PostgreSQL storage for review history and webhook
   deliveries, seven rules with reporting thresholds and line comments, and the AI reviewer.
 - The AI reviewer has five providers (AWS Bedrock, Anthropic, OpenAI, Azure AI Foundry, any

@@ -6,6 +6,12 @@ change behaviour or configuration; such changes are listed under "Upgrade notes"
 
 ## [Unreleased]
 
+## [0.3.0] — 2026-10-10
+
+A hosted PR Buddy that a stranger can start with and an operator can keep running: a first
+page with an Install button, a public privacy page, a queue shared fairly between
+installations, nightly backups and alerts.
+
 ### Added
 
 - The dashboard's first page now explains PR Buddy to someone who is new: what it does, how to
@@ -44,6 +50,34 @@ change behaviour or configuration; such changes are listed under "Upgrade notes"
   have run. Raise `REVIEW_QUEUE_LIMIT_PER_INSTALLATION` if that is too low for you.
 - Copy the new files in `deploy/` to the server to use the backup and watch scripts, and keep a
   copy of `deploy/.env` somewhere else: it is deliberately not part of a backup.
+
+### Verified, and not
+
+Verified on the public deployment: a second GitHub account signing in after the app was made
+public; a nightly-style backup copied to a bucket, with the server's credential refused for
+reading, listing and deleting; a restore from the bucket into a scratch database on another
+machine with matching row counts; a rehearsed alert (one message on failure, none while nothing
+changed, one on recovery); the watcher running from cron.
+
+Verified in the built image on a development machine: the first page with a working Install
+link, the getting-started list for an installation without reviews, and the privacy page.
+
+Reported by the maintainer and not observed by the tests or on the server: a second account
+installing the app from the first page and arriving on the dashboard signed in.
+
+Not verified:
+
+- An alert reaching a person. The rehearsal published to the topic; nobody was subscribed.
+- An alarm outside the server, for the case where the server itself is down.
+- A scheduled backup observed over a night.
+- A review for a second installation on the public deployment, and queue fairness under real
+  load from two installations. Fairness is covered by tests.
+- Azure against a real resource, the owner check for an organisation, and uninstalling or
+  suspending the app on the public deployment, as in 0.2.0.
+
+Known limits: one server; the watcher runs on the server it watches; a restore is a manual
+procedure; the privacy page is in English and is a description of the software, not a legal
+policy.
 
 ## [0.2.0] — 2026-10-10
 
@@ -197,5 +231,6 @@ Not verified against real services, and covered by automated tests only:
 None: this is the first release. From this version on, reviews older than
 `REVIEW_RETENTION_DAYS` (365 unless set) are deleted at start-up and daily.
 
+[0.3.0]: https://github.com/Abhishek-Sidnal/pr-buddy/releases/tag/v0.3.0
 [0.2.0]: https://github.com/Abhishek-Sidnal/pr-buddy/releases/tag/v0.2.0
 [0.1.0]: https://github.com/Abhishek-Sidnal/pr-buddy/releases/tag/v0.1.0
