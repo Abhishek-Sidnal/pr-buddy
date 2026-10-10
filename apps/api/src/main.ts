@@ -1,4 +1,5 @@
 import { fileURLToPath } from "node:url";
+import { createAiReviewer, createProvider, type AiReviewer } from "@pr-buddy/ai-reviewer";
 import { createRepositoryClientFactory, createUserAuthClient } from "@pr-buddy/github-client";
 import { createApp, type DashboardDependencies } from "./app.js";
 import { EnvironmentError, loadConfig, type AppConfig } from "./config/env.js";
@@ -106,6 +107,21 @@ function buildDashboard(): DashboardDependencies | undefined {
 }
 const dashboard = buildDashboard();
 
+/** AI review is off unless the operator chose a provider. Repositories must opt in as well. */
+function buildAiReviewer(): AiReviewer | undefined {
+  if (config.ai === undefined) {
+    logger.info({}, "AI review is off: no provider is configured");
+    return undefined;
+  }
+  // The provider and model are named so an operator can see where code may be sent.
+  logger.info({ provider: config.ai.provider, model: config.ai.model }, "AI review is available");
+  return createAiReviewer({
+    provider: createProvider(config.ai),
+    timeoutMs: config.ai.timeoutMs,
+  });
+}
+const aiReviewer = buildAiReviewer();
+
 const reviewQueue = createReviewQueue({
   concurrency: config.reviewConcurrency,
   maxWaiting: config.reviewQueueLimit,
@@ -122,6 +138,7 @@ const app = createApp({
     }),
     logger,
     reviewStore: storage.reviewStore,
+    ...(aiReviewer === undefined ? {} : { aiReviewer }),
   }),
   logger,
   trustProxy: config.trustProxy,

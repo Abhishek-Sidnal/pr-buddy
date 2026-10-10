@@ -241,33 +241,37 @@ language model for suggestions and keeps them apart from the deterministic findi
 
 ### Functional requirements
 
-| ID    | Requirement                                                                                          |
-| ----- | ---------------------------------------------------------------------------------------------------- |
-| FR-60 | An operator can supply a model provider; without one, no pull request content leaves the service.    |
-| FR-61 | A repository opts in with `ai.enabled` in its configuration, read at the base commit. Default: off.  |
-| FR-62 | The reviewer sends the title, a bounded description and the visible new-side lines of changed files. |
-| FR-63 | Suggestions appear in the summary comment in their own section, labelled as written by a model.      |
-| FR-64 | The comment names the model and says how many files were not sent.                                   |
-| FR-65 | The repository's reporting thresholds apply to suggestions.                                          |
-| FR-66 | Each AI review is recorded with its model, status, counts, token usage and duration.                 |
-| FR-67 | A provider is a small interface, so one can be added without changing the reviewer.                  |
+| ID    | Requirement                                                                                                                                   |
+| ----- | --------------------------------------------------------------------------------------------------------------------------------------------- |
+| FR-60 | An operator can supply a model provider; without one, no pull request content leaves the service.                                             |
+| FR-61 | A repository opts in with `ai.enabled` in its configuration, read at the base commit. Default: off.                                           |
+| FR-62 | The reviewer sends the title, a bounded description and the visible new-side lines of changed files.                                          |
+| FR-63 | Suggestions appear in the summary comment in their own section, labelled as written by a model.                                               |
+| FR-64 | The comment names the model and says how many files were not sent.                                                                            |
+| FR-65 | The repository's reporting thresholds apply to suggestions.                                                                                   |
+| FR-66 | Each AI review is recorded with its model, status, counts, token usage and duration.                                                          |
+| FR-67 | A provider is a small interface, so one can be added without changing the reviewer.                                                           |
+| FR-68 | The operator chooses a provider and a model in the environment: Bedrock, Anthropic, OpenAI, Azure AI Foundry or an OpenAI-compatible service. |
+| FR-69 | A provider setting that is missing or malformed stops the service at start-up and names the variable.                                         |
 
 ### Non-functional requirements
 
-| ID     | Requirement                                                                                      |
-| ------ | ------------------------------------------------------------------------------------------------ |
-| NFR-60 | Pull request content is data. It is passed as one JSON document, apart from the instructions.    |
-| NFR-61 | Model output is validated entry by entry; a suggestion with an unverifiable location is dropped. |
-| NFR-62 | The model cannot set confidence, rule ID or evidence, and cannot report `critical`.              |
-| NFR-63 | Credential-like files and lockfiles are never sent.                                              |
-| NFR-64 | Prompt size, reply size, output tokens, suggestions and time are bounded; one request, no retry. |
-| NFR-65 | A failed AI review never fails the review; the comment says it could not be completed.           |
-| NFR-66 | Prompt text, reply text and provider error messages are never logged and never stored.           |
-| NFR-67 | Model text is published escaped, so it cannot create links, mentions, images or HTML.            |
+| ID     | Requirement                                                                                                |
+| ------ | ---------------------------------------------------------------------------------------------------------- |
+| NFR-60 | Pull request content is data. It is passed as one JSON document, apart from the instructions.              |
+| NFR-61 | Model output is validated entry by entry; a suggestion with an unverifiable location is dropped.           |
+| NFR-62 | The model cannot set confidence, rule ID or evidence, and cannot report `critical`.                        |
+| NFR-63 | Credential-like files and lockfiles are never sent.                                                        |
+| NFR-64 | Prompt size, reply size, output tokens, suggestions and time are bounded; one request, no retry.           |
+| NFR-65 | A failed AI review never fails the review; the comment says it could not be completed.                     |
+| NFR-66 | Prompt text, reply text and provider error messages are never logged and never stored.                     |
+| NFR-67 | Model text is published escaped, so it cannot create links, mentions, images or HTML.                      |
+| NFR-68 | A provider's key is never logged, stored or put in an error; a failed reply is reduced to its HTTP status. |
+| NFR-69 | Code is sent over HTTPS only, except to a model on the same machine.                                       |
 
 ### Out of scope for this part
 
-A real provider (the choice is open), line comments for suggestions, sending whole files or the
+Line comments for suggestions, sending whole files or the
 rest of the repository, follow-up questions to the model, automatic fixes, per-repository budgets.
 
 ## 6E. Milestone 3, part 4 — the dashboard

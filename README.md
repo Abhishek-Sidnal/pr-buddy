@@ -5,8 +5,9 @@ actionable findings, shows the evidence behind each one, and leaves the merge de
 
 > **Status: Milestone 3 in progress.** The review engine and the GitHub App are implemented and
 > verified against the real GitHub API. Seven rules run, findings on a line are posted on that line,
-> and review history is stored in PostgreSQL. An optional AI reviewer is built but has no model
-> provider yet, so nothing is sent to any AI service. A dashboard lets people sign in with GitHub
+> and review history is stored in PostgreSQL. An optional AI reviewer can use AWS Bedrock,
+> Anthropic, OpenAI, Azure AI Foundry or any OpenAI-compatible service; it is off until an operator
+> names a provider and a repository opts in. A dashboard lets people sign in with GitHub
 > and read the history; it is off until configured. See the [tracker](docs/TRACKER.md).
 
 ## What exists today
@@ -14,7 +15,7 @@ actionable findings, shows the evidence behind each one, and leaves the merge de
 | Package                                             | What it is                                                    |
 | --------------------------------------------------- | ------------------------------------------------------------- |
 | [`@pr-buddy/review-engine`](packages/review-engine) | The deterministic rules and the pipeline that runs them       |
-| [`@pr-buddy/ai-reviewer`](packages/ai-reviewer)     | Optional AI review behind a provider interface; none included |
+| [`@pr-buddy/ai-reviewer`](packages/ai-reviewer)     | Optional AI review, with five model providers                 |
 | [`@pr-buddy/github-client`](packages/github-client) | Webhook verification, GitHub API access, the summary comment  |
 | [`@pr-buddy/api`](apps/api)                         | The HTTP service: webhooks, reviews, sign-in and the read API |
 | [`@pr-buddy/web`](apps/web)                         | The dashboard, a React application the API serves             |
@@ -172,8 +173,9 @@ More detail: [architecture](docs/ARCHITECTURE.md) · [engine design](docs/DESIGN
 - Reviews waiting in the queue are lost when the service restarts. Without a database, so is the
   memory of webhook deliveries.
 - There is no check run: PR Buddy comments but does not set a pass or fail status.
-- The AI reviewer cannot run yet: no provider is included, and it has never been tested against a
-  real model. When one is added, a repository must still opt in with `"ai": { "enabled": true }`.
+- The AI providers are written from each service's published API and tested against stand-ins.
+  The tracker says which have answered a real request; treat the others as unproven. With any of
+  them, a repository must still opt in with `"ai": { "enabled": true }`.
 - Only `debug-statements` reads the changed lines, and only for JavaScript and TypeScript. The
   other rules look at pull request metadata and file names.
 - `credential-files` checks file names. It is not a secret scanner.

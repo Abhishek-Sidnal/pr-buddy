@@ -1,3 +1,4 @@
+import { providerSettingsSchema, type ProviderSettings } from "@pr-buddy/ai-reviewer";
 import { z } from "zod";
 
 export const LOG_LEVELS = ["fatal", "error", "warn", "info", "debug", "trace", "silent"] as const;
@@ -106,6 +107,8 @@ export interface AppConfig {
     readonly url: string;
     readonly poolSize: number;
   };
+  /** Absent when AI review is off. Contains secrets: never log it. */
+  readonly ai?: ProviderSettings;
   /** Absent when the dashboard is off. Contains a secret: never log it. */
   readonly dashboard?: {
     readonly clientId: string;
@@ -126,6 +129,65 @@ export class EnvironmentError extends Error {
     this.name = "EnvironmentError";
     this.issues = issues;
   }
+}
+
+/** Which environment variable holds each provider setting. */
+const AI_VARIABLES = {
+  provider: "AI_PROVIDER",
+  model: "AI_MODEL",
+  apiKey: "AI_API_KEY",
+  baseUrl: "AI_BASE_URL",
+  region: "AWS_REGION",
+  accessKeyId: "AWS_ACCESS_KEY_ID",
+  secretAccessKey: "AWS_SECRET_ACCESS_KEY",
+  sessionToken: "AWS_SESSION_TOKEN",
+  timeoutMs: "AI_TIMEOUT_MS",
+} as const;
+
+/**
+ * AI review is off unless `AI_PROVIDER` is set. When it is, everything that provider needs must
+ * be right, or the service stops here: finding out at the first pull request would be worse.
+ */
+function readAiSettings(
+  environment: Readonly<Record<string, string | undefined>>,
+): ProviderSettings | undefined {
+  // An empty value is how a variable is usually "unset" in a compose or .env file.
+  const read = (name: string): string | undefined => {
+    const value = environment[name];
+    return value === undefined || value === "" ? undefined : value;
+  };
+  if (read(AI_VARIABLES.provider) === undefined) {
+    return undefined;
+  }
+
+  const timeout = read(AI_VARIABLES.timeoutMs);
+  const raw: Record<string, unknown> = {};
+  for (const [field, variable] of Object.entries(AI_VARIABLES)) {
+    const value = read(variable);
+    if (value !== undefined) {
+      raw[field] = value;
+    }
+  }
+  // AWS's own name for a Bedrock API key is honoured when the generic one is not set.
+  raw["apiKey"] ??= read("AWS_BEARER_TOKEN_BEDROCK");
+  if (raw["apiKey"] === undefined) {
+    delete raw["apiKey"];
+  }
+  if (timeout !== undefined) {
+    raw["timeoutMs"] = Number(timeout);
+  }
+
+  const parsed = providerSettingsSchema.safeParse(raw);
+  if (!parsed.success) {
+    // Only the variable name and the constraint are reported: values here are secrets.
+    throw new EnvironmentError(
+      parsed.error.issues.map((issue) => {
+        const field = String(issue.path[0]) as keyof typeof AI_VARIABLES;
+        return `${AI_VARIABLES[field]}: ${issue.message}`;
+      }),
+    );
+  }
+  return parsed.data;
 }
 
 const DASHBOARD_VARIABLES = ["GITHUB_CLIENT_ID", "GITHUB_CLIENT_SECRET", "PUBLIC_URL"] as const;
@@ -174,8 +236,10 @@ export function loadConfig(environment: Readonly<Record<string, string | undefin
   }
   const values = parsed.data;
   const dashboard = readDashboardSettings(values);
+  const ai = readAiSettings(environment);
   return {
     ...(dashboard === undefined ? {} : { dashboard }),
+    ...(ai === undefined ? {} : { ai }),
     github: {
       appId: values.GITHUB_APP_ID,
       privateKey: values.GITHUB_PRIVATE_KEY,

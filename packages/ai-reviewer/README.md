@@ -3,7 +3,8 @@
 The optional AI reviewer of [PR Buddy](../../README.md). It turns a validated pull request into a
 prompt, sends it to a provider, and returns only the suggestions it can verify against the diff.
 
-No provider is included. Until one is supplied, nothing is sent anywhere.
+Five providers are included: AWS Bedrock, Anthropic, OpenAI, Azure AI Foundry and any
+OpenAI-compatible service. Until one is configured, nothing is sent anywhere.
 
 ## Usage
 

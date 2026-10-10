@@ -272,6 +272,130 @@ describe("loadConfig for the dashboard", () => {
   });
 });
 
+describe("loadConfig for AI review", () => {
+  it("is off when no provider is named, even if other AI variables are set", () => {
+    expect(loadConfig(environment())).not.toHaveProperty("ai");
+    expect(
+      loadConfig(environment({ AI_PROVIDER: "", AI_MODEL: "m", AWS_REGION: "us-east-1" })),
+    ).not.toHaveProperty("ai");
+  });
+
+  it("reads Bedrock with an access key and a session token", () => {
+    const config = loadConfig(
+      environment({
+        AI_PROVIDER: "bedrock",
+        AI_MODEL: "us.anthropic.claude-sonnet-4-20250514-v1:0",
+        AWS_REGION: "us-east-1",
+        AWS_ACCESS_KEY_ID: "AKIAIOSFODNN7EXAMPLE",
+        AWS_SECRET_ACCESS_KEY: "secret",
+        AWS_SESSION_TOKEN: "token",
+      }),
+    );
+
+    expect(config.ai).toEqual({
+      provider: "bedrock",
+      model: "us.anthropic.claude-sonnet-4-20250514-v1:0",
+      region: "us-east-1",
+      accessKeyId: "AKIAIOSFODNN7EXAMPLE",
+      secretAccessKey: "secret",
+      sessionToken: "token",
+      timeoutMs: 60_000,
+    });
+  });
+
+  it("reads a Bedrock API key under either name, preferring the generic one", () => {
+    const bedrock = { AI_PROVIDER: "bedrock", AI_MODEL: "m", AWS_REGION: "eu-west-1" };
+
+    expect(
+      loadConfig(environment({ ...bedrock, AWS_BEARER_TOKEN_BEDROCK: "aws-name" })).ai?.apiKey,
+    ).toBe("aws-name");
+    expect(
+      loadConfig(
+        environment({ ...bedrock, AI_API_KEY: "generic", AWS_BEARER_TOKEN_BEDROCK: "aws-name" }),
+      ).ai?.apiKey,
+    ).toBe("generic");
+  });
+
+  it("reads the other providers, a base URL and a time limit", () => {
+    expect(
+      loadConfig(
+        environment({
+          AI_PROVIDER: "azure",
+          AI_MODEL: "my-deployment",
+          AI_API_KEY: "k",
+          AI_BASE_URL: "https://r.openai.azure.com/openai/v1/",
+          AI_TIMEOUT_MS: "20000",
+        }),
+      ).ai,
+    ).toEqual({
+      provider: "azure",
+      model: "my-deployment",
+      apiKey: "k",
+      baseUrl: "https://r.openai.azure.com/openai/v1",
+      timeoutMs: 20_000,
+    });
+    expect(
+      loadConfig(environment({ AI_PROVIDER: "anthropic", AI_MODEL: "m", AI_API_KEY: "k" })).ai,
+    ).toMatchObject({ provider: "anthropic" });
+  });
+
+  it.each<[string, Record<string, string>, string[]]>([
+    ["an unknown provider", { AI_PROVIDER: "skynet", AI_MODEL: "m" }, ["AI_PROVIDER: "]],
+    ["no model", { AI_PROVIDER: "openai", AI_API_KEY: "k" }, ["AI_MODEL: "]],
+    ["no key", { AI_PROVIDER: "openai", AI_MODEL: "m" }, ["AI_API_KEY: is required for openai"]],
+    [
+      "Bedrock without a region or credentials",
+      { AI_PROVIDER: "bedrock", AI_MODEL: "m" },
+      [
+        "AWS_REGION: is required for bedrock",
+        "AI_API_KEY: bedrock needs a Bedrock API key, or an access key ID with its secret",
+      ],
+    ],
+    [
+      "a malformed access key ID",
+      {
+        AI_PROVIDER: "bedrock",
+        AI_MODEL: "m",
+        AWS_REGION: "us-east-1",
+        AWS_ACCESS_KEY_ID: "nope nope",
+        AWS_SECRET_ACCESS_KEY: "s",
+      },
+      ["AWS_ACCESS_KEY_ID: must be an AWS access key ID"],
+    ],
+    [
+      "a base URL over plain HTTP",
+      { AI_PROVIDER: "azure", AI_MODEL: "m", AI_API_KEY: "k", AI_BASE_URL: "http://r.example" },
+      ["AI_BASE_URL: must be an https:// URL, or http:// on this machine"],
+    ],
+    [
+      "a time limit that is not a number",
+      { AI_PROVIDER: "openai", AI_MODEL: "m", AI_API_KEY: "k", AI_TIMEOUT_MS: "soon" },
+      ["AI_TIMEOUT_MS: "],
+    ],
+  ])("stops at start-up for %s, naming the variable", (_name, overrides, expected) => {
+    const issues = issuesOf(overrides);
+
+    expect(issues).toHaveLength(expected.length);
+    expected.forEach((prefix, index) => {
+      expect(issues[index]).toContain(prefix);
+    });
+  });
+
+  it("never repeats a credential in an error", () => {
+    const issues = issuesOf({
+      AI_PROVIDER: "bedrock",
+      AI_MODEL: "bad model name",
+      AWS_REGION: "CANARY-region",
+      AWS_ACCESS_KEY_ID: "CANARY-id",
+      AWS_SECRET_ACCESS_KEY: "CANARY-secret",
+      AI_API_KEY: "CANARY-key",
+    });
+
+    expect(issues.length).toBeGreaterThan(1);
+    expect(issues.join()).not.toContain("CANARY");
+  });
+});
+
 describe("createLogger", () => {
   function capture(level: Parameters<typeof createLogger>[0]): {
     lines: string[];
@@ -324,6 +448,23 @@ describe("createLogger", () => {
     expect(line).not.toContain("Bearer abc");
     expect(line).not.toContain("s3cret");
     expect(line).toContain("[redacted]");
+  });
+
+  it("redacts AI and dashboard credentials as well", () => {
+    const { lines, logger } = capture("info");
+
+    logger.info(
+      {
+        apiKey: "AI-KEY-CANARY",
+        clientSecret: "CLIENT-CANARY",
+        ai: { secretAccessKey: "AWS-CANARY", sessionToken: "SESSION-CANARY", model: "m" },
+        request: { cookie: "prbuddy_session=COOKIE-CANARY" },
+      },
+      "Oops",
+    );
+
+    expect(lines.join("")).not.toContain("CANARY");
+    expect(lines.join("")).toContain('"model":"m"');
   });
 
   it("can be created without a destination", () => {

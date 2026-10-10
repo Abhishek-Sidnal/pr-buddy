@@ -36,6 +36,12 @@ const REDACTED_PATHS = [
   "*.clientSecret",
   "cookie",
   "*.cookie",
+  "apiKey",
+  "*.apiKey",
+  "secretAccessKey",
+  "*.secretAccessKey",
+  "sessionToken",
+  "*.sessionToken",
 ];
 
 export interface LogDestination {

@@ -6,12 +6,12 @@ Legend: ✅ done · 🚧 in progress · ⬜ not started
 
 ## Milestones
 
-| Milestone | Deliverable                                         | Status                        |
-| --------- | --------------------------------------------------- | ----------------------------- |
-| M1        | Deterministic review engine                         | ✅                            |
-| M2        | GitHub App integration                              | ✅                            |
-| M3        | Storage, rules and thresholds, AI review, dashboard | 🚧 a real AI provider is left |
-| M4        | Hardening and `v0.1.0`                              | ⬜                            |
+| Milestone | Deliverable                                         | Status                   |
+| --------- | --------------------------------------------------- | ------------------------ |
+| M1        | Deterministic review engine                         | ✅                       |
+| M2        | GitHub App integration                              | ✅                       |
+| M3        | Storage, rules and thresholds, AI review, dashboard | 🚧 a live AI run is left |
+| M4        | Hardening and `v0.1.0`                              | ⬜                       |
 
 ## Milestone 3, part 4 — the dashboard
 
@@ -51,8 +51,9 @@ settings.
 
 ## Milestone 3, part 3 — the AI reviewer
 
-Design: [DESIGN-AI.md](DESIGN-AI.md). Built without a real provider: the choice of service is open
-(D-041), so a running PR Buddy sends nothing anywhere until one is added.
+Design: [DESIGN-AI.md](DESIGN-AI.md). Five providers are included (AWS Bedrock, Anthropic, OpenAI,
+Azure AI Foundry, any OpenAI-compatible service). Nothing is sent anywhere until the operator sets
+`AI_PROVIDER` and a repository opts in.
 
 | Task                                                            | Requirement           | Status |
 | --------------------------------------------------------------- | --------------------- | ------ |
@@ -66,17 +67,19 @@ Design: [DESIGN-AI.md](DESIGN-AI.md). Built without a real provider: the choice 
 | Thresholds apply to suggestions                                 | FR-65                 | ✅     |
 | Failure never fails the review                                  | NFR-65                | ✅     |
 | `ai_reviews` table, without suggestion text                     | FR-66, NFR-66         | ✅     |
-| A real provider                                                 | FR-60                 | ⬜     |
+| Providers: Bedrock, Anthropic, OpenAI, Azure, OpenAI-compatible | FR-60, FR-68          | ✅     |
+| A provider run against its real service                         | FR-60                 | ⬜     |
 
 ### Acceptance
 
-| Check                    | Result                                                                                                                                                              |
-| ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `npm run check`          | Passed: 1,033 tests (engine 474, AI reviewer 93, GitHub client 215, API 251)                                                                                        |
-| Canary tests             | Passed: prompt text, reply text and provider error messages reach neither the logs nor the stored record                                                            |
-| Migration `0003`         | Applied at start-up on the running database, in the read-only container                                                                                             |
-| Live run, no provider    | Passed: `pr-buddy-test#3` reopened and reviewed as before; no AI fields in the log, no row in `ai_reviews`, line comments not repeated                              |
-| Live run with a provider | Not possible yet: there is no provider. How well the instructions resist prompt injection against a real model is unmeasured; the output checks do not depend on it |
+| Check                    | Result                                                                                                                                                                                       |
+| ------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `npm run check`          | Passed: 1,385 tests (engine 474, AI reviewer 186, GitHub client 236, API 369, web 120)                                                                                                       |
+| AWS request signing      | Passed: reproduces the signing key and the signature AWS publishes for its example request                                                                                                   |
+| Canary tests             | Passed: prompt text, reply text and provider error messages reach neither the logs nor the stored record                                                                                     |
+| Migration `0003`         | Applied at start-up on the running database, in the read-only container                                                                                                                      |
+| Live run, no provider    | Passed: `pr-buddy-test#3` reopened and reviewed as before; no AI fields in the log, no row in `ai_reviews`, line comments not repeated                                                       |
+| Live run with a provider | Not yet run: it needs the operator's credentials for a provider. How well the instructions resist prompt injection against a real model is unmeasured; the output checks do not depend on it |
 
 ## Milestone 3, part 2 — rules, thresholds and line comments
 
@@ -231,21 +234,21 @@ Complete. Engine, three rules, 348 tests at 100% coverage. Details are in the ch
 
 ## Backlog
 
-| Item                                                                         | Milestone |
-| ---------------------------------------------------------------------------- | --------- |
-| Retention limit for stored reviews                                           | M3        |
-| Durable job queue so queued reviews survive a restart                        | M3        |
-| Check run with a pass or fail conclusion                                     | M3        |
-| A real AI provider: adapter, environment settings, disclosure                | M3        |
-| Line comments for AI suggestions, with a fingerprint that survives rewording | M3        |
-| Per-repository AI budget and usage report                                    | M3        |
-| Dashboard: editing settings, roles within an installation, charts            | Later     |
-| YAML repository configuration                                                | M3        |
-| Run third-party rules in a worker thread with a hard time limit              | M3        |
-| Revoke dashboard access as soon as GitHub does, from installation webhooks   | M4        |
-| Browser test of the dashboard and of sign-in against real GitHub in CI       | M4        |
-| Pin GitHub Actions and base images to digests                                | M4        |
-| Release `v0.1.0`                                                             | M4        |
+| Item                                                                                | Milestone |
+| ----------------------------------------------------------------------------------- | --------- |
+| Retention limit for stored reviews                                                  | M3        |
+| Durable job queue so queued reviews survive a restart                               | M3        |
+| Check run with a pass or fail conclusion                                            | M3        |
+| AWS credentials from roles, profiles or single sign-on (needs the SDK or more code) | Later     |
+| Line comments for AI suggestions, with a fingerprint that survives rewording        | M3        |
+| Per-repository AI budget and usage report                                           | M3        |
+| Dashboard: editing settings, roles within an installation, charts                   | Later     |
+| YAML repository configuration                                                       | M3        |
+| Run third-party rules in a worker thread with a hard time limit                     | M3        |
+| Revoke dashboard access as soon as GitHub does, from installation webhooks          | M4        |
+| Browser test of the dashboard and of sign-in against real GitHub in CI              | M4        |
+| Pin GitHub Actions and base images to digests                                       | M4        |
+| Release `v0.1.0`                                                                    | M4        |
 
 ## Change log
 
@@ -264,3 +267,4 @@ Complete. Engine, three rules, 348 tests at 100% coverage. Details are in the ch
 | 2026-10-10 | AI reviewer package, repository switch, comment section and storage; no real provider yet                         |
 | 2026-10-10 | Dashboard: sign-in with GitHub, sessions, read API, React app in the Graphite / Signal Lime design system         |
 | 2026-10-10 | Dashboard sign-in verified against real GitHub                                                                    |
+| 2026-10-10 | AI providers: Bedrock (with own request signing), Anthropic, OpenAI, Azure AI Foundry, OpenAI-compatible          |
