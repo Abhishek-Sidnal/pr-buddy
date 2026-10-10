@@ -210,6 +210,8 @@ More detail: [architecture](docs/ARCHITECTURE.md) · [engine design](docs/DESIGN
 | [Security](docs/SECURITY.md)                 | Threat model and controls                            |
 | [Brain](docs/BRAIN.md)                       | Decisions and their reasons                          |
 | [Tracker](docs/TRACKER.md)                   | Status of the work                                   |
+| [Deployment and release](docs/RELEASING.md)  | How a release is made and checked                    |
+| [Changelog](CHANGELOG.md)                    | What each version adds, verifies and leaves open     |
 
 ## Roadmap
 

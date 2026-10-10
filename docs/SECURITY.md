@@ -57,14 +57,21 @@ with a hard kill is a later option.
 
 ## 4. Supply chain
 
-| Control                      | Detail                                                      |
-| ---------------------------- | ----------------------------------------------------------- |
-| One runtime dependency       | `zod` only                                                  |
-| Lockfile                     | `package-lock.json` is committed; CI installs with `npm ci` |
-| Automated updates            | Dependabot for npm, GitHub Actions and the Docker image     |
-| Audit                        | CI runs `npm audit` on production dependencies              |
-| CI permissions               | The workflow token is read-only                             |
-| No secrets in the repository | `.gitignore` excludes `.env` files and private keys         |
+| Control                      | Detail                                                                                                                                      |
+| ---------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
+| Few runtime dependencies     | Server: Express, a rate limiter, `pg`, `pino`, Octokit and Zod. Browser: React, React Router, Zod, two font files. No AI vendor SDK (D-060) |
+| Lockfile                     | `package-lock.json` is committed; CI installs with `npm ci` and verifies registry signatures                                                |
+| Pinned actions               | Every GitHub Action is referenced by a full commit SHA, with its version in a comment (D-070)                                               |
+| Pinned images                | Every base image, in Dockerfiles, Compose files and the CI service, is referenced by its `sha256` digest (D-070)                            |
+| Pins are enforced            | `scripts/check-pins.sh` runs in CI and fails on any action or image referenced by a tag alone                                               |
+| Automated updates            | Dependabot for npm, GitHub Actions, Dockerfiles and Compose files, so pins move by reviewed pull request                                    |
+| Audit                        | CI runs `npm audit` on production dependencies                                                                                              |
+| CI permissions               | The workflow token is read-only and no secret is available to it                                                                            |
+| No secrets in the repository | `.gitignore` excludes `.env` files and private keys                                                                                         |
+
+Known limits: the digest of the PostgreSQL image used as a CI service is not updated by
+Dependabot and must be moved by hand; npm dependencies are locked by version and integrity hash,
+which is what the lockfile provides, not vendored.
 
 ## 5. Development practices
 
@@ -241,7 +248,6 @@ deployment built another way has to provide its own.
   private network. The service warns if `sslmode=disable` is used anywhere.
 - **Secrets are in a file on the host.** `deploy/.env` must be readable by the operator alone.
   There is no integration with a secret manager.
-- **Images and actions are pinned to tags, not digests.** That is part 3 of this milestone.
 
 ## 8. What PR Buddy does not claim
 
