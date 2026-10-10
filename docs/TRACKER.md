@@ -6,12 +6,12 @@ Legend: ✅ done · 🚧 in progress · ⬜ not started
 
 ## Milestones
 
-| Milestone | Deliverable                                         | Status                     |
-| --------- | --------------------------------------------------- | -------------------------- |
-| M1        | Deterministic review engine                         | ✅                         |
-| M2        | GitHub App integration                              | ✅                         |
-| M3        | Storage, rules and thresholds, AI review, dashboard | ✅                         |
-| M4        | Hardening and `v0.1.0`                              | 🚧 parts 1 and 2 of 4 done |
+| Milestone | Deliverable                                         | Status                                 |
+| --------- | --------------------------------------------------- | -------------------------------------- |
+| M1        | Deterministic review engine                         | ✅                                     |
+| M2        | GitHub App integration                              | ✅                                     |
+| M3        | Storage, rules and thresholds, AI review, dashboard | ✅                                     |
+| M4        | Hardening and `v0.1.0`                              | 🚧 parts 1 to 3 done, release prepared |
 
 ## Latest verified check
 
@@ -29,8 +29,8 @@ accepted and are kept as history.
 | ---- | --------------------------------------------------------------------------- | ------ |
 | 1    | Deployment behind HTTPS: example stack, guide, start-up checks              | ✅     |
 | 2    | Data lifecycle and recovery: pending reviews, retention, uninstall clean-up | ✅     |
-| 3    | Supply chain: actions and base images pinned to digests                     | ⬜     |
-| 4    | Release `v0.1.0`: changelog, version, tag                                   | ⬜     |
+| 3    | Supply chain: actions and base images pinned to digests                     | ✅     |
+| 4    | Release `v0.1.0`: changelog, procedure, clean-checkout check, tag           | 🚧     |
 
 ### Part 1 — deployment behind HTTPS
 
@@ -87,6 +87,34 @@ also answers the external review of Milestone 3 (2026-10-10):
 | Installation events | Covered by tests against PostgreSQL with signed requests. Not exercised live: it would mean uninstalling the app from the test repository                                                                                                                                                                                                                   |
 | A kill mid-review   | Passed on 2026-10-10: a review of `pr-buddy-test#4` was requested, its pending row confirmed, and the API process killed with SIGKILL while the review ran. After restart the log showed one review recovered and completed; the row was gone; the pull request still had exactly one summary comment, updated in place, and no line comments were repeated |
 | Retry limit, live   | Passed on 2026-10-10: a request for a pull request that does not exist failed with `404` at each of three starts (attempts 1, 2, 3) and was dropped at the fourth, which recovered nothing. The service stayed healthy throughout                                                                                                                           |
+
+### Part 3 — supply chain
+
+Decision D-070. Controls in [SECURITY.md](SECURITY.md), section 4.
+
+| Task                                                                    | Status |
+| ----------------------------------------------------------------------- | ------ |
+| GitHub Actions pinned to full commit SHAs                               | ✅     |
+| Base images pinned to digests: Dockerfiles, Compose files, CI service   | ✅     |
+| `scripts/check-pins.sh` in CI fails on a reference by tag alone         | ✅     |
+| Dependabot covers Compose files as well as npm, Actions and Dockerfiles | ✅     |
+
+| Check     | Result                                                                                         |
+| --------- | ---------------------------------------------------------------------------------------------- |
+| Pin check | Passed on the repository; failed, as it should, on a probe workflow with `actions/checkout@v7` |
+| Images    | The development and API images build from the pinned bases                                     |
+| Not done  | A Dependabot pull request that moves a pin has not arrived yet, so that path is unobserved     |
+
+### Part 4 — release `v0.1.0`
+
+How a release is made: [RELEASING.md](RELEASING.md). Notes: [CHANGELOG.md](../CHANGELOG.md).
+
+| Task                                                     | Status                                 |
+| -------------------------------------------------------- | -------------------------------------- |
+| Changelog with what is verified, what is not, and limits | ✅                                     |
+| Release procedure written down                           | ✅                                     |
+| Clean-checkout check of the committed files              | RELEASE_CHECK_STATUS                   |
+| Tag `v0.1.0` and publish the release                     | ⬜ Waits for the maintainer's go-ahead |
 
 ## Milestone 3, part 4 — the dashboard
 
@@ -317,19 +345,18 @@ the dashboard. Items that once carried "M3" here were optional extras; they are 
 
 | Item                                                                                                            | When                            |
 | --------------------------------------------------------------------------------------------------------------- | ------------------------------- |
-| Pin GitHub Actions and base images to digests                                                                   | M4, part 3                      |
 | Release `v0.1.0`                                                                                                | M4, part 4                      |
 | Run Anthropic, OpenAI, Azure and OpenAI-compatible, and Bedrock with an access key, against their real services | M4, needs the maintainer's keys |
-| Reproduce the full check from a clean checkout and keep the log as release evidence                             | M4, part 4                      |
-| A queue shared by several instances                                                                             | Later                           |
-| Check run with a pass or fail conclusion                                                                        | Later                           |
-| AWS credentials from roles, profiles or single sign-on (needs the SDK or more code)                             | Later                           |
-| Line comments for AI suggestions, with a fingerprint that survives rewording                                    | Later                           |
-| Per-repository AI budget and usage report                                                                       | Later                           |
-| Dashboard: editing settings, roles within an installation, charts                                               | Later                           |
-| YAML repository configuration                                                                                   | Later                           |
-| Run third-party rules in a worker thread with a hard time limit                                                 | Later                           |
-| Browser test of the dashboard and of sign-in against real GitHub in CI                                          | Later                           |
+
+| A queue shared by several instances | Later |
+| Check run with a pass or fail conclusion | Later |
+| AWS credentials from roles, profiles or single sign-on (needs the SDK or more code) | Later |
+| Line comments for AI suggestions, with a fingerprint that survives rewording | Later |
+| Per-repository AI budget and usage report | Later |
+| Dashboard: editing settings, roles within an installation, charts | Later |
+| YAML repository configuration | Later |
+| Run third-party rules in a worker thread with a hard time limit | Later |
+| Browser test of the dashboard and of sign-in against real GitHub in CI | Later |
 
 ## Change log
 

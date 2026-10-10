@@ -539,6 +539,16 @@ for the cases GitHub tells the service about.
 **Cost.** Reinstalling starts with an empty history. A person removed from an organisation is
 not an installation event, so that case still waits for the session to end.
 
+### D-070 — Actions are pinned to commits and images to digests
+
+**Decision.** Every GitHub Action is referenced by a full commit SHA and every container image
+by its `sha256` digest. A script in CI fails the build on a reference by tag alone. Dependabot
+proposes the updates.
+**Why.** A tag can be moved to other content after it was reviewed, and a compromised action
+runs with the repository checked out. A commit or a digest cannot change.
+**Cost.** Pins go stale unless the Dependabot pull requests are merged, and a digest says
+nothing a person can read; the tag stays beside it for that.
+
 ## 3. Glossary
 
 | Term       | Meaning                                                                                 |

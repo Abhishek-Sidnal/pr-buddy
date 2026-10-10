@@ -113,3 +113,12 @@ review context`.
 ## Conduct
 
 This project follows the [Code of Conduct](CODE_OF_CONDUCT.md).
+
+## Changelog and pins
+
+A change that a user or operator can notice gets a line in `CHANGELOG.md` under "Unreleased". A
+change to settings, defaults or the database also gets an upgrade note.
+
+GitHub Actions are referenced by a full commit SHA and container images by a `sha256` digest;
+`sh scripts/check-pins.sh` fails otherwise, and runs in CI. How a release is made is in
+[docs/RELEASING.md](docs/RELEASING.md).

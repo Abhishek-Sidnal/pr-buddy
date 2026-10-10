@@ -105,7 +105,7 @@ or updates the comment.
 
 ## Invariants
 
-These are design decisions with reasons recorded in `docs/BRAIN.md` (D-001 to D-069). Read the
+These are design decisions with reasons recorded in `docs/BRAIN.md` (D-001 to D-070). Read the
 relevant entry before changing one.
 
 - A webhook body is only a trigger. What gets reviewed is fetched from the API.
@@ -172,16 +172,18 @@ relevant entry before changing one.
 
 The maintainer wants design documents written before code and kept current. In the same change:
 
-| When you…                        | Update                                                       |
-| -------------------------------- | ------------------------------------------------------------ |
-| Start or finish a task           | `docs/TRACKER.md`                                            |
-| Make a design decision           | `docs/BRAIN.md` (next `D-0xx` entry)                         |
-| Add a threat or a control        | `docs/SECURITY.md`                                           |
-| Change a contract, limit or flow | `docs/DESIGN.md`, `-GITHUB`, `-STORAGE`, `-AI`, `-DASHBOARD` |
-| Change how the dashboard looks   | `docs/DESIGN-SYSTEM.md`                                      |
-| Add or move a module             | `docs/ARCHITECTURE.md`                                       |
-| Change how it is deployed        | `docs/DEPLOYMENT.md`, `deploy/`                              |
-| Change a rule                    | `docs/RULES.md`                                              |
+| When you…                           | Update                                                       |
+| ----------------------------------- | ------------------------------------------------------------ |
+| Start or finish a task              | `docs/TRACKER.md`                                            |
+| Make a design decision              | `docs/BRAIN.md` (next `D-0xx` entry)                         |
+| Add a threat or a control           | `docs/SECURITY.md`                                           |
+| Change a contract, limit or flow    | `docs/DESIGN.md`, `-GITHUB`, `-STORAGE`, `-AI`, `-DASHBOARD` |
+| Change how the dashboard looks      | `docs/DESIGN-SYSTEM.md`                                      |
+| Add or move a module                | `docs/ARCHITECTURE.md`                                       |
+| Change how it is deployed           | `docs/DEPLOYMENT.md`, `deploy/`                              |
+| Change a rule                       | `docs/RULES.md`                                              |
+| Change what a user or operator sees | `CHANGELOG.md`, under "Unreleased"                           |
+| Add an action or a base image       | Pin it to a commit or digest; `scripts/check-pins.sh` checks |
 
 `docs/CONTEXT.md` is the orientation page; `CONTRIBUTING.md` has the full coding rules.
 

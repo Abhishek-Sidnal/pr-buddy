@@ -64,6 +64,8 @@ of actionable, evidence-backed findings. Humans keep the merge decision.
 | [SECURITY.md](SECURITY.md)                 | Threat model and controls                                         |
 | [BRAIN.md](BRAIN.md)                       | Decisions and their reasons, glossary, open questions             |
 | [TRACKER.md](TRACKER.md)                   | Status of every task                                              |
+| [RELEASING.md](RELEASING.md)               | How a release is made: clean-checkout check, tag, notes           |
+| [../CHANGELOG.md](../CHANGELOG.md)         | What each version adds, what was verified, known limits           |
 | [../CONTRIBUTING.md](../CONTRIBUTING.md)   | Coding rules and the workflow for changes                         |
 
 ## Commands

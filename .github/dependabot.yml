@@ -24,3 +24,11 @@ updates:
     directory: /docker
     schedule:
       interval: weekly
+
+  # Image digests in the Compose files: the development stack and the example deployment.
+  - package-ecosystem: docker-compose
+    directories:
+      - /
+      - /deploy
+    schedule:
+      interval: weekly
