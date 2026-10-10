@@ -26,3 +26,6 @@ Thumbs.db
 
 # Local assistant settings
 .claude/settings.local.json
+
+# Settings for the backup and watch scripts of the example stack: they hold a credential.
+ops.env

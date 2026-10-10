@@ -50,7 +50,7 @@ pr-buddy/
 ├── examples/                 Example configuration
 ├── docs/                     Product, architecture, design, security, tracker, decisions
 ├── docker/                   Development image and the API's production image
-├── deploy/                   Example production stack: Caddy, the API, PostgreSQL
+├── deploy/                   Example production stack: Caddy, the API, PostgreSQL; backup and watch scripts
 ├── .github/                  CI workflow, issue and pull request templates
 ├── compose.yaml              Development container and the API service
 ├── eslint.config.js          Lint rules for the whole repository
