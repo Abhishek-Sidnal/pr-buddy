@@ -163,6 +163,56 @@ rule produces a line yet).
 **Decision.** A draft is skipped and reviewed when it is marked ready.
 **Why.** A draft says the author is not asking for review yet.
 
+### D-023 — A total patch budget per review
+
+**Decision.** The patches of one review may total 10 million characters. The GitHub client stops
+keeping patches once the budget is spent, and the engine rejects input that exceeds it.
+**Why.** Each patch was limited to 1 million characters, but 3,000 files could still add up to
+gigabytes held in memory. A file past the budget keeps its entry and loses only its patch, so
+rules that look at file names still see it, and the summary says how many diffs were left out.
+**Limit.** GitHub's response for one page of files is held in memory before it can be trimmed.
+
+### D-024 — A hunk that does not match its header is unverifiable
+
+**Decision.** The patch parser marks a hunk as well-formed only if it contains exactly the lines
+its header declares. Lines in other hunks cannot be used to verify a finding's location. A
+trailing newline is not a line.
+**Why.** The earlier parser accepted an empty string as a blank context line. A hunk cut short,
+followed by the empty string that a trailing newline leaves behind, could make a line look
+verified when it was not in the diff. Found by an external review on 2026-10-10.
+
+### D-025 — Rate limits are waited out, within a bound
+
+**Decision.** A GitHub rate-limit response is retried after the time GitHub asks for
+(`Retry-After`, or the reset time), if that is at most 60 seconds. Otherwise the review fails.
+**Why.** The webhook has already been acknowledged, so nobody else will retry. Waiting longer than
+a minute would hold a queue slot for too long.
+
+### D-026 — A failed review releases its delivery
+
+**Decision.** When a review fails, its delivery ID is forgotten.
+**Why.** GitHub's "Redeliver" sends the same delivery ID. Without this, a review that failed on a
+rate limit could not be recovered for 24 hours, because the redelivery would be dropped as a
+duplicate.
+
+### D-027 — Stale publication is narrowed, not eliminated
+
+**Decision.** The documents say what is guaranteed: the head commit is checked immediately before
+publishing, and the next review corrects the comment.
+**Why.** A push can still land between that check and the comment call. GitHub offers no
+compare-and-set for comments, so the window cannot be closed, only kept short. Earlier wording
+("never published") claimed more than the code can promise.
+
+### D-028 — The single-file permission stays, flagged as unverified
+
+**Decision.** The app keeps requesting read access to one named file instead of all repository
+contents.
+**Why.** An external review said GitHub has no such permission. It does: GitHub's REST
+documentation lists `single_file` among an app's permissions and `single_file_paths` on an
+installation. What is not yet proven is that reading the file through the Contents API works with
+that permission alone; the live test will show it. If it does not, the fallback is the
+repository Contents read permission, which exposes all code and must then be explained to users.
+
 ## 3. Glossary
 
 | Term       | Meaning                                                                                 |

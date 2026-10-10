@@ -27,6 +27,17 @@ export interface PullRequestFile {
   readonly additions: number;
   readonly deletions: number;
   readonly patch?: string;
+  /** True when GitHub sent a patch that was not kept because of a size limit. */
+  readonly patchOmitted?: boolean;
+}
+
+/** Bounds on what one listing of changed files may hold in memory. */
+export interface FileListLimits {
+  readonly maxFiles: number;
+  /** A longer patch is not kept. */
+  readonly maxPatchLength: number;
+  /** Once kept patches reach this total, no further patch is kept. */
+  readonly maxTotalPatchLength: number;
 }
 
 export type FileLookup =
@@ -40,8 +51,14 @@ export type FileLookup =
  */
 export interface RepositoryClient {
   getPullRequest(pullRequestNumber: number): Promise<PullRequestSnapshot>;
-  /** Lists changed files, at most `limit` of them. */
-  listPullRequestFiles(pullRequestNumber: number, limit: number): Promise<PullRequestFile[]>;
+  /**
+   * Lists changed files within `limits`. A file whose patch does not fit is still listed, with
+   * `patchOmitted` set instead of the patch.
+   */
+  listPullRequestFiles(
+    pullRequestNumber: number,
+    limits: FileListLimits,
+  ): Promise<PullRequestFile[]>;
   /** Reads a text file at a commit. Files larger than `maxBytes` are not downloaded. */
   getFileText(path: string, ref: string, maxBytes: number): Promise<FileLookup>;
   /** Finds the ID of a comment written by this app whose body contains `marker`. */

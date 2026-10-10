@@ -122,19 +122,19 @@ result appears as one comment on that pull request. Design: [DESIGN-GITHUB.md](D
 
 ### Functional requirements
 
-| ID    | Requirement                                                                                       |
-| ----- | ------------------------------------------------------------------------------------------------- |
-| FR-20 | The app receives pull request webhooks and rejects any whose signature is invalid.                |
-| FR-21 | A repeated webhook delivery does not cause a second review.                                       |
-| FR-22 | Opening, reopening, pushing to, editing or marking ready a pull request triggers a review.        |
-| FR-23 | Draft and closed pull requests are not reviewed.                                                  |
-| FR-24 | Changed files and patches are fetched with credentials scoped to the installation.                |
-| FR-25 | The review is published as a single comment that is updated in place on later reviews.            |
-| FR-26 | A pull request with no findings receives no comment, unless an earlier comment must be corrected. |
-| FR-27 | A review of a commit that is no longer the head of the pull request is never published.           |
-| FR-28 | A repository can configure the rules with `.github/pr-buddy.json` on its base branch.             |
-| FR-29 | Invalid repository configuration falls back to defaults and is reported in the comment.           |
-| FR-30 | Transient GitHub errors are retried a bounded number of times; other failures are logged.         |
+| ID    | Requirement                                                                                                                                                                                                                          |
+| ----- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| FR-20 | The app receives pull request webhooks and rejects any whose signature is invalid.                                                                                                                                                   |
+| FR-21 | A repeated webhook delivery does not cause a second review.                                                                                                                                                                          |
+| FR-22 | Opening, reopening, pushing to, editing or marking ready a pull request triggers a review.                                                                                                                                           |
+| FR-23 | Draft and closed pull requests are not reviewed.                                                                                                                                                                                     |
+| FR-24 | Changed files and patches are fetched with credentials scoped to the installation.                                                                                                                                                   |
+| FR-25 | The review is published as a single comment that is updated in place on later reviews.                                                                                                                                               |
+| FR-26 | A pull request with no findings receives no comment, unless an earlier comment must be corrected.                                                                                                                                    |
+| FR-27 | The head commit is checked immediately before publishing, and a review of an older commit is discarded. A push in the instant between that check and publishing can still slip through; the review it triggers corrects the comment. |
+| FR-28 | A repository can configure the rules with `.github/pr-buddy.json` on its base branch.                                                                                                                                                |
+| FR-29 | Invalid repository configuration falls back to defaults and is reported in the comment.                                                                                                                                              |
+| FR-30 | Transient GitHub errors and short rate limits are retried a bounded number of times; other failures are logged and can be redelivered.                                                                                               |
 
 ### Non-functional requirements
 

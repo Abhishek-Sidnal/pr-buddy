@@ -15,6 +15,8 @@ export interface SummaryNotes {
   readonly skippedFileCount: number;
   /** Files beyond the number that can be listed for one pull request. */
   readonly unlistedFileCount: number;
+  /** Files reviewed without their diff because it exceeded a size limit. */
+  readonly omittedPatchCount: number;
   /** Problems in the repository's configuration file; defaults were used instead. */
   readonly configurationIssues: readonly string[];
   /** Path of the configuration file, for the message about `configurationIssues`. */
@@ -83,6 +85,11 @@ function renderNotes(result: ReviewResult, notes: SummaryNotes): string[] {
   if (notes.unlistedFileCount > 0) {
     lines.push(
       `- ${capitalize(plural(notes.unlistedFileCount, "file"))} beyond the first listed by GitHub ${notes.unlistedFileCount === 1 ? "was" : "were"} not reviewed.`,
+    );
+  }
+  if (notes.omittedPatchCount > 0) {
+    lines.push(
+      `- The ${notes.omittedPatchCount === 1 ? "diff of 1 file was" : `diffs of ${notes.omittedPatchCount} files were`} too large to load, so only ${notes.omittedPatchCount === 1 ? "its name was" : "their names were"} checked.`,
     );
   }
   if (notes.configurationIssues.length > 0) {

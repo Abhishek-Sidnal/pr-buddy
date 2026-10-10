@@ -140,8 +140,10 @@ Around the engine, the GitHub App adds:
 
 - **Verified webhooks.** The signature is checked before the body is parsed, and a webhook only
   triggers a review: what is reviewed is fetched from GitHub's API.
-- **No stale or duplicate output.** Reviews of one pull request run one at a time, the head commit
-  is checked again before publishing, and the result is one comment updated in place.
+- **One comment, kept current.** Reviews of one pull request run one at a time, the head commit is
+  checked again just before publishing, and the result is one comment updated in place. A push in
+  the instant between that check and publishing can briefly show the previous result; the review
+  that push triggers replaces it.
 - **Least privilege.** The app asks for pull request access and one named configuration file. It
   cannot read the rest of the repository.
 - **Safe output.** File names and other text a contributor chooses cannot create mentions, links
@@ -152,7 +154,8 @@ More detail: [architecture](docs/ARCHITECTURE.md) · [engine design](docs/DESIGN
 
 ## Known limitations
 
-- The GitHub App has not been run against the real GitHub API yet.
+- The GitHub App has not been run against the real GitHub API yet. In particular, reading the
+  configuration file with the single-file permission is unverified.
 - Nothing is stored. Delivery memory and queued reviews are lost when the service restarts.
 - The summary is a single comment: there are no inline comments and no check run.
 - The built-in rules look at pull request metadata and file names only. None inspects code.

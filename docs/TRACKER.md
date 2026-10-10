@@ -52,16 +52,26 @@ Legend: ✅ done · 🚧 in progress · ⬜ not started
 
 ### Acceptance
 
-Last run on 2026-10-10 with `docker compose run --rm dev npm run check` (Node.js 24).
+Last run on 2026-10-10 with `docker compose run --rm dev npm run check` (Node.js 25).
 
 | Check                               | Result                                                                                                                         |
 | ----------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
 | Formatting, build, lint, type-check | Passed                                                                                                                         |
-| Tests                               | Passed: 605 tests (engine 348, GitHub client 136, API 121)                                                                     |
+| Tests                               | Passed: 662 tests (engine 358, GitHub client 178, API 126)                                                                     |
 | Coverage, statements                | Engine 100%, GitHub client 100%, API 98.7%                                                                                     |
 | Audit                               | `npm audit`: no known vulnerabilities                                                                                          |
 | Container smoke test                | Passed: health, `401` unsigned, `401` wrong secret, `202` signed, duplicate detected, unprivileged user, read-only file system |
 | Real GitHub API                     | **Not run.** Needs a registered GitHub App                                                                                     |
+
+### External review, 2026-10-10
+
+| Finding                                            | Verdict                          | Outcome                                                                                       |
+| -------------------------------------------------- | -------------------------------- | --------------------------------------------------------------------------------------------- |
+| GitHub has no single-file permission               | Incorrect: the permission exists | Kept; marked unverified until the live test, with a documented fallback (D-028)               |
+| No total limit on patch size                       | Valid                            | ✅ 10 million characters per review, enforced on retrieval, mapping and in the engine (D-023) |
+| Malformed hunks can verify invented lines          | Valid                            | ✅ Only hunks that match their header verify locations (D-024)                                |
+| Rate limits are not retried                        | Valid                            | ✅ Bounded wait and retry; failed reviews can be redelivered (D-025, D-026)                   |
+| Stale result can publish between check and comment | Valid                            | ✅ Documents now state the real guarantee (D-027)                                             |
 
 ### Remaining for Milestone 2
 
@@ -80,7 +90,6 @@ Complete. Engine, three rules, 348 tests at 100% coverage. Details are in the ch
 
 | Item                                                              | Owner      |
 | ----------------------------------------------------------------- | ---------- |
-| Review the four open Dependabot pull requests                     | Maintainer |
 | Enable private vulnerability reporting in the repository settings | Maintainer |
 | Add a contact method for code of conduct reports to the profile   | Maintainer |
 | Decide the copyright holder named in `LICENSE`                    | Maintainer |
@@ -105,10 +114,12 @@ Complete. Engine, three rules, 348 tests at 100% coverage. Details are in the ch
 
 ## Change log
 
-| Date       | Change                                                                               |
-| ---------- | ------------------------------------------------------------------------------------ |
-| 2026-10-10 | Project documentation written; Milestone 1 started                                   |
-| 2026-10-10 | Review engine, three rules, tests and tooling implemented                            |
-| 2026-10-10 | Replaced picomatch with an own glob matcher after measuring a denial-of-service risk |
-| 2026-10-10 | Milestone 1 acceptance checks passed; repository published privately on GitHub       |
-| 2026-10-10 | Milestone 2: GitHub client package, API service, production image, CI image build    |
+| Date       | Change                                                                                                            |
+| ---------- | ----------------------------------------------------------------------------------------------------------------- |
+| 2026-10-10 | Project documentation written; Milestone 1 started                                                                |
+| 2026-10-10 | Review engine, three rules, tests and tooling implemented                                                         |
+| 2026-10-10 | Replaced picomatch with an own glob matcher after measuring a denial-of-service risk                              |
+| 2026-10-10 | Milestone 1 acceptance checks passed; repository published privately on GitHub                                    |
+| 2026-10-10 | Milestone 2: GitHub client package, API service, production image, CI image build                                 |
+| 2026-10-10 | Milestone 2 merged; dependency bumps merged; TypeScript 7 held back in Dependabot                                 |
+| 2026-10-10 | Hardening after an external review: patch budget, stricter patch parser, rate-limit retry, redeliverable failures |

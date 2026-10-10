@@ -170,8 +170,12 @@ integration can still report it in the review summary.
 `parsePatch` reads hunk headers of the form `@@ -a,b +c,d @@` and walks the lines that follow,
 using the header's counts as bounds. Added (`+`) and context (` `) lines are numbered on the new
 side; removed (`-`) lines and the `\ No newline at end of file` marker are not. Text that is not
-part of a hunk is ignored, so a malformed patch yields fewer verifiable lines rather than wrong
-ones.
+part of a hunk is ignored, and a final newline is not a line.
+
+Each hunk records whether it is **well-formed**: it contains exactly the number of old-side and
+new-side lines its header declares, no fewer and no more. Only well-formed hunks can verify a
+location. A hunk that is cut short or carries extra lines contributes nothing, so a malformed
+patch yields fewer verifiable lines rather than wrong ones.
 
 ## 6. Error handling
 
@@ -208,6 +212,7 @@ Defined in `src/limits.ts`.
 | Files per review            | 3,000                   | GitHub's maximum for a pull request's file list |
 | Path length                 | 1,024                   | Bounds matching cost                            |
 | Patch length per file       | 1,000,000 characters    | Bounds parsing cost                             |
+| Patch length per review     | 10,000,000 characters   | Bounds memory across up to 3,000 files          |
 | PR body length              | 262,144 characters      | Above GitHub's own limit                        |
 | PR title length             | 1,024 characters        | —                                               |
 | Glob patterns per option    | 100                     | Bounds matching cost                            |

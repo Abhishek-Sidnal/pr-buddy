@@ -1,5 +1,11 @@
 import { z } from "zod";
-import { MAX_BODY_LENGTH, MAX_FILES, MAX_PATCH_LENGTH, MAX_TITLE_LENGTH } from "../limits.js";
+import {
+  MAX_BODY_LENGTH,
+  MAX_FILES,
+  MAX_PATCH_LENGTH,
+  MAX_TITLE_LENGTH,
+  MAX_TOTAL_PATCH_LENGTH,
+} from "../limits.js";
 import type { DeepReadonly } from "../utils/deep-freeze.js";
 import { repoPathSchema } from "./repo-path.js";
 
@@ -67,6 +73,18 @@ export const reviewContextSchema = z
       }
       seen.add(file.path);
     });
+
+    const totalPatchLength = context.files.reduce(
+      (total, file) => total + (file.patch?.length ?? 0),
+      0,
+    );
+    if (totalPatchLength > MAX_TOTAL_PATCH_LENGTH) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["files"],
+        message: `patches must not total more than ${MAX_TOTAL_PATCH_LENGTH} characters`,
+      });
+    }
   });
 
 export type FileStatus = (typeof FILE_STATUSES)[number];

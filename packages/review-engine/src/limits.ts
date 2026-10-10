@@ -7,6 +7,8 @@
 export const MAX_FILES = 3_000;
 export const MAX_PATH_LENGTH = 1_024;
 export const MAX_PATCH_LENGTH = 1_000_000;
+/** All patches of one review together. Without it, 3,000 files could hold gigabytes. */
+export const MAX_TOTAL_PATCH_LENGTH = 10_000_000;
 export const MAX_TITLE_LENGTH = 1_024;
 export const MAX_BODY_LENGTH = 262_144;
 

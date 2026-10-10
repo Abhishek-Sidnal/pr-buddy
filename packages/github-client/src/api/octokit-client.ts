@@ -7,7 +7,7 @@ import type {
   RepositoryClientFactory,
   RepositoryTarget,
 } from "./repository-client.js";
-import { DEFAULT_RETRY, isTransientHttpError, withRetry, type RetryOptions } from "./retry.js";
+import { DEFAULT_RETRY, withRetry, type RetryOptions } from "./retry.js";
 
 const PAGE_SIZE = 100;
 /** Comments searched for PR Buddy's own; a pull request with more is not searched further. */
@@ -47,8 +47,7 @@ function createRepositoryClient(
   retry: RetryOptions,
 ): RepositoryClient {
   const { owner, repo } = target;
-  const call = <T>(operation: () => Promise<T>): Promise<T> =>
-    withRetry(operation, isTransientHttpError, retry);
+  const call = <T>(operation: () => Promise<T>): Promise<T> => withRetry(operation, retry);
 
   return {
     async getPullRequest(pullRequestNumber) {
@@ -67,8 +66,10 @@ function createRepositoryClient(
       };
     },
 
-    async listPullRequestFiles(pullRequestNumber, limit) {
+    async listPullRequestFiles(pullRequestNumber, limits) {
+      const limit = limits.maxFiles;
       const files: PullRequestFile[] = [];
+      let keptPatchLength = 0;
       for (let page = 1; files.length < limit; page += 1) {
         const { data } = await call(() =>
           octokit.rest.pulls.listFiles({
@@ -80,6 +81,16 @@ function createRepositoryClient(
           }),
         );
         for (const file of data) {
+          // Patches are dropped here, as they arrive, so that a huge pull request never has
+          // more than the budget (plus one page) of patch text in memory.
+          const { patch } = file;
+          const patchFits =
+            patch !== undefined &&
+            patch.length <= limits.maxPatchLength &&
+            keptPatchLength + patch.length <= limits.maxTotalPatchLength;
+          if (patchFits) {
+            keptPatchLength += patch.length;
+          }
           files.push({
             path: file.filename,
             status: file.status,
@@ -88,7 +99,8 @@ function createRepositoryClient(
             ...(file.previous_filename === undefined
               ? {}
               : { previousPath: file.previous_filename }),
-            ...(file.patch === undefined ? {} : { patch: file.patch }),
+            ...(patchFits ? { patch } : {}),
+            ...(patch !== undefined && !patchFits ? { patchOmitted: true } : {}),
           });
         }
         if (data.length < PAGE_SIZE) {

@@ -1,4 +1,8 @@
-import { parsePullRequestEvent, verifyWebhookSignature } from "@pr-buddy/github-client";
+import {
+  isRateLimitError,
+  parsePullRequestEvent,
+  verifyWebhookSignature,
+} from "@pr-buddy/github-client";
 import express, { type RequestHandler, type Router } from "express";
 import { describeError, type Logger } from "../../logger.js";
 import type { ReviewQueue } from "../reviews/review-queue.js";
@@ -79,7 +83,14 @@ export function createWebhookRouter(dependencies: WebhookRouterDependencies): Ro
     const { trigger } = parsed;
     const key = `${trigger.repository.id}#${trigger.pullRequestNumber}`;
     const result = reviewQueue.enqueue(key, async () => {
-      await reviewService.review(trigger);
+      try {
+        await reviewService.review(trigger);
+      } catch (error) {
+        // GitHub's "Redeliver" reuses the delivery ID. Forgetting it here is what lets a failed
+        // review, for example one that hit a rate limit, be run again by redelivering.
+        await deliveryStore.release(deliveryId);
+        throw error;
+      }
     });
     if (result === "rejected") {
       // Forget the delivery so that GitHub's "Redeliver" can succeed once there is room.
@@ -112,9 +123,16 @@ export function createWebhookRouter(dependencies: WebhookRouterDependencies): Ro
   return router;
 }
 
-/** Logs a review that failed. Passed to the queue as its error handler. */
+/**
+ * Logs a review that failed. Passed to the queue as its error handler. A review given up because
+ * of a rate limit is logged under its own message, so that it can be found and redelivered.
+ */
 export function createReviewErrorLogger(logger: Logger): (error: unknown, key: string) => void {
   return (error, key) => {
-    logger.error({ reviewKey: key, ...describeError(error) }, "Review failed");
+    const rateLimited = isRateLimitError(error);
+    logger.error(
+      { reviewKey: key, rateLimited, ...describeError(error) },
+      rateLimited ? "Review abandoned: GitHub rate limit" : "Review failed",
+    );
   };
 }

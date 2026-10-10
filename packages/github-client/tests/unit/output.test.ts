@@ -13,6 +13,7 @@ const HEAD_SHA = "9b8c7d6e5f4a3b2c1d0e9f8a7b6c5d4e3f2a1b0c";
 const NO_NOTES: SummaryNotes = {
   skippedFileCount: 0,
   unlistedFileCount: 0,
+  omittedPatchCount: 0,
   configurationIssues: [],
   configurationPath: ".github/pr-buddy.json",
 };
@@ -225,6 +226,18 @@ describe("renderReviewSummary", () => {
     const body = renderReviewSummary(buildResult(), { ...NO_NOTES, unlistedFileCount: 1 });
 
     expect(body).toContain("- 1 file beyond the first listed by GitHub was not reviewed.");
+  });
+
+  it("reports files whose diff was too large to load", () => {
+    const one = renderReviewSummary(buildResult(), { ...NO_NOTES, omittedPatchCount: 1 });
+    const many = renderReviewSummary(buildResult(), { ...NO_NOTES, omittedPatchCount: 12 });
+
+    expect(one).toContain(
+      "- The diff of 1 file was too large to load, so only its name was checked.",
+    );
+    expect(many).toContain(
+      "- The diffs of 12 files were too large to load, so only their names were checked.",
+    );
   });
 
   it("reports configuration problems as code", () => {

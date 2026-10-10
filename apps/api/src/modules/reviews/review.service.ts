@@ -1,18 +1,14 @@
 import {
   publishReviewSummary,
   renderReviewSummary,
+  REVIEW_FILE_LIMITS,
   toReviewContext,
   type PublishAction,
   type RepositoryClient,
   type RepositoryClientFactory,
   type ReviewTrigger,
 } from "@pr-buddy/github-client";
-import {
-  ConfigurationError,
-  createReviewEngine,
-  MAX_FILES,
-  type ReviewEngine,
-} from "@pr-buddy/review-engine";
+import { ConfigurationError, createReviewEngine, type ReviewEngine } from "@pr-buddy/review-engine";
 import type { Logger } from "../../logger.js";
 
 /** Where a repository keeps its PR Buddy settings. The app is granted read access to this file only. */
@@ -106,13 +102,15 @@ export function createReviewService(dependencies: ReviewServiceDependencies): Re
         return { status: "skipped", reason: "draft" };
       }
 
-      const files = await client.listPullRequestFiles(pullRequestNumber, MAX_FILES);
+      const files = await client.listPullRequestFiles(pullRequestNumber, REVIEW_FILE_LIMITS);
       const { engine, configurationIssues } = await loadEngine(client, pullRequest.baseSha);
-      const { context, skippedFileCount } = toReviewContext(pullRequest, files);
+      const { context, skippedFileCount, omittedPatchCount } = toReviewContext(pullRequest, files);
       const result = await engine.review(context);
 
       // A push may have arrived while the review ran. Its own review is queued behind this one,
-      // so this result is dropped instead of being published for a commit that is no longer the head.
+      // so this result is dropped instead of being published for a commit that is no longer the
+      // head. This narrows the window but cannot close it: a push can still land between this
+      // check and the comment call below. The review that push triggers then corrects the comment.
       const latest = await client.getPullRequest(pullRequestNumber);
       if (latest.headSha !== pullRequest.headSha || latest.state !== "open") {
         logger.info({ ...logFields, reason: "stale" }, "Review skipped");
@@ -121,6 +119,7 @@ export function createReviewService(dependencies: ReviewServiceDependencies): Re
 
       const body = renderReviewSummary(result, {
         skippedFileCount,
+        omittedPatchCount,
         unlistedFileCount: Math.max(0, pullRequest.changedFileCount - files.length),
         configurationIssues,
         configurationPath: CONFIGURATION_PATH,
@@ -136,6 +135,7 @@ export function createReviewService(dependencies: ReviewServiceDependencies): Re
           findingCount: result.findings.length,
           failedRuleCount: result.rules.filter((rule) => rule.status === "failed").length,
           skippedFileCount,
+          omittedPatchCount,
           comment,
         },
         "Review completed",
