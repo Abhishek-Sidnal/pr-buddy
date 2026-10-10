@@ -9,7 +9,9 @@
     "node": ">=22.12"
   },
   "workspaces": [
-    "packages/*"
+    "packages/review-engine",
+    "packages/github-client",
+    "apps/api"
   ],
   "scripts": {
     "build": "npm run build --workspaces --if-present",
@@ -20,7 +22,7 @@
     "lint:fix": "eslint . --fix",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "check": "npm run format:check && npm run lint && npm run typecheck && npm run test:coverage && npm run build"
+    "check": "npm run format:check && npm run build && npm run lint && npm run typecheck && npm run test:coverage"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

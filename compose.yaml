@@ -1,6 +1,9 @@
 # Development environment. Usage:
 #   docker compose run --rm dev npm install
 #   docker compose run --rm dev npm run check
+#
+# The API, once .env is filled in (see docs/GITHUB_APP.md):
+#   docker compose --profile app up --build api
 services:
   dev:
     build:
@@ -15,6 +18,25 @@ services:
       - ALL
     security_opt:
       - no-new-privileges:true
+
+  api:
+    profiles:
+      - app
+    build:
+      context: .
+      dockerfile: docker/api.Dockerfile
+    env_file:
+      - path: .env
+        required: false
+    ports:
+      # Reachable from this machine only. Put a reverse proxy in front for anything else.
+      - "127.0.0.1:3000:3000"
+    read_only: true
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    restart: unless-stopped
 
 volumes:
   node_modules:

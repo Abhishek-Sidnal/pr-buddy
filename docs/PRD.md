@@ -113,6 +113,58 @@ languages other than JavaScript and TypeScript, automatic merging and automatic 
 
 Progress against these criteria is tracked in [TRACKER.md](TRACKER.md).
 
+## 6A. Milestone 2 — the GitHub App
+
+### Objective
+
+A pull request in a repository where the app is installed is reviewed automatically, and the
+result appears as one comment on that pull request. Design: [DESIGN-GITHUB.md](DESIGN-GITHUB.md).
+
+### Functional requirements
+
+| ID    | Requirement                                                                                       |
+| ----- | ------------------------------------------------------------------------------------------------- |
+| FR-20 | The app receives pull request webhooks and rejects any whose signature is invalid.                |
+| FR-21 | A repeated webhook delivery does not cause a second review.                                       |
+| FR-22 | Opening, reopening, pushing to, editing or marking ready a pull request triggers a review.        |
+| FR-23 | Draft and closed pull requests are not reviewed.                                                  |
+| FR-24 | Changed files and patches are fetched with credentials scoped to the installation.                |
+| FR-25 | The review is published as a single comment that is updated in place on later reviews.            |
+| FR-26 | A pull request with no findings receives no comment, unless an earlier comment must be corrected. |
+| FR-27 | A review of a commit that is no longer the head of the pull request is never published.           |
+| FR-28 | A repository can configure the rules with `.github/pr-buddy.json` on its base branch.             |
+| FR-29 | Invalid repository configuration falls back to defaults and is reported in the comment.           |
+| FR-30 | Transient GitHub errors are retried a bounded number of times; other failures are logged.         |
+
+### Non-functional requirements
+
+| ID     | Requirement                                                                           |
+| ------ | ------------------------------------------------------------------------------------- |
+| NFR-20 | The webhook is acknowledged before the review runs.                                   |
+| NFR-21 | Request size, request rate, concurrency and queue length are all bounded.             |
+| NFR-22 | The app requests the fewest GitHub permissions that these features need.              |
+| NFR-23 | Secrets come from the environment and never appear in logs, errors or responses.      |
+| NFR-24 | Pull request content is never logged.                                                 |
+| NFR-25 | Text chosen by a contributor cannot create mentions, links or HTML in the comment.    |
+| NFR-26 | Every review flow is tested without network access, against an in-memory GitHub fake. |
+
+### Out of scope for Milestone 2
+
+Database and review history, dashboard, AI review, inline comments, check runs, YAML
+configuration, organisations and user accounts, hosted deployment.
+
+### Acceptance criteria
+
+- `npm run check` passes for every package.
+- Invalid signatures are rejected; duplicate deliveries do not produce duplicate reviews.
+- A new commit during a review prevents the stale result from being published.
+- Large, deleted, binary and patch-less files are handled without error.
+- Rate limits, permission failures and transient errors from GitHub are handled.
+- The API starts in its container and answers a signed webhook.
+- **Manual:** a pull request in a real test repository receives exactly one comment, which is
+  updated when the pull request changes. This needs a registered GitHub App; see
+  [GITHUB_APP.md](GITHUB_APP.md).
+
 ## 7. Success metrics (from M2 onward)
 
 These cannot be measured until PR Buddy reviews real pull requests.

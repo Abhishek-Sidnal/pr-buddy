@@ -3,14 +3,31 @@
 An open-source assistant that reviews GitHub pull requests. It reports a small number of
 actionable findings, shows the evidence behind each one, and leaves the merge decision to people.
 
-> **Status: Milestone 1.** The deterministic review engine is implemented and tested. The GitHub
-> App, dashboard and optional AI review are planned and are not in this repository yet. See the
+> **Status: Milestone 2.** The review engine and the GitHub App are implemented and tested. The
+> app has been tested against an in-memory GitHub and as a running container, but not yet against
+> the real GitHub API. A database, dashboard and optional AI review are planned. See the
 > [tracker](docs/TRACKER.md).
 
 ## What exists today
 
-`@pr-buddy/review-engine` is a TypeScript library that takes a description of a pull request and
-returns validated findings. It has no knowledge of GitHub, HTTP or databases.
+| Package                                             | What it is                                                   |
+| --------------------------------------------------- | ------------------------------------------------------------ |
+| [`@pr-buddy/review-engine`](packages/review-engine) | The deterministic rules and the pipeline that runs them      |
+| [`@pr-buddy/github-client`](packages/github-client) | Webhook verification, GitHub API access, the summary comment |
+| [`@pr-buddy/api`](apps/api)                         | The HTTP service that receives webhooks and runs reviews     |
+
+### As a GitHub App
+
+When a pull request is opened or updated in a repository where the app is installed, PR Buddy
+reviews it and keeps **one** comment on it up to date. A pull request with nothing to report gets
+no comment. Drafts are skipped until they are marked ready.
+
+To run it against your own repositories, follow [docs/GITHUB_APP.md](docs/GITHUB_APP.md).
+
+### As a library
+
+`@pr-buddy/review-engine` takes a description of a pull request and returns validated findings.
+It has no knowledge of GitHub, HTTP or databases.
 
 ```ts
 import { createReviewEngine } from "@pr-buddy/review-engine";
@@ -88,7 +105,7 @@ Install the dependencies:
 docker compose run --rm dev npm install
 ```
 
-Run every check: formatting, lint, type-check, tests with coverage, and build.
+Run every check: formatting, build, lint, type-check and tests with coverage.
 
 ```bash
 docker compose run --rm dev npm run check
@@ -119,12 +136,25 @@ review input ─► validate ─► freeze ─► run rules ─► validate find
 - **The engine is pure.** No file, network or process access, and nothing from a reviewed
   repository is ever executed. ESLint enforces this.
 
-More detail: [architecture](docs/ARCHITECTURE.md) · [design](docs/DESIGN.md) ·
-[security](docs/SECURITY.md).
+Around the engine, the GitHub App adds:
+
+- **Verified webhooks.** The signature is checked before the body is parsed, and a webhook only
+  triggers a review: what is reviewed is fetched from GitHub's API.
+- **No stale or duplicate output.** Reviews of one pull request run one at a time, the head commit
+  is checked again before publishing, and the result is one comment updated in place.
+- **Least privilege.** The app asks for pull request access and one named configuration file. It
+  cannot read the rest of the repository.
+- **Safe output.** File names and other text a contributor chooses cannot create mentions, links
+  or HTML in the comment.
+
+More detail: [architecture](docs/ARCHITECTURE.md) · [engine design](docs/DESIGN.md) ·
+[GitHub App design](docs/DESIGN-GITHUB.md) · [security](docs/SECURITY.md).
 
 ## Known limitations
 
-- There is no GitHub integration yet: the caller must build the review input.
+- The GitHub App has not been run against the real GitHub API yet.
+- Nothing is stored. Delivery memory and queued reviews are lost when the service restarts.
+- The summary is a single comment: there are no inline comments and no check run.
 - The built-in rules look at pull request metadata and file names only. None inspects code.
 - `missing-test-changes` is a heuristic. It cannot tell whether existing tests cover a change.
 - `pr-description` measures length, not quality.
@@ -132,30 +162,32 @@ More detail: [architecture](docs/ARCHITECTURE.md) · [design](docs/DESIGN.md) ·
 - Findings can point at added or unchanged lines, not at removed lines.
 - The rule time limit cannot interrupt a synchronous rule that never returns; see the
   [security design](docs/SECURITY.md).
-- Configuration is a JavaScript object. Reading a configuration file is left to the integration.
+- Repository configuration is JSON only, in `.github/pr-buddy.json`.
 - The glob dialect is small on purpose: no character classes, negation or escaping.
 
 ## Documentation
 
-| Document                             | Contents                                        |
-| ------------------------------------ | ----------------------------------------------- |
-| [Context](docs/CONTEXT.md)           | Start here: orientation, commands, ground rules |
-| [Product requirements](docs/PRD.md)  | What is being built and why                     |
-| [Architecture](docs/ARCHITECTURE.md) | Modules and their boundaries                    |
-| [Design](docs/DESIGN.md)             | Data contracts, pipeline, limits                |
-| [Rules](docs/RULES.md)               | Reference for the built-in rules                |
-| [Security](docs/SECURITY.md)         | Threat model and controls                       |
-| [Brain](docs/BRAIN.md)               | Decisions and their reasons                     |
-| [Tracker](docs/TRACKER.md)           | Status of the work                              |
+| Document                                   | Contents                                        |
+| ------------------------------------------ | ----------------------------------------------- |
+| [Context](docs/CONTEXT.md)                 | Start here: orientation, commands, ground rules |
+| [Product requirements](docs/PRD.md)        | What is being built and why                     |
+| [Architecture](docs/ARCHITECTURE.md)       | Modules and their boundaries                    |
+| [Engine design](docs/DESIGN.md)            | Data contracts, pipeline, limits                |
+| [GitHub App design](docs/DESIGN-GITHUB.md) | Webhook, queue, review service, permissions     |
+| [GitHub App setup](docs/GITHUB_APP.md)     | Registering the app and running the service     |
+| [Rules](docs/RULES.md)                     | Reference for the built-in rules                |
+| [Security](docs/SECURITY.md)               | Threat model and controls                       |
+| [Brain](docs/BRAIN.md)                     | Decisions and their reasons                     |
+| [Tracker](docs/TRACKER.md)                 | Status of the work                              |
 
 ## Roadmap
 
-| Milestone | Deliverable                                      | Status      |
-| --------- | ------------------------------------------------ | ----------- |
-| M1        | Deterministic review engine                      | Implemented |
-| M2        | GitHub App: webhooks, diffs, published reviews   | Planned     |
-| M3        | Optional AI review, policy thresholds, dashboard | Planned     |
-| M4        | Hardening and `v0.1.0`                           | Planned     |
+| Milestone | Deliverable                                      | Status                         |
+| --------- | ------------------------------------------------ | ------------------------------ |
+| M1        | Deterministic review engine                      | Implemented                    |
+| M2        | GitHub App: webhooks, diffs, published reviews   | Implemented; live test pending |
+| M3        | Optional AI review, policy thresholds, dashboard | Planned                        |
+| M4        | Hardening and `v0.1.0`                           | Planned                        |
 
 PR Buddy does not merge pull requests or change code.
 
