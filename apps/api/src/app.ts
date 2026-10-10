@@ -1,6 +1,7 @@
 import express, { type ErrorRequestHandler, type Express, type RequestHandler } from "express";
 import { rateLimit } from "express-rate-limit";
 import type { UserAuthClient } from "@pr-buddy/github-client";
+import type { OperatorInfo } from "./config/env.js";
 import { describeError, type Logger } from "./logger.js";
 import type { AiKeyStore } from "./modules/ai-keys/ai-key-store.js";
 import { createAiKeyRouter } from "./modules/ai-keys/ai-key.router.js";
@@ -38,6 +39,10 @@ export interface DashboardDependencies {
   readonly publicUrl: string;
   /** The app's name in github.com/apps/<slug>, if the operator configured it. */
   readonly appSlug?: string;
+  /** Who runs this deployment, if the operator said so. */
+  readonly operator?: OperatorInfo;
+  /** Days a review is kept; 0 keeps them for ever. */
+  readonly retentionDays?: number;
   /** Folder holding the built web application. */
   readonly webRoot: string;
   /** Sign-in requests allowed per minute from one client address. */

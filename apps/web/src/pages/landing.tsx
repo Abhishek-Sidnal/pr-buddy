@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { useSearchParams } from "react-router";
+import { Link, useSearchParams } from "react-router";
 import { SIGN_IN_PATH } from "../api/client.js";
 import { Notice } from "../components/common.js";
 import { DataHandling } from "../components/data-handling.js";
@@ -86,6 +86,9 @@ export function LandingPage(props: {
         <p className="hint">
           Code is sent to an AI provider only for a repository that opted in, and only to the
           provider its installation chose, or this service&apos;s own if the installation set none.
+        </p>
+        <p>
+          <Link to="/privacy">Privacy and data: the full account, and who runs this service</Link>
         </p>
       </section>
 

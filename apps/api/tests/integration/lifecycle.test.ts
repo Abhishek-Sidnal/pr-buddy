@@ -398,8 +398,8 @@ describe("recovery at start-up", () => {
     const held = new Promise<void>((resolve) => {
       release = resolve;
     });
-    tiny.enqueue("busy", () => held);
-    tiny.enqueue("waiting", () => Promise.resolve());
+    tiny.enqueue("busy", "group", () => held);
+    tiny.enqueue("waiting", "group", () => Promise.resolve());
 
     const queued = await recover(tiny);
     release();

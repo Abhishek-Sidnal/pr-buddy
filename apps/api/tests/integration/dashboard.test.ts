@@ -7,6 +7,7 @@ import type { Express } from "express";
 import request from "supertest";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { createApp } from "../../src/app.js";
+import type { OperatorInfo } from "../../src/config/env.js";
 import { migrate } from "../../src/database/migrate.js";
 import { createPostgresSessionStore } from "../../src/modules/auth/postgres-session-store.js";
 import type { SessionStore } from "../../src/modules/auth/session-store.js";
@@ -71,6 +72,8 @@ interface AppOverrides {
   authRateLimit?: number;
   withDashboard?: boolean;
   appSlug?: string;
+  operator?: OperatorInfo;
+  retentionDays?: number;
 }
 
 function buildApp(overrides: AppOverrides = {}): Express {
@@ -95,6 +98,10 @@ function buildApp(overrides: AppOverrides = {}): Express {
             authRateLimit: overrides.authRateLimit ?? 1_000,
             apiRateLimit: 1_000,
             ...(overrides.appSlug === undefined ? {} : { appSlug: overrides.appSlug }),
+            ...(overrides.operator === undefined ? {} : { operator: overrides.operator }),
+            ...(overrides.retentionDays === undefined
+              ? {}
+              : { retentionDays: overrides.retentionDays }),
           },
         }),
   });
@@ -392,7 +399,7 @@ describe("what a visitor who is not signed in may learn", () => {
     const response = await request(named).get("/auth/service");
 
     expect(response.status).toBe(200);
-    expect(response.body).toEqual({ appSlug: "pr-buddy-acme" });
+    expect(response.body).toMatchObject({ appSlug: "pr-buddy-acme" });
     expect(response.headers["set-cookie"]).toBeUndefined();
   });
 
@@ -400,7 +407,30 @@ describe("what a visitor who is not signed in may learn", () => {
     const response = await request(app).get("/auth/service");
 
     expect(response.status).toBe(200);
-    expect(response.body).toEqual({ appSlug: null });
+    expect(response.body).toEqual({
+      appSlug: null,
+      operator: { name: null, contact: null, privacyUrl: null, termsUrl: null },
+      retentionDays: null,
+    });
+  });
+
+  it("says who runs the service and how long reviews are kept, as the operator configured", async () => {
+    const operator = {
+      name: "Acme Reviews Ltd",
+      contact: "privacy@acme.example",
+      privacyUrl: "https://acme.example/privacy",
+      termsUrl: null,
+    };
+
+    const response = await request(buildApp({ operator, retentionDays: 90 })).get("/auth/service");
+
+    expect(response.body).toEqual({ appSlug: null, operator, retentionDays: 90 });
+  });
+
+  it("passes on a retention of zero, which means for ever", async () => {
+    const response = await request(buildApp({ retentionDays: 0 })).get("/auth/service");
+
+    expect((response.body as { retentionDays: unknown }).retentionDays).toBe(0);
   });
 
   it("answers the same whatever is sent with the request", async () => {
@@ -411,7 +441,7 @@ describe("what a visitor who is not signed in may learn", () => {
       .set("Cookie", "prbuddy_session=not-a-session")
       .set("Origin", "https://evil.example");
 
-    expect(response.body).toEqual({ appSlug: "pr-buddy-acme" });
+    expect(response.body).toMatchObject({ appSlug: "pr-buddy-acme" });
     expect(response.headers["content-type"]).toMatch(/^application\/json/);
     expect(response.headers["access-control-allow-origin"]).toBeUndefined();
   });
@@ -419,7 +449,7 @@ describe("what a visitor who is not signed in may learn", () => {
   it("reveals nothing but the name", async () => {
     const response = await request(buildApp({ appSlug: "pr-buddy-acme" })).get("/auth/service");
 
-    expect(Object.keys(response.body as object)).toEqual(["appSlug"]);
+    expect(Object.keys(response.body as object)).toEqual(["appSlug", "operator", "retentionDays"]);
   });
 
   it("is rate limited with the other sign-in routes", async () => {

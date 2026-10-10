@@ -41,6 +41,7 @@ describe("loadConfig", () => {
       trustProxy: 0,
       reviewConcurrency: 2,
       reviewQueueLimit: 100,
+      reviewQueueLimitPerInstallation: 20,
       webhookRateLimit: 300,
       reviewRetentionDays: 365,
     });
@@ -64,6 +65,7 @@ describe("loadConfig", () => {
       trustProxy: 1,
       reviewConcurrency: 4,
       reviewQueueLimit: 50,
+      reviewQueueLimitPerInstallation: 20,
       webhookRateLimit: 60,
     });
   });
@@ -221,6 +223,69 @@ describe("loadConfig for the dashboard", () => {
     );
   });
 
+  it("has no operator details unless they are set", () => {
+    expect(loadConfig(environment(DASHBOARD)).dashboard?.operator).toEqual({
+      name: null,
+      contact: null,
+      privacyUrl: null,
+      termsUrl: null,
+    });
+  });
+
+  it("carries who runs the service", () => {
+    const config = loadConfig(
+      environment({
+        ...DASHBOARD,
+        OPERATOR_NAME: "Acme Reviews Ltd",
+        OPERATOR_CONTACT: "privacy@acme.example",
+        OPERATOR_PRIVACY_URL: "https://acme.example/privacy?lang=en#data",
+        OPERATOR_TERMS_URL: "https://acme.example/terms",
+      }),
+    );
+
+    expect(config.dashboard?.operator).toEqual({
+      name: "Acme Reviews Ltd",
+      contact: "privacy@acme.example",
+      privacyUrl: "https://acme.example/privacy?lang=en#data",
+      termsUrl: "https://acme.example/terms",
+    });
+  });
+
+  it("accepts an address to write to in place of an email", () => {
+    expect(
+      loadConfig(environment({ ...DASHBOARD, OPERATOR_CONTACT: "https://acme.example/contact" }))
+        .dashboard?.operator.contact,
+    ).toBe("https://acme.example/contact");
+  });
+
+  it.each([
+    ["OPERATOR_NAME", ""],
+    ["OPERATOR_NAME", "Acme\nReviews"],
+    ["OPERATOR_NAME", "A".repeat(101)],
+    ["OPERATOR_CONTACT", "not an address"],
+    ["OPERATOR_CONTACT", "javascript:alert(1)"],
+    ["OPERATOR_CONTACT", "mailto:privacy@acme.example"],
+    ["OPERATOR_CONTACT", "http://acme.example/contact"],
+    ["OPERATOR_CONTACT", "privacy@acme.example?subject=x"],
+    ["OPERATOR_CONTACT", 'privacy@acme.example"onmouseover="x'],
+    ["OPERATOR_CONTACT", "privacy@acme.example <b>"],
+    ["OPERATOR_CONTACT", "a@b"],
+    ["OPERATOR_PRIVACY_URL", "http://acme.example/privacy"],
+    ["OPERATOR_PRIVACY_URL", "javascript:alert(1)"],
+    ["OPERATOR_PRIVACY_URL", "//acme.example/privacy"],
+    ["OPERATOR_PRIVACY_URL", "https://user:pw@acme.example/privacy"],
+    ["OPERATOR_PRIVACY_URL", `https://acme.example/${"a".repeat(500)}`],
+    ["OPERATOR_TERMS_URL", "data:text/html,x"],
+    ["OPERATOR_TERMS_URL", "terms.html"],
+  ])("refuses %s set to %j", (name, value) => {
+    const issues = issuesOf({ ...DASHBOARD, [name]: value });
+
+    expect(issues.length).toBeGreaterThan(0);
+    for (const issue of issues) {
+      expect(issue.startsWith(`${name}: `)).toBe(true);
+    }
+  });
+
   it("carries the app's name when it is set, and has none otherwise", () => {
     expect(loadConfig(environment(DASHBOARD)).dashboard).not.toHaveProperty("appSlug");
     expect(
@@ -260,6 +325,7 @@ describe("loadConfig for the dashboard", () => {
       clientId: "Iv1.abcdef",
       clientSecret: "CLIENT-SECRET-CANARY",
       publicUrl: "https://buddy.example",
+      operator: { name: null, contact: null, privacyUrl: null, termsUrl: null },
     });
   });
 
@@ -482,6 +548,8 @@ describe("findConfigurationWarnings", () => {
     GITHUB_CLIENT_SECRET: "secret",
     PUBLIC_URL: "https://buddy.example",
     GITHUB_APP_SLUG: "pr-buddy-acme",
+    OPERATOR_NAME: "Acme Reviews Ltd",
+    OPERATOR_CONTACT: "privacy@acme.example",
   };
   const warningsFor = (overrides: Record<string, string | undefined>): string[] =>
     findConfigurationWarnings(loadConfig(environment(overrides)));
@@ -531,6 +599,20 @@ describe("findConfigurationWarnings", () => {
   it("does not ask for the app's name when the dashboard is off", () => {
     expect(warningsFor({ GITHUB_APP_SLUG: undefined })).toEqual([]);
   });
+
+  it.each(["OPERATOR_NAME", "OPERATOR_CONTACT"])(
+    "warns when the dashboard is on and %s is missing",
+    (name) => {
+      const warnings = warningsFor({
+        ...dashboard,
+        [name]: undefined,
+        PUBLIC_URL: "http://localhost:3000",
+      });
+
+      expect(warnings).toHaveLength(1);
+      expect(warnings[0]).toContain("OPERATOR_NAME and OPERATOR_CONTACT are not both set");
+    },
+  );
 });
 
 describe("createLogger", () => {

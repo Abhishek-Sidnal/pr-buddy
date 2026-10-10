@@ -146,6 +146,8 @@ function buildDashboard(): DashboardDependencies | undefined {
     historyStore: createPostgresHistoryStore(database),
     publicUrl: config.dashboard.publicUrl,
     ...(config.dashboard.appSlug === undefined ? {} : { appSlug: config.dashboard.appSlug }),
+    operator: config.dashboard.operator,
+    retentionDays: config.reviewRetentionDays,
     webRoot: WEB_ROOT,
     authRateLimit: AUTH_RATE_LIMIT,
     apiRateLimit: API_RATE_LIMIT,
@@ -172,6 +174,7 @@ const aiReviewer = buildAiReviewer();
 const reviewQueue = createReviewQueue({
   concurrency: config.reviewConcurrency,
   maxWaiting: config.reviewQueueLimit,
+  maxWaitingPerGroup: config.reviewQueueLimitPerInstallation,
   onError: createReviewErrorLogger(logger),
 });
 
