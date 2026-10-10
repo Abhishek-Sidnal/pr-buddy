@@ -425,6 +425,8 @@ runs with the user's session.
 **Decision.** It shows history. Repository settings stay in `.github/pr-buddy.json`.
 **Why.** That file is reviewed like code and read at the base commit (D-020). A second place to
 change settings would need its own permissions and would bypass both.
+**Amended by D-075:** the dashboard can now change one thing, an installation's AI key, which
+cannot live in a repository file because it is a secret.
 
 ### D-057 — Visual direction: Graphite / Signal Lime
 
@@ -548,6 +550,75 @@ proposes the updates.
 runs with the repository checked out. A commit or a digest cannot change.
 **Cost.** Pins go stale unless the Dependabot pull requests are merged, and a digest says
 nothing a person can read; the tag stays beside it for that.
+
+### D-071 — An AI key belongs to an installation
+
+**Decision.** One provider, model and key per installation, used for all its repositories.
+**Why.** A review starts from a webhook, when nobody is signed in, so the key cannot depend on a
+person. The installation is the unit GitHub gives the service, and the unit that pays.
+**Cost.** No key per repository or per team.
+
+### D-072 — Only an owner may change an installation's key
+
+**Decision.** On a personal account, that person; on an organisation, a member whose role is
+`admin`. The role is read from GitHub at sign-in and kept in the session. Anything short of a
+clear yes from GitHub means no.
+**Why.** Reading history is safe for anyone GitHub lists (D-050). Deciding where a whole
+organisation's code is sent is not.
+**Cost.** A demoted owner keeps the ability until their session ends, at most eight hours.
+
+### D-073 — Keys are encrypted with AES-256-GCM under a master key outside the database
+
+**Decision.** `SECRETS_ENCRYPTION_KEY` holds 32 random bytes. Each save uses a new nonce, and the
+installation ID and provider are authenticated with the ciphertext. Each row records which master
+key encrypted it, and a previous key can still decrypt, so the master key can be rotated.
+Encryption sits behind a `SecretCipher` interface.
+**Why.** A copy of the database must not be a list of working keys. Binding a ciphertext to its
+row stops it being moved to another installation. The interface lets a key service replace the
+variable later.
+**Cost.** The running service can decrypt, so taking it over yields the keys. That is inherent
+in calling a provider on a customer's behalf.
+
+### D-074 — Customers choose among fixed providers and cannot enter an address
+
+**Decision.** Anthropic, OpenAI and Bedrock, each with its host fixed in code. Providers that
+need a base URL stay with the operator.
+**Why.** An address typed by a customer would let them make the service send requests, with
+their content, to hosts on its own network.
+
+### D-075 — The dashboard may change one thing, behind three locks
+
+**Decision.** The key routes are the first that change state. They require the session cookie,
+an `Origin` equal to the dashboard's, and the header `X-PR-Buddy-Request`. This amends D-056.
+**Why.** A secret cannot live in a repository file. `SameSite=Lax` already keeps the cookie off
+cross-site writes; the header forces a browser to ask permission first, which the service never
+grants; the origin check covers a browser that gets either wrong.
+
+### D-076 — A key is checked with the provider before it is stored
+
+**Decision.** Saving sends one minimal request with the new key. A refusal is reported and
+nothing is stored.
+**Why.** Otherwise a typing mistake shows up at the next pull request, as a failed AI review
+that the person who made it never sees.
+**Cost.** One tiny request billed to the customer per save. A provider outage blocks saving.
+
+### D-077 — The feature needs the master key, and is absent without it
+
+**Decision.** No `SECRETS_ENCRYPTION_KEY`, no routes and no settings section.
+**Why.** Storing keys unencrypted "for now" is how they end up unencrypted for good (D-053 is
+the precedent for all-or-nothing features).
+
+### D-078 — An installation's key wins, and never falls back
+
+**Decision.** If an installation has a key, its reviews use it and nothing else. If that key
+fails, the AI review fails; the operator's provider is not tried.
+**Why.** Falling back would send a customer's code to a company they did not choose, silently.
+
+### D-079 — Changes to a key are written to an audit table
+
+**Decision.** `audit_events` records the installation, the GitHub user ID, the action and the
+time for every save and removal. Never the key, its hint, or the model.
+**Why.** "Who changed where our code goes, and when?" must have an answer.
 
 ## 3. Glossary
 

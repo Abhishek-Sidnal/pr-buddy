@@ -57,6 +57,7 @@ V1 is delivered in milestones:
 | M2        | GitHub App: webhook verification, diff fetching, publishing a review |
 | M3        | Optional AI reviewer, policy thresholds, minimal dashboard           |
 | M4        | Hardening, documentation, `v0.1.0` release                           |
+| M5        | Hosted service: an installation's own AI key first                   |
 
 ## 6. Milestone 1 — the review engine
 
@@ -356,6 +357,33 @@ Prompted in part by an external review of Milestone 3. Design:
 
 Out of scope: a queue shared by several instances, exactly-once delivery, per-repository
 retention, exporting data before deletion.
+
+## 6G. Milestone 5 — a hosted service
+
+Until `v0.1.0` PR Buddy assumed one operator who runs it for their own repositories. This
+milestone makes it fit to be run for others. Part 1 is the first thing that needs: letting each
+customer bring their own AI provider. Design: [DESIGN-AI-KEYS.md](DESIGN-AI-KEYS.md).
+
+### Part 1 — an installation's own AI key
+
+| ID     | Requirement                                                                                     |
+| ------ | ----------------------------------------------------------------------------------------------- |
+| FR-90  | An installation can store one AI provider, model and key.                                       |
+| FR-91  | Reviews of that installation's repositories use it in place of the operator's provider.         |
+| FR-92  | Only the account's owner, or an owner of the organisation, can set, replace or remove the key.  |
+| FR-93  | The settings page shows each installation's provider, model and the key's last four characters. |
+| FR-94  | A key is checked with the provider before it is stored, and a refused key is reported at once.  |
+| FR-95  | Customers choose among Anthropic, OpenAI and AWS Bedrock; they cannot enter an address.         |
+| NFR-90 | Keys are encrypted at rest with a master key that is not in the database.                       |
+| NFR-91 | No API returns a stored key. Keys are never logged.                                             |
+| NFR-92 | Requests that change something cannot be forged from another site.                              |
+| NFR-93 | Every change is recorded with who made it and when, without the key.                            |
+| NFR-94 | A failing customer key never causes code to be sent to the operator's provider instead.         |
+| NFR-95 | Uninstalling the app deletes the key.                                                           |
+| NFR-96 | Without `SECRETS_ENCRYPTION_KEY` the feature does not exist and the service runs as before.     |
+
+Out of scope: a key per repository, usage or spending reports, Azure and other providers that
+need an address, a key service such as AWS KMS (the interface allows it), teams and billing.
 
 ## 7. Success metrics (from M2 onward)
 
