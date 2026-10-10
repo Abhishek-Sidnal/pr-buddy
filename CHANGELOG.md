@@ -11,8 +11,11 @@ change behaviour or configuration; such changes are listed under "Upgrade notes"
 - An installation can store its own AI provider and key, so that its reviews go to a provider it
   chose and pays for. Owners of the account manage it on the settings page; the key is checked
   with the provider, stored encrypted, never shown again, and deleted on uninstall. Customers
-  choose Anthropic, OpenAI or AWS Bedrock. Needs `SECRETS_ENCRYPTION_KEY`; without it the
-  feature does not exist. See `docs/DESIGN-AI-KEYS.md`.
+  choose Anthropic, OpenAI, AWS Bedrock, or Azure AI Foundry and Azure OpenAI. For Azure they
+  enter the name of their resource, never an address. Needs `SECRETS_ENCRYPTION_KEY`; without
+  it the feature does not exist. See `docs/DESIGN-AI-KEYS.md`.
+- An owner can test the stored key from the settings page at any time. The page says whether
+  the provider accepts it, or the status the provider answered with.
 - Sign-in now records which installations a person owns: their own account, or an organisation
   where GitHub reports their role as `admin`.
 

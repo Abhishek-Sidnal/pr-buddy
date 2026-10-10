@@ -11,6 +11,7 @@ const SAVED = {
   provider: "anthropic",
   model: "claude-test-1",
   region: null,
+  resource: null,
   keyHint: "abcd",
   updatedAt: "2026-10-10T10:00:00.000Z",
 };
@@ -207,7 +208,7 @@ describe("saving a key", () => {
     });
   });
 
-  it("offers exactly the three providers, and no field for an address", async () => {
+  it("offers exactly the four providers, and no field for an address", async () => {
     open();
     const article = await block();
 
@@ -216,6 +217,7 @@ describe("saving a key", () => {
       "Anthropic",
       "OpenAI",
       "AWS Bedrock",
+      "Azure AI Foundry",
     ]);
     expect(within(article).queryByLabelText(/url|address|endpoint/i)).toBeNull();
   });
@@ -409,6 +411,260 @@ describe("removing a key", () => {
     );
     expect(article.textContent).toContain("Ends in abcd");
     expect(within(article).getByRole("button", { name: "Remove key" })).toBeDefined();
+  });
+});
+
+describe("an Azure key", () => {
+  it("asks for the resource's name and the deployment, and sends the name in lower case", async () => {
+    const { sent } = open();
+    const article = await block();
+    expect(within(article).queryByLabelText("Resource name")).toBeNull();
+
+    fireEvent.change(within(article).getByLabelText("Provider"), { target: { value: "azure" } });
+    expect(within(article).queryByLabelText("Model")).toBeNull();
+    expect(within(article).queryByLabelText("Region")).toBeNull();
+    fill(article, {
+      Deployment: "review-deployment",
+      "Resource name": " Acme-AI ",
+      "API key": SECRET,
+    });
+    fireEvent.click(within(article).getByRole("button", { name: "Save key" }));
+
+    await within(article).findByRole("status");
+    expect(sent[0]?.body).toEqual({
+      provider: "azure",
+      model: "review-deployment",
+      resource: "acme-ai",
+      apiKey: SECRET,
+    });
+  });
+
+  it("says that a name is wanted and not an address", async () => {
+    open();
+    const article = await block();
+
+    fireEvent.change(within(article).getByLabelText("Provider"), { target: { value: "azure" } });
+
+    const field = within(article).getByLabelText("Resource name");
+    const hint = document.getElementById(field.getAttribute("aria-describedby") ?? "");
+    expect(hint?.textContent).toContain("Only the name, not the address.");
+  });
+
+  it("names the field when the service refuses the resource name", async () => {
+    open(installations(), () =>
+      Response.json({ error: "invalid_input", fields: ["resource"] }, { status: 400 }),
+    );
+    const article = await block();
+    fireEvent.change(within(article).getByLabelText("Provider"), { target: { value: "azure" } });
+    fill(article, { Deployment: "d", "Resource name": "evil.example", "API key": SECRET });
+
+    fireEvent.click(within(article).getByRole("button", { name: "Save key" }));
+
+    expect((await within(article).findByRole("alert")).textContent).toContain(
+      "Some of what you entered is not valid: resource name. Nothing was saved.",
+    );
+  });
+
+  it("shows a stored Azure key with its resource name", async () => {
+    open(
+      installations({
+        aiKey: { ...SAVED, provider: "azure", model: "review-deployment", resource: "acme-ai" },
+      }),
+    );
+
+    const facts = [...(await block()).querySelectorAll("dl.facts > div")].map(
+      (fact) => fact.textContent,
+    );
+    expect(facts.slice(0, 3)).toEqual([
+      "ProviderAzure AI Foundry",
+      "Modelreview-deployment",
+      "Resourceacme-ai",
+    ]);
+  });
+});
+
+describe("testing a key", () => {
+  const TEST_PATH = `${KEY_PATH}/test`;
+
+  /** A settings page whose installation has a key, with an answer for the test route. */
+  function withKey(answer: () => Response): { calls: (RequestInit | undefined)[] } {
+    const calls: (RequestInit | undefined)[] = [];
+    const { api } = open(installations({ aiKey: SAVED }));
+    api.set(TEST_PATH, (_url, init) => {
+      calls.push(init);
+      return answer();
+    });
+    return { calls };
+  }
+
+  it("is not offered when there is no key, or to someone who is not an owner", async () => {
+    open();
+    expect(within(await block()).queryByRole("button", { name: "Test key" })).toBeNull();
+    cleanup();
+
+    open(installations({ canManage: false, aiKey: SAVED }));
+    expect(within(await block()).queryByRole("button", { name: "Test key" })).toBeNull();
+  });
+
+  it("asks the service once, with the header the API demands, and says that the key works", async () => {
+    const { calls } = withKey(() => Response.json({ result: "working" }));
+    const article = await block();
+
+    fireEvent.click(within(article).getByRole("button", { name: "Test key" }));
+
+    expect((await within(article).findByRole("status")).textContent).toBe(
+      "The key works. The provider accepted it and answered with this model.",
+    );
+    expect(within(article).queryByRole("alert")).toBeNull();
+    expect(calls).toHaveLength(1);
+    expect(calls[0]).toMatchObject({ method: "POST", credentials: "same-origin" });
+    expect(new Headers(calls[0]?.headers).get("x-pr-buddy-request")).toBe("1");
+    expect(calls[0]?.body).toBeUndefined();
+  });
+
+  it("says that it is testing, and disables the form meanwhile", async () => {
+    let release: (response: Response) => void = () => undefined;
+    open(installations({ aiKey: SAVED }));
+    const article = await block();
+    vi.stubGlobal(
+      "fetch",
+      () =>
+        new Promise<Response>((resolve) => {
+          release = resolve;
+        }),
+    );
+
+    fireEvent.click(within(article).getByRole("button", { name: "Test key" }));
+
+    const busy = await within(article).findByRole<HTMLButtonElement>("button", {
+      name: "Testing…",
+    });
+    expect(busy.disabled).toBe(true);
+    expect(
+      within(article).getByRole<HTMLButtonElement>("button", { name: "Replace key" }).disabled,
+    ).toBe(true);
+    release(Response.json({ result: "working" }));
+    expect(await within(article).findByRole("status")).toBeDefined();
+  });
+
+  it.each<[string, () => Response, string]>([
+    [
+      "the provider refuses the key",
+      () => Response.json({ result: "refused", providerStatus: 401 }),
+      "The key is not workingThe provider refused the key (HTTP 401). It may have expired, been revoked or run out of credit. AI review will fail until the key is replaced.",
+    ],
+    [
+      "the provider does not know the model",
+      () => Response.json({ result: "refused", providerStatus: 404 }),
+      "The key is not workingThe provider does not know this model, or the key may no longer use it (HTTP 404). AI review will fail until the key is replaced.",
+    ],
+    [
+      "the stored key cannot be read",
+      () => Response.json({ result: "unreadable" }),
+      "The key is not workingThe service can no longer read the stored key. Enter it again and save.",
+    ],
+    [
+      "the key is gone",
+      () => Response.json({ result: "missing" }),
+      "The key is not workingNo key is stored for this installation any more. Reload the page.",
+    ],
+    [
+      "the provider cannot be reached",
+      () => Response.json({ result: "unreachable" }),
+      "The key was not testedThe provider could not be reached. Try again in a moment.",
+    ],
+    [
+      "the person is no longer an owner",
+      () => Response.json({ error: "not_owner" }, { status: 403 }),
+      "The key was not testedYou are no longer an owner of this installation. Sign out and in again to refresh your access.",
+    ],
+    [
+      "the installation is no longer visible",
+      () => Response.json({ error: "not_found" }, { status: 404 }),
+      "The key was not testedYou are no longer an owner of this installation. Sign out and in again to refresh your access.",
+    ],
+    [
+      "the service fails",
+      () => Response.json({ error: "internal_error" }, { status: 500 }),
+      "The key was not testedThe test could not be run. Try again in a moment.",
+    ],
+    [
+      "the answer has the wrong shape",
+      () => Response.json({ result: "splendid" }),
+      "The key was not testedThe test could not be run. Try again in a moment.",
+    ],
+    [
+      "a refusal has no status",
+      () => Response.json({ result: "refused" }),
+      "The key was not testedThe test could not be run. Try again in a moment.",
+    ],
+    [
+      "the answer is not JSON",
+      () => new Response("<html>"),
+      "The key was not testedThe test could not be run. Try again in a moment.",
+    ],
+    [
+      "the network fails",
+      () => {
+        throw new TypeError("offline");
+      },
+      "The key was not testedThe test could not be run. Try again in a moment.",
+    ],
+  ])("says what happened and what to do when %s", async (_name, answer, message) => {
+    withKey(answer);
+    const article = await block();
+
+    fireEvent.click(within(article).getByRole("button", { name: "Test key" }));
+
+    expect((await within(article).findByRole("alert")).textContent).toBe(message);
+    // A failed test never claims success, and the key is still shown as stored.
+    expect(within(article).queryByRole("status")).toBeNull();
+    expect(article.textContent).toContain("Ends in abcd");
+  });
+
+  it("offers to sign in again when the session has ended", async () => {
+    withKey(() => Response.json({ error: "unauthenticated" }, { status: 401 }));
+    const article = await block();
+
+    fireEvent.click(within(article).getByRole("button", { name: "Test key" }));
+
+    const alert = await within(article).findByRole("alert");
+    expect(alert.textContent).toContain("Your session has ended.");
+    expect(within(alert).getByRole("link", { name: "Sign in again" }).getAttribute("href")).toBe(
+      "/auth/login",
+    );
+  });
+
+  it("replaces an earlier result with the next one", async () => {
+    let answers = 0;
+    withKey(() => {
+      answers += 1;
+      return Response.json(
+        answers === 1 ? { result: "refused", providerStatus: 401 } : { result: "working" },
+      );
+    });
+    const article = await block();
+
+    fireEvent.click(within(article).getByRole("button", { name: "Test key" }));
+    await within(article).findByRole("alert");
+    fireEvent.click(within(article).getByRole("button", { name: "Test key" }));
+
+    expect(await within(article).findByRole("status")).toBeDefined();
+    expect(within(article).queryByRole("alert")).toBeNull();
+  });
+
+  it("can be run straight after saving a key", async () => {
+    const { api } = open();
+    api.set(TEST_PATH, () => Response.json({ result: "working" }));
+    const article = await block();
+    fill(article, { Model: "claude-test-1", "API key": SECRET });
+    fireEvent.click(within(article).getByRole("button", { name: "Save key" }));
+
+    fireEvent.click(await within(article).findByRole("button", { name: "Test key" }));
+
+    await waitFor(() => {
+      expect(within(article).getByRole("status").textContent).toContain("The key works.");
+    });
   });
 });
 

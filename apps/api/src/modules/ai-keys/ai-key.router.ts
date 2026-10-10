@@ -5,6 +5,7 @@ import type { Logger } from "../../logger.js";
 import { sessionOf } from "../auth/auth.router.js";
 import type { SessionInstallation } from "../auth/session-store.js";
 import { aiKeyInputSchema, type AiKeyStore } from "./ai-key-store.js";
+import { SecretDecryptionError } from "./secret-cipher.js";
 
 export interface AiKeyRouterDependencies {
   readonly aiKeyStore: AiKeyStore;
@@ -67,7 +68,7 @@ async function checkKey(
 }
 
 /**
- * Lets an installation's owner store, replace and remove its AI key. It must be mounted behind
+ * Lets an installation's owner store, replace, test and remove its AI key. It must be mounted behind
  * `createRequireSession`. See docs/DESIGN-AI-KEYS.md, section 6.
  */
 export function createAiKeyRouter(dependencies: AiKeyRouterDependencies): Router {
@@ -122,6 +123,7 @@ export function createAiKeyRouter(dependencies: AiKeyRouterDependencies): Router
                   provider: key.provider,
                   model: key.model,
                   region: key.region,
+                  resource: key.resource,
                   keyHint: key.keyHint,
                   updatedAt: key.updatedAt,
                 },
@@ -177,9 +179,56 @@ export function createAiKeyRouter(dependencies: AiKeyRouterDependencies): Router
         provider: saved.provider,
         model: saved.model,
         region: saved.region,
+        resource: saved.resource,
         keyHint: saved.keyHint,
         updatedAt: saved.updatedAt,
       });
+    },
+  );
+
+  /**
+   * Asks the provider once with the stored key, so that an owner can see whether it still
+   * works. It changes nothing, but it spends on the customer's key, hence the same locks as a
+   * write. The answer is a result and a status: never the key or the provider's words (D-081).
+   */
+  router.post(
+    "/installations/:installationId/ai-key/test",
+    requireOwnOrigin,
+    async (request, response) => {
+      const session = sessionOf(response.locals);
+      const owned = ownedInstallation(request.params["installationId"], session.installations);
+      if (!("installation" in owned)) {
+        response.status(owned.status).json({ error: owned.error });
+        return;
+      }
+      const { id: installationId } = owned.installation;
+      const report = (result: object): void => {
+        logger.info({ installationId, userId: session.userId, ...result }, "AI key tested");
+        response.json(result);
+      };
+
+      let settings: ProviderSettings | undefined;
+      try {
+        settings = await aiKeyStore.load(installationId);
+      } catch (error) {
+        if (!(error instanceof SecretDecryptionError) && !(error instanceof z.ZodError)) {
+          throw error;
+        }
+        report({ result: "unreadable" });
+        return;
+      }
+      if (settings === undefined) {
+        report({ result: "missing" });
+        return;
+      }
+      const check = await checkKey(settings, dependencies.fetch);
+      if (check.ok) {
+        report({ result: "working" });
+      } else if (check.reason === "refused") {
+        report({ result: "refused", providerStatus: check.status });
+      } else {
+        report({ result: "unreachable" });
+      }
     },
   );
 

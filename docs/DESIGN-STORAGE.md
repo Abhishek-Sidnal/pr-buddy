@@ -35,18 +35,18 @@ webhook_deliveries
 schema_migrations
 ```
 
-| Table                  | One row per                             | Key columns                                                                   |
-| ---------------------- | --------------------------------------- | ----------------------------------------------------------------------------- |
-| `repositories`         | GitHub repository PR Buddy has seen     | `id` (GitHub's), `installation_id`, `owner`, `name`                           |
-| `reviews`              | review attempt                          | `repository_id`, `pull_request_number`, `head_sha`, `status`, timings, counts |
-| `findings`             | finding of a completed review           | `review_id`, `rule_id`, `severity`, `confidence`, `message`, `evidence`       |
-| `rule_executions`      | rule in a completed review              | `review_id`, `rule_id`, `rule_version`, `status`                              |
-| `ai_reviews`           | review in which a model was asked       | `review_id`, `provider`, `model`, `status`, counts, token usage, duration     |
-| `webhook_deliveries`   | delivery accepted in the last day       | `delivery_id`, `received_at`                                                  |
-| `sessions`             | signed-in browser, for 8 hours          | `token_hash`, `user_id`, `login`, `installation_ids`, `expires_at`            |
-| `installation_ai_keys` | installation that stored its own AI key | `installation_id`, `provider`, `model`, encrypted key, last four characters   |
-| `audit_events`         | change to an AI key                     | `installation_id`, `user_id`, `action`, `occurred_at`                         |
-| `schema_migrations`    | applied migration                       | `name`, `checksum`                                                            |
+| Table                  | One row per                             | Key columns                                                                        |
+| ---------------------- | --------------------------------------- | ---------------------------------------------------------------------------------- |
+| `repositories`         | GitHub repository PR Buddy has seen     | `id` (GitHub's), `installation_id`, `owner`, `name`                                |
+| `reviews`              | review attempt                          | `repository_id`, `pull_request_number`, `head_sha`, `status`, timings, counts      |
+| `findings`             | finding of a completed review           | `review_id`, `rule_id`, `severity`, `confidence`, `message`, `evidence`            |
+| `rule_executions`      | rule in a completed review              | `review_id`, `rule_id`, `rule_version`, `status`                                   |
+| `ai_reviews`           | review in which a model was asked       | `review_id`, `provider`, `model`, `status`, counts, token usage, duration          |
+| `webhook_deliveries`   | delivery accepted in the last day       | `delivery_id`, `received_at`                                                       |
+| `sessions`             | signed-in browser, for 8 hours          | `token_hash`, `user_id`, `login`, `installation_ids`, `expires_at`                 |
+| `installation_ai_keys` | installation that stored its own AI key | `installation_id`, `provider`, `model`, `resource`, encrypted key, last four chars |
+| `audit_events`         | change to an AI key                     | `installation_id`, `user_id`, `action`, `occurred_at`                              |
+| `schema_migrations`    | applied migration                       | `name`, `checksum`                                                                 |
 
 `reviews.suppressed_finding_count` records how many findings a repository's reporting thresholds
 hid from that review.

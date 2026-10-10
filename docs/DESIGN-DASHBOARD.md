@@ -81,15 +81,15 @@ query is limited to the session's installation IDs **in SQL**, so a row outside 
 selected, whatever ID is asked for. Something that exists but is not visible answers `404`, the
 same as something that does not exist.
 
-| Route                                                                          | Returns                                                                  |
-| ------------------------------------------------------------------------------ | ------------------------------------------------------------------------ |
-| `GET /api/me`                                                                  | The signed-in person's login and how many installations                  |
-| `GET /api/overview`                                                            | Totals for the last 30 days and the most recent reviews                  |
-| `GET /api/repositories`                                                        | Visible repositories with their latest review                            |
-| `GET /api/repositories/:id/reviews`                                            | Reviews of one repository, newest first, 25 per page                     |
-| `GET /api/reviews`                                                             | Reviews of every visible repository; `?status=` filters by outcome       |
-| `GET /api/reviews/:id`                                                         | One review: findings, rule executions and the AI review record           |
-| `GET /api/installations`, and `PUT` and `DELETE` on an installation's `ai-key` | An installation's own AI key; see [DESIGN-AI-KEYS.md](DESIGN-AI-KEYS.md) |
+| Route                                                                      | Returns                                                                  |
+| -------------------------------------------------------------------------- | ------------------------------------------------------------------------ |
+| `GET /api/me`                                                              | The signed-in person's login and how many installations                  |
+| `GET /api/overview`                                                        | Totals for the last 30 days and the most recent reviews                  |
+| `GET /api/repositories`                                                    | Visible repositories with their latest review                            |
+| `GET /api/repositories/:id/reviews`                                        | Reviews of one repository, newest first, 25 per page                     |
+| `GET /api/reviews`                                                         | Reviews of every visible repository; `?status=` filters by outcome       |
+| `GET /api/reviews/:id`                                                     | One review: findings, rule executions and the AI review record           |
+| `GET /api/installations`; `PUT`, `DELETE` and `POST …/test` on an `ai-key` | An installation's own AI key; see [DESIGN-AI-KEYS.md](DESIGN-AI-KEYS.md) |
 
 Paging uses a cursor made of the last row's time and ID, so a page never shifts when new reviews
 arrive. IDs in paths and cursors are validated before they reach a query.

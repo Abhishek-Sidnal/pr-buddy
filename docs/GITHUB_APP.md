@@ -220,6 +220,21 @@ repositories, and `AI_PROVIDER` may be left unset. A repository still has to opt
 Who counts as an owner: on a personal account, that person; on an organisation, a member whose
 role GitHub reports as `admin`. The role is read at sign-in.
 
+What an owner enters:
+
+| Provider                        | Fields                                                             |
+| ------------------------------- | ------------------------------------------------------------------ |
+| Anthropic, OpenAI               | Model, API key                                                     |
+| AWS Bedrock                     | Model or inference profile ID, region, Bedrock API key             |
+| Azure AI Foundry / Azure OpenAI | Deployment name, resource name, API key. The name, not the address |
+
+For Azure, the resource name is the part before `.openai.azure.com` in the resource's endpoint.
+PR Buddy builds the address from it; an owner cannot enter one.
+
+Once a key is saved, **Test key** asks the provider once with the stored key and shows whether
+it still works. Use it after rotating a key, or when the comment on a pull request says the AI
+review could not be completed. Each test is one very small request on the owner's key.
+
 ## 10. Troubleshooting
 
 | Symptom                                         | Likely cause                                                                                       |
@@ -239,3 +254,5 @@ role GitHub reports as `admin`. The role is read at sign-in.
 | No "AI review key" section on Settings          | `SECRETS_ENCRYPTION_KEY` is not set, or the dashboard is off                                       |
 | The section shows no form                       | You are not an owner of that account, or you signed in before the feature was on: sign in again    |
 | Saving a key says the provider refused it       | The key is wrong, or may not use that model or region; the status is shown                         |
+| An Azure key is refused with HTTP 404           | The deployment name or the resource name is wrong; the model's own name is not the deployment name |
+| Test key says the key is not working            | It expired, was revoked, ran out of credit or lost access to the model: replace it                 |

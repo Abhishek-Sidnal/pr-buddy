@@ -2,7 +2,7 @@
 
 How an organisation or person that installed PR Buddy can supply their own model provider and
 key, so that a hosted PR Buddy does not pay for, or choose, everyone's AI review. Decisions are
-in [BRAIN.md](BRAIN.md) (D-071 to D-079); threats and controls in [SECURITY.md](SECURITY.md),
+in [BRAIN.md](BRAIN.md) (D-071 to D-081); threats and controls in [SECURITY.md](SECURITY.md),
 section 6E.
 
 ## 1. What this delivers
@@ -52,10 +52,19 @@ the key until their session ends, at most eight hours later.
 | `anthropic` | Model, API key                 | `api.anthropic.com`                      |
 | `openai`    | Model, API key                 | `api.openai.com`                         |
 | `bedrock`   | Model, region, Bedrock API key | `bedrock-runtime.<region>.amazonaws.com` |
+| `azure`     | Deployment, resource name, key | `<resource>.openai.azure.com`            |
 
-A customer **cannot** supply an address (D-074). `azure` and `openai-compatible` need one, and an
-address typed by a customer could point the service at its own network; they remain available
-to the operator only. The region is checked against the same strict pattern as the operator's.
+A customer **cannot** supply an address (D-074): one typed by a customer could point the service
+at its own network. The region is checked against the same strict pattern as the operator's.
+
+**Azure AI Foundry and Azure OpenAI (D-080).** The operator configures Azure with an address.
+A customer gives the **name of their resource** instead, and the service builds the address
+from it: `https://<resource>.openai.azure.com/openai/v1`. The name may hold only lower-case
+letters, digits and hyphens, 2 to 64 characters, and may not start or end with a hyphen, so it
+cannot contain a dot, a slash, a colon or an `@`. Whatever is typed, the request goes to a host
+under `openai.azure.com`, which Microsoft controls. The model field holds the name of the
+deployment. Resources in Azure's government and China clouds use other domains and are not
+supported. `openai-compatible` has no fixed host and stays with the operator.
 
 ## 5. Storing the key
 
@@ -63,6 +72,7 @@ to the operator only. The region is checked against the same strict pattern as t
 installation_ai_keys
   installation_id   primary key
   provider, model, region
+  resource          the Azure resource name; only for azure
   key_ciphertext    AES-256-GCM
   key_nonce         12 random bytes, new for every save
   key_id            which master key encrypted it
@@ -95,13 +105,15 @@ All routes need a session. Reading needs the installation in the session; writin
 session to hold the owner role for it. An installation outside the session answers `404`, as
 elsewhere (D-054).
 
-| Route                                  | Does                                                           |
-| -------------------------------------- | -------------------------------------------------------------- |
-| `GET /api/installations`               | The session's installations: account, `canManage`, key summary |
-| `PUT /api/installations/:id/ai-key`    | Checks the key with the provider, then stores it               |
-| `DELETE /api/installations/:id/ai-key` | Removes it                                                     |
+| Route                                     | Does                                                              |
+| ----------------------------------------- | ----------------------------------------------------------------- |
+| `GET /api/installations`                  | The session's installations: account, `canManage`, key summary    |
+| `PUT /api/installations/:id/ai-key`       | Checks the key with the provider, then stores it                  |
+| `DELETE /api/installations/:id/ai-key`    | Removes it                                                        |
+| `POST /api/installations/:id/ai-key/test` | Asks the provider once with the stored key and reports the result |
 
-These are the dashboard's first requests that change something (D-075). Each one must:
+These are the dashboard's first requests that change something (D-075). The test changes
+nothing, but it spends a little on the customer's key, so it has the same locks. Each one must:
 
 - carry the session cookie, which is `SameSite=Lax`;
 - have an `Origin` equal to the dashboard's own;
@@ -112,6 +124,21 @@ These are the dashboard's first requests that change something (D-075). Each one
 the new key. A provider that refuses it answers `401`, `403` or `404`, and the key is not saved;
 the dashboard says which. A typing mistake is therefore found at once and not at the next pull
 request.
+
+**Tested on request (D-081).** A key that was accepted when saved can stop working later: it
+expires, is revoked, runs out of credit, or loses access to the model. `POST …/ai-key/test`
+decrypts the stored key, sends the same very small request, and answers `200` with one of:
+
+| `result`      | Meaning                                                              |
+| ------------- | -------------------------------------------------------------------- |
+| `working`     | The provider answered                                                |
+| `refused`     | The provider answered with an error; `providerStatus` holds the code |
+| `unreachable` | The provider did not answer, or answered something unreadable        |
+| `unreadable`  | The stored key could not be decrypted; it must be entered again      |
+| `missing`     | The installation has no key                                          |
+
+Nothing from a pull request is sent, nothing is stored, and the answer never contains the key
+or the provider's words. Only an owner may run it.
 
 Every change writes an audit row: installation, GitHub user ID, action, time. Never the key.
 
@@ -138,8 +165,9 @@ choose.
 The settings page gains a section, "AI review", with one block per installation:
 
 - the account's name and whether a key is set: provider, model, last four characters, when;
-- for an owner: a form with provider, model, region (Bedrock only) and key, and "Save key" and
-  "Remove key" buttons; removal asks for confirmation;
+- for an owner: a form with provider, model, region (Bedrock only), resource name (Azure only)
+  and key, and "Save key" and "Remove key" buttons; removal asks for confirmation;
+- for an owner, when a key is set: a "Test key" button, whose result is shown below it;
 - for anyone else: the same summary and a sentence saying that an owner can change it.
 
 States: saving, saved, the provider refused the key (with the status), the form is invalid,
@@ -152,3 +180,6 @@ is cleared after saving.
 - One key per installation, not per repository.
 - No usage or spending report: the provider's own console has that.
 - The membership check has not been run against a real organisation; see the tracker.
+- Azure has not been run against a real resource; see the tracker.
+- A test shows that the provider accepts the key and knows the model. It does not show that a
+  repository has opted in.

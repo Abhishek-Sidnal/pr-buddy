@@ -123,7 +123,7 @@ export type RepositoryList = z.infer<typeof repositoryListSchema>;
 export type ReviewListing = z.infer<typeof reviewListingSchema>;
 export type ReviewPage = z.infer<typeof reviewPageSchema>;
 
-export const CUSTOMER_PROVIDERS = ["anthropic", "openai", "bedrock"] as const;
+export const CUSTOMER_PROVIDERS = ["anthropic", "openai", "bedrock", "azure"] as const;
 export type CustomerProvider = (typeof CUSTOMER_PROVIDERS)[number];
 
 /** What may be shown about a stored AI key. The key itself is never sent to the browser. */
@@ -131,6 +131,8 @@ export const aiKeySummarySchema = z.object({
   provider: z.string(),
   model: z.string(),
   region: z.string().nullable(),
+  /** The Azure resource's name; `null` for every other provider. */
+  resource: z.string().nullable(),
   keyHint: z.string(),
   updatedAt: z.string(),
 });
@@ -154,6 +156,16 @@ export const aiKeyErrorSchema = z.object({
   fields: z.array(z.string()).optional(),
 });
 
+/** What the provider said when the stored key was tested. */
+export const aiKeyTestSchema = z.discriminatedUnion("result", [
+  z.object({ result: z.literal("working") }),
+  z.object({ result: z.literal("refused"), providerStatus: z.number().int() }),
+  z.object({ result: z.literal("unreachable") }),
+  z.object({ result: z.literal("unreadable") }),
+  z.object({ result: z.literal("missing") }),
+]);
+
+export type AiKeyTest = z.infer<typeof aiKeyTestSchema>;
 export type AiKeySummary = z.infer<typeof aiKeySummarySchema>;
 export type InstallationList = z.infer<typeof installationListSchema>;
 export type Installation = InstallationList["installations"][number];

@@ -42,6 +42,12 @@ const READABLE = 1002;
 const THEIRS = 9009;
 
 const VALID = { provider: "anthropic", model: "claude-test-1", apiKey: API_KEY };
+const AZURE = {
+  provider: "azure",
+  model: "review-deployment",
+  resource: "acme-ai",
+  apiKey: API_KEY,
+};
 
 let test: TestDatabase;
 let logger: RecordingLogger;
@@ -288,8 +294,49 @@ describe("what an owner may submit", () => {
       "Bedrock with a region",
       { provider: "bedrock", model: "us.vendor.model-v1:0", region: "us-east-1", apiKey: API_KEY },
     ],
+    ["Azure with a resource name", AZURE],
+    ["an Azure resource name of two characters", { ...AZURE, resource: "a1" }],
+    ["an Azure resource name of 64 characters", { ...AZURE, resource: "a".repeat(64) }],
   ])("accepts %s", (_name, input) => {
     expect(issuesOf(input)).toEqual([]);
+  });
+
+  it("builds the Azure address from the resource's name, under Microsoft's domain", () => {
+    expect(aiKeyInputSchema.parse(AZURE)).toMatchObject({
+      provider: "azure",
+      model: "review-deployment",
+      baseUrl: "https://acme-ai.openai.azure.com/openai/v1",
+    });
+  });
+
+  it.each([
+    "evil.example",
+    "acme.evil.example/x",
+    "acme-ai.openai.azure.com",
+    "evil.example#",
+    "evil.example?",
+    "user@evil.example",
+    "localhost:5432",
+    "169.254.169.254",
+    "[::1]",
+    "acme/../x",
+    "acme\\x",
+    "acme ai",
+    "acme\nai",
+    "ACME-AI",
+    "-acme",
+    "acme-",
+    "a",
+    "",
+    "a".repeat(65),
+    "acmé",
+    "%61cme",
+  ])("refuses the Azure resource name %j", (resource) => {
+    expect(issuesOf({ ...AZURE, resource })).toEqual(["resource"]);
+  });
+
+  it("drops a resource name that is not for Azure", () => {
+    expect(aiKeyInputSchema.parse({ ...VALID, resource: "acme-ai" })).not.toHaveProperty("baseUrl");
   });
 
   it("never passes on an address, and drops a region that is not for Bedrock", () => {
@@ -300,7 +347,7 @@ describe("what an owner may submit", () => {
   });
 
   it.each<[string, unknown, string[]]>([
-    ["a provider that needs an address", { ...VALID, provider: "azure" }, ["provider"]],
+    ["Azure without a resource name", { ...VALID, provider: "azure" }, ["resource"]],
     ["a compatible server", { ...VALID, provider: "openai-compatible" }, ["provider"]],
     [
       "an address of the customer's choosing",
@@ -336,6 +383,7 @@ describe("the key store", () => {
       provider: "anthropic",
       model: "claude-test-1",
       region: null,
+      resource: null,
       keyHint: "abcd",
     });
     const stored = await rows<Record<string, unknown>>(
@@ -367,6 +415,56 @@ describe("the key store", () => {
     });
     expect(await aiKeyStore.load(THEIRS)).toBeUndefined();
   });
+
+  it("stores an Azure key with its resource name, and rebuilds the address when loading", async () => {
+    const summary = await aiKeyStore.save(OURS, aiKeyInputSchema.parse(AZURE), 42);
+
+    expect(summary).toMatchObject({ provider: "azure", resource: "acme-ai", region: null });
+    expect(await rows("SELECT resource FROM installation_ai_keys")).toEqual([
+      { resource: "acme-ai" },
+    ]);
+    expect(await aiKeyStore.load(OURS)).toMatchObject({
+      provider: "azure",
+      model: "review-deployment",
+      baseUrl: "https://acme-ai.openai.azure.com/openai/v1",
+      apiKey: API_KEY,
+    });
+  });
+
+  it("clears the resource name when an Azure key is replaced by another provider's", async () => {
+    await aiKeyStore.save(OURS, aiKeyInputSchema.parse(AZURE), 42);
+
+    const summary = await aiKeyStore.save(OURS, SETTINGS, 42);
+
+    expect(summary).toMatchObject({ provider: "anthropic", resource: null });
+    expect(await aiKeyStore.load(OURS)).not.toHaveProperty("baseUrl");
+  });
+
+  it("refuses to store Azure settings whose address it did not build", async () => {
+    const settings = aiKeyInputSchema.parse(AZURE);
+
+    for (const baseUrl of [
+      "https://evil.example/openai/v1",
+      "https://acme-ai.openai.azure.com.evil.example/openai/v1",
+      "https://acme.evil.openai.azure.com/openai/v1",
+      "http://acme-ai.openai.azure.com/openai/v1",
+    ]) {
+      expect(() => aiKeyStore.save(OURS, { ...settings, baseUrl }, 42)).toThrow(
+        "The Azure settings do not name a resource.",
+      );
+    }
+    expect(await keyCount()).toBe(0);
+  });
+
+  it.each(["evil.example/x", "ACME", "a.b"])(
+    "refuses a row whose resource name was edited to %j",
+    async (resource) => {
+      await aiKeyStore.save(OURS, aiKeyInputSchema.parse(AZURE), 42);
+      await test.database.query("UPDATE installation_ai_keys SET resource = $1", [resource]);
+
+      await expect(aiKeyStore.load(OURS)).rejects.toThrow();
+    },
+  );
 
   it("replaces a key, and lists only what it is asked about", async () => {
     await aiKeyStore.save(OURS, SETTINGS, 42);
@@ -455,6 +553,7 @@ describe("reading installations and their keys", () => {
             provider: "anthropic",
             model: "claude-test-1",
             region: null,
+            resource: null,
             keyHint: "abcd",
             updatedAt: expect.stringMatching(/^\d{4}-/) as string,
           },
@@ -487,6 +586,7 @@ describe("saving a key", () => {
       provider: "anthropic",
       model: "claude-test-1",
       region: null,
+      resource: null,
       keyHint: "abcd",
       updatedAt: expect.stringMatching(/^\d{4}-/) as string,
     });
@@ -506,11 +606,38 @@ describe("saving a key", () => {
       apiKey: API_KEY,
     });
     await write("put", OURS, { provider: "openai", model: "m", apiKey: API_KEY });
+    await write("put", OURS, AZURE);
 
     expect(providerRequests.map(({ url }) => new URL(url).host)).toEqual([
       "bedrock-runtime.us-west-2.amazonaws.com",
       "api.openai.com",
+      "acme-ai.openai.azure.com",
     ]);
+  });
+
+  it("stores an Azure key, sending it in Azure's own header to the resource's address", async () => {
+    const response = await write("put", OURS, AZURE);
+
+    expect(response.status).toBe(200);
+    expect(response.body).toMatchObject({
+      provider: "azure",
+      model: "review-deployment",
+      resource: "acme-ai",
+      region: null,
+    });
+    expect(providerRequests[0]?.url).toBe(
+      "https://acme-ai.openai.azure.com/openai/v1/chat/completions",
+    );
+    expect(providerRequests[0]?.headers.get("api-key")).toBe(API_KEY);
+    expect(providerRequests[0]?.headers.get("authorization")).toBeNull();
+  });
+
+  it("does not ask anyone when an Azure resource name is an address", async () => {
+    const response = await write("put", OURS, { ...AZURE, resource: "evil.example/x" });
+
+    expect(response.status).toBe(400);
+    expect(response.body).toEqual({ error: "invalid_input", fields: ["resource"] });
+    expect(providerRequests).toEqual([]);
   });
 
   it("logs who saved a key for which installation, and never the key", async () => {
@@ -558,7 +685,7 @@ describe("saving a key", () => {
   });
 
   it.each<[string, unknown, string[]]>([
-    ["an unknown provider", { ...VALID, provider: "azure" }, ["provider"]],
+    ["an unknown provider", { ...VALID, provider: "openai-compatible" }, ["provider"]],
     ["an address", { ...VALID, baseUrl: "http://localhost:5432" }, ["body"]],
     ["a bad key and a bad model", { ...VALID, apiKey: "x y", model: "" }, ["model", "apiKey"]],
   ])(
@@ -665,6 +792,171 @@ describe("who may change a key", () => {
 
     expect([get.status, post.status]).toEqual([404, 404]);
     expect(await keyCount()).toBe(1);
+  });
+});
+
+describe("testing the stored key", () => {
+  const runTest = (
+    installationId: number | string = OURS,
+    options: WriteOptions = {},
+  ): Promise<TestResponse> => {
+    let call = request(app).post(`/api/installations/${installationId}/ai-key/test`);
+    const sessionCookie = options.cookie === undefined ? cookie : options.cookie;
+    if (sessionCookie !== null) {
+      call = call.set("Cookie", sessionCookie);
+    }
+    const origin = options.origin === undefined ? PUBLIC_URL : options.origin;
+    if (origin !== null) {
+      call = call.set("Origin", origin);
+    }
+    const header = options.header === undefined ? "1" : options.header;
+    return header === null ? call : call.set("X-PR-Buddy-Request", header);
+  };
+
+  it("asks the provider once with the stored key, and says that it works", async () => {
+    await write("put", OURS, VALID);
+    providerRequests = [];
+
+    const response = await runTest();
+
+    expect(response.status).toBe(200);
+    expect(response.body).toEqual({ result: "working" });
+    expect(providerRequests).toHaveLength(1);
+    expect(providerRequests[0]?.url).toBe("https://api.anthropic.com/v1/messages");
+    expect(providerRequests[0]?.headers.get("x-api-key")).toBe(API_KEY);
+    expect(JSON.parse(providerRequests[0]?.body ?? "{}")).toMatchObject({ max_tokens: 16 });
+  });
+
+  it("tests an Azure key at the address built from its resource name", async () => {
+    await write("put", OURS, AZURE);
+    providerRequests = [];
+
+    expect((await runTest()).body).toEqual({ result: "working" });
+    expect(providerRequests[0]?.url).toBe(
+      "https://acme-ai.openai.azure.com/openai/v1/chat/completions",
+    );
+  });
+
+  it.each([401, 403, 404, 429])(
+    "reports the status when the provider answers %s, and nothing it said",
+    async (status) => {
+      await write("put", OURS, VALID);
+      providerAnswer = () => Response.json({ error: "BODY-CANARY" }, { status });
+
+      const response = await runTest();
+
+      expect(response.status).toBe(200);
+      expect(response.body).toEqual({ result: "refused", providerStatus: status });
+      expect(logger.text()).not.toContain("CANARY");
+    },
+  );
+
+  it("says when the provider cannot be reached or answers nonsense", async () => {
+    await write("put", OURS, VALID);
+    providerAnswer = () => new Response("<html>gateway</html>");
+
+    expect((await runTest()).body).toEqual({ result: "unreachable" });
+  });
+
+  it("says when the installation has no key, without asking anyone", async () => {
+    const response = await runTest();
+
+    expect(response.status).toBe(200);
+    expect(response.body).toEqual({ result: "missing" });
+    expect(providerRequests).toEqual([]);
+  });
+
+  it("says when the stored key cannot be read, without asking anyone", async () => {
+    await write("put", OURS, VALID);
+    providerRequests = [];
+    aiKeyStore = createPostgresAiKeyStore(test.database, createLocalSecretCipher(randomBytes(32)));
+    app = buildApp();
+
+    expect((await runTest()).body).toEqual({ result: "unreadable" });
+
+    await test.database.query("UPDATE installation_ai_keys SET model = 'bad model name'");
+    aiKeyStore = createPostgresAiKeyStore(test.database, createLocalSecretCipher(MASTER_KEY));
+    app = buildApp();
+
+    expect((await runTest()).body).toEqual({ result: "unreadable" });
+    expect(providerRequests).toEqual([]);
+  });
+
+  it("changes nothing: the key, its date and the audit trail stay as they were", async () => {
+    await write("put", OURS, VALID);
+    const before = await rows("SELECT * FROM installation_ai_keys");
+    providerAnswer = () => Response.json({}, { status: 401 });
+
+    await runTest();
+    await runTest();
+
+    expect(await rows("SELECT * FROM installation_ai_keys")).toEqual(before);
+    expect(await rows("SELECT action FROM audit_events")).toEqual([{ action: "ai-key-saved" }]);
+  });
+
+  it("logs who tested which installation and the result, and never the key", async () => {
+    await write("put", OURS, VALID);
+
+    const response = await runTest();
+
+    expect(logger.entries.at(-1)).toEqual({
+      level: "info",
+      message: "AI key tested",
+      fields: { installationId: OURS, userId: 42, result: "working" },
+    });
+    expect(JSON.stringify(response.body)).not.toContain("abcd");
+    expect(logger.text()).not.toContain("CANARY");
+  });
+
+  it("is for owners only, and hides installations outside the session", async () => {
+    await aiKeyStore.save(READABLE, aiKeyInputSchema.parse(VALID), 7);
+    await aiKeyStore.save(THEIRS, aiKeyInputSchema.parse(VALID), 99);
+
+    const member = await runTest(READABLE);
+    const theirs = await runTest(THEIRS);
+    const missing = await runTest(424242);
+    const malformed = await runTest("abc");
+
+    expect([member.status, theirs.status, missing.status, malformed.status]).toEqual([
+      403, 404, 404, 404,
+    ]);
+    expect(member.body).toEqual({ error: "not_owner" });
+    expect(theirs.body).toEqual(missing.body);
+    expect(providerRequests).toEqual([]);
+  });
+
+  it.each<[string, WriteOptions, number]>([
+    ["no session", { cookie: null }, 401],
+    ["an Origin of another site", { origin: "https://evil.example" }, 403],
+    ["no Origin", { origin: null }, 403],
+    ["no custom header", { header: null }, 403],
+  ])(
+    "refuses a test with %s, so another site cannot spend the key",
+    async (_name, options, status) => {
+      await write("put", OURS, VALID);
+      providerRequests = [];
+
+      expect((await runTest(OURS, options)).status).toBe(status);
+      expect(providerRequests).toEqual([]);
+    },
+  );
+
+  it("cannot be run with a GET", async () => {
+    await write("put", OURS, VALID);
+    providerRequests = [];
+
+    const response = await request(app)
+      .get(`/api/installations/${OURS}/ai-key/test`)
+      .set("Cookie", cookie);
+
+    expect(response.status).toBe(404);
+    expect(providerRequests).toEqual([]);
+  });
+
+  it("does not exist when no master key is configured", async () => {
+    app = buildApp(false);
+
+    expect((await runTest()).status).toBe(404);
   });
 });
 

@@ -2,6 +2,7 @@ import type { z } from "zod";
 import {
   aiKeyErrorSchema,
   aiKeySummarySchema,
+  aiKeyTestSchema,
   installationListSchema,
   meSchema,
   overviewSchema,
@@ -10,6 +11,7 @@ import {
   reviewListingSchema,
   reviewPageSchema,
   type AiKeySummary,
+  type AiKeyTest,
   type CustomerProvider,
   type InstallationList,
   type Me,
@@ -135,8 +137,17 @@ export interface AiKeyInput {
   readonly provider: CustomerProvider;
   readonly model: string;
   readonly region?: string;
+  /** The name of the Azure resource; only for `azure`. */
+  readonly resource?: string;
   readonly apiKey: string;
 }
+
+/** What a test of the stored key found, or why the test could not be run. */
+export type TestAiKeyResult =
+  | AiKeyTest
+  | { readonly result: "forbidden" }
+  | { readonly result: "unauthenticated" }
+  | { readonly result: "failed" };
 
 export type SaveAiKeyResult =
   | { readonly ok: true; readonly key: AiKeySummary }
@@ -205,6 +216,33 @@ export const aiKeys = {
       return key.success ? { ok: true, key: key.data } : { ok: false, reason: "failed" };
     } catch {
       return { ok: false, reason: "failed" };
+    }
+  },
+
+  /**
+   * Asks the provider once with the stored key. Never throws: the result says what happened.
+   * It spends a little on the key, so the API treats it like a write.
+   */
+  async test(installationId: number): Promise<TestAiKeyResult> {
+    try {
+      const response = await fetch(`${keyPath(installationId)}/test`, {
+        method: "POST",
+        credentials: "same-origin",
+        headers: WRITE_HEADERS,
+      });
+      if (response.status === UNAUTHENTICATED) {
+        return { result: "unauthenticated" };
+      }
+      if (response.status === FORBIDDEN || response.status === NOT_FOUND) {
+        return { result: "forbidden" };
+      }
+      if (!response.ok) {
+        return { result: "failed" };
+      }
+      const tested = aiKeyTestSchema.safeParse(await response.json().catch(() => undefined));
+      return tested.success ? tested.data : { result: "failed" };
+    } catch {
+      return { result: "failed" };
     }
   },
 

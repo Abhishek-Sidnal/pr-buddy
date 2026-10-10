@@ -373,7 +373,8 @@ customer bring their own AI provider. Design: [DESIGN-AI-KEYS.md](DESIGN-AI-KEYS
 | FR-92  | Only the account's owner, or an owner of the organisation, can set, replace or remove the key.  |
 | FR-93  | The settings page shows each installation's provider, model and the key's last four characters. |
 | FR-94  | A key is checked with the provider before it is stored, and a refused key is reported at once.  |
-| FR-95  | Customers choose among Anthropic, OpenAI and AWS Bedrock; they cannot enter an address.         |
+| FR-95  | Customers choose among Anthropic, OpenAI, AWS Bedrock and Azure; they cannot enter an address.  |
+| FR-96  | An owner can test the stored key at any time and is told whether the provider accepts it.       |
 | NFR-90 | Keys are encrypted at rest with a master key that is not in the database.                       |
 | NFR-91 | No API returns a stored key. Keys are never logged.                                             |
 | NFR-92 | Requests that change something cannot be forged from another site.                              |
@@ -382,8 +383,8 @@ customer bring their own AI provider. Design: [DESIGN-AI-KEYS.md](DESIGN-AI-KEYS
 | NFR-95 | Uninstalling the app deletes the key.                                                           |
 | NFR-96 | Without `SECRETS_ENCRYPTION_KEY` the feature does not exist and the service runs as before.     |
 
-Out of scope: a key per repository, usage or spending reports, Azure and other providers that
-need an address, a key service such as AWS KMS (the interface allows it), teams and billing.
+Out of scope: a key per repository, usage or spending reports, providers that need an address
+(Azure is reached by resource name), a key service such as AWS KMS (the interface allows it), teams and billing.
 
 ## 7. Success metrics (from M2 onward)
 

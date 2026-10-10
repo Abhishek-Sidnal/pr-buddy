@@ -620,6 +620,28 @@ fails, the AI review fails; the operator's provider is not tried.
 time for every save and removal. Never the key, its hint, or the model.
 **Why.** "Who changed where our code goes, and when?" must have an answer.
 
+### D-080 — A customer names an Azure resource; the service builds the address
+
+**Decision.** Azure AI Foundry and Azure OpenAI are offered to customers. They enter the name
+of their resource, checked against a pattern that allows only lower-case letters, digits and
+hyphens, and the service builds `https://<resource>.openai.azure.com/openai/v1`. This extends
+D-074 without changing it: a customer still never enters an address.
+**Why.** Many organisations may only buy models through Azure. The risk in D-074 was a host of
+the customer's choosing; a name that can only become a label under a domain Microsoft controls
+is not that.
+**Cost.** Azure's government and China clouds, and custom domains, are not reachable this way.
+**Rejected.** A list of allowed address patterns: such lists are bypassed with redirects, odd
+encodings and DNS tricks.
+
+### D-081 — An owner can test the stored key
+
+**Decision.** `POST /api/installations/:id/ai-key/test` sends the same minimal request as a
+save, with the stored key, and reports `working`, `refused` with the status, `unreachable`,
+`unreadable` or `missing`. Owners only, behind the same three locks as a write; no audit row.
+**Why.** A key checked at save can expire or be revoked later, and until now the only sign was
+a failed AI review on someone's pull request.
+**Cost.** One tiny request billed to the customer per test.
+
 ## 3. Glossary
 
 | Term       | Meaning                                                                                 |

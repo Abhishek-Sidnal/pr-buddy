@@ -106,7 +106,7 @@ or updates the comment.
 
 ## Invariants
 
-These are design decisions with reasons recorded in `docs/BRAIN.md` (D-001 to D-079). Read the
+These are design decisions with reasons recorded in `docs/BRAIN.md` (D-001 to D-081). Read the
 relevant entry before changing one.
 
 - A webhook body is only a trigger. What gets reviewed is fetched from the API.
@@ -136,7 +136,7 @@ relevant entry before changing one.
 - An installation's AI key is encrypted before it reaches SQL, bound to its installation and
   provider, never returned by any route and never logged (D-073). Only an owner may change it,
   and writes need the dashboard's `Origin` and the `X-PR-Buddy-Request` header (D-072, D-075).
-  Customers pick a fixed provider, never an address (D-074). A review whose installation key
+  Customers pick a fixed provider, never an address; Azure is named by resource (D-074, D-080). A review whose installation key
   fails does not fall back to the operator's provider (D-078).
   installation's own AI key (D-056, D-075).
 - The dashboard shows only what the service can back: no sample data, no control that does

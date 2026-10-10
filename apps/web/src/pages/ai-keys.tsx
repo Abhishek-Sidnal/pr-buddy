@@ -1,5 +1,5 @@
 import { useId, useState, type ReactNode } from "react";
-import { aiKeys, SIGN_IN_PATH, type SaveAiKeyResult } from "../api/client.js";
+import { aiKeys, SIGN_IN_PATH, type SaveAiKeyResult, type TestAiKeyResult } from "../api/client.js";
 import {
   CUSTOMER_PROVIDERS,
   type AiKeySummary,
@@ -13,18 +13,21 @@ const PROVIDER_LABELS: Readonly<Record<string, string>> = {
   anthropic: "Anthropic",
   openai: "OpenAI",
   bedrock: "AWS Bedrock",
+  azure: "Azure AI Foundry",
 };
 
 const MODEL_HINTS: Readonly<Record<CustomerProvider, string>> = {
   anthropic: "The model's name as Anthropic lists it.",
   openai: "The model's name as OpenAI lists it.",
   bedrock: "A model ID or inference profile ID that your account may use in the region.",
+  azure: "The name of your deployment, which is not always the name of the model behind it.",
 };
 
 const FIELD_LABELS: Readonly<Record<string, string>> = {
   provider: "provider",
   model: "model",
   region: "region",
+  resource: "resource name",
   apiKey: "key",
 };
 
@@ -47,6 +50,37 @@ function describeFailure(result: Exclude<SaveAiKeyResult, { ok: true }>): string
       return "Your session has ended, so the key was not saved.";
     case "failed":
       return "The key could not be saved. Try again in a moment.";
+  }
+}
+
+type TestFailure = Exclude<TestAiKeyResult, { result: "working" }>;
+
+/** Whether a test showed the key to be broken, as opposed to the test not having run. */
+function isKeyBroken(tested: TestFailure): boolean {
+  return (
+    tested.result === "refused" || tested.result === "unreadable" || tested.result === "missing"
+  );
+}
+
+/** What to tell the person when a test did not show a working key. Each says what to do next. */
+function describeTest(tested: TestFailure): string {
+  switch (tested.result) {
+    case "refused":
+      return tested.providerStatus === 404
+        ? "The provider does not know this model, or the key may no longer use it (HTTP 404). AI review will fail until the key is replaced."
+        : `The provider refused the key (HTTP ${tested.providerStatus}). It may have expired, been revoked or run out of credit. AI review will fail until the key is replaced.`;
+    case "unreadable":
+      return "The service can no longer read the stored key. Enter it again and save.";
+    case "missing":
+      return "No key is stored for this installation any more. Reload the page.";
+    case "unreachable":
+      return "The provider could not be reached. Try again in a moment.";
+    case "forbidden":
+      return "You are no longer an owner of this installation. Sign out and in again to refresh your access.";
+    case "unauthenticated":
+      return "Your session has ended.";
+    case "failed":
+      return "The test could not be run. Try again in a moment.";
   }
 }
 
@@ -79,6 +113,14 @@ function KeySummary(props: { readonly aiKey: AiKeySummary | null }): ReactNode {
           </dd>
         </div>
       )}
+      {aiKey.resource === null ? null : (
+        <div>
+          <dt>Resource</dt>
+          <dd>
+            <code>{aiKey.resource}</code>
+          </dd>
+        </div>
+      )}
       <div>
         <dt>Key</dt>
         <dd>
@@ -89,7 +131,7 @@ function KeySummary(props: { readonly aiKey: AiKeySummary | null }): ReactNode {
   );
 }
 
-type Activity = "idle" | "saving" | "removing";
+type Activity = "idle" | "saving" | "removing" | "testing";
 
 /** The form an owner uses to store, replace or remove one installation's key. */
 function KeyForm(props: {
@@ -101,10 +143,12 @@ function KeyForm(props: {
   const [provider, setProvider] = useState<CustomerProvider>("anthropic");
   const [model, setModel] = useState("");
   const [region, setRegion] = useState("");
+  const [resource, setResource] = useState("");
   const [apiKey, setApiKey] = useState("");
   const [activity, setActivity] = useState<Activity>("idle");
   const [failure, setFailure] = useState<Exclude<SaveAiKeyResult, { ok: true }>>();
   const [message, setMessage] = useState<string>();
+  const [tested, setTested] = useState<TestFailure>();
   const [isConfirmingRemoval, setIsConfirmingRemoval] = useState(false);
   const [hasRemovalFailed, setHasRemovalFailed] = useState(false);
   const isBusy = activity !== "idle";
@@ -114,12 +158,14 @@ function KeyForm(props: {
     setActivity("saving");
     setFailure(undefined);
     setHasRemovalFailed(false);
+    setTested(undefined);
     setMessage(undefined);
     const result = await aiKeys.save(installation.id, {
       provider,
       model: model.trim(),
       apiKey: apiKey.trim(),
       ...(provider === "bedrock" ? { region: region.trim() } : {}),
+      ...(provider === "azure" ? { resource: resource.trim().toLowerCase() } : {}),
     });
     setActivity("idle");
     if (result.ok) {
@@ -136,6 +182,7 @@ function KeyForm(props: {
     setActivity("removing");
     setFailure(undefined);
     setHasRemovalFailed(false);
+    setTested(undefined);
     setMessage(undefined);
     const removed = await aiKeys.remove(installation.id);
     setActivity("idle");
@@ -145,6 +192,21 @@ function KeyForm(props: {
       props.onChanged(null);
     } else {
       setHasRemovalFailed(true);
+    }
+  }
+
+  async function test(): Promise<void> {
+    setActivity("testing");
+    setFailure(undefined);
+    setHasRemovalFailed(false);
+    setTested(undefined);
+    setMessage(undefined);
+    const result = await aiKeys.test(installation.id);
+    setActivity("idle");
+    if (result.result === "working") {
+      setMessage("The key works. The provider accepted it and answered with this model.");
+    } else {
+      setTested(result);
     }
   }
 
@@ -169,7 +231,7 @@ function KeyForm(props: {
       </div>
 
       <div className="form-field">
-        <label htmlFor={`${fieldId}-model`}>Model</label>
+        <label htmlFor={`${fieldId}-model`}>{provider === "azure" ? "Deployment" : "Model"}</label>
         <input
           id={`${fieldId}-model`}
           type="text"
@@ -206,6 +268,31 @@ function KeyForm(props: {
               setRegion(event.target.value);
             }}
           />
+        </div>
+      ) : null}
+
+      {provider === "azure" ? (
+        <div className="form-field">
+          <label htmlFor={`${fieldId}-resource`}>Resource name</label>
+          <input
+            id={`${fieldId}-resource`}
+            type="text"
+            required
+            minLength={2}
+            maxLength={64}
+            autoComplete="off"
+            spellCheck={false}
+            value={resource}
+            disabled={isBusy}
+            aria-describedby={`${fieldId}-resource-hint`}
+            onChange={(event) => {
+              setResource(event.target.value);
+            }}
+          />
+          <p id={`${fieldId}-resource-hint`} className="hint">
+            The name of your Azure AI Foundry or Azure OpenAI resource: the part before{" "}
+            <code>.openai.azure.com</code> in its endpoint. Only the name, not the address.
+          </p>
         </div>
       ) : null}
 
@@ -247,6 +334,20 @@ function KeyForm(props: {
           <p>It is still stored and still in use. Try again in a moment.</p>
         </Notice>
       ) : null}
+      {tested === undefined ? null : (
+        <Notice
+          tone="danger"
+          title={isKeyBroken(tested) ? "The key is not working" : "The key was not tested"}
+          isAlert
+        >
+          <p>{describeTest(tested)}</p>
+          {tested.result === "unauthenticated" ? (
+            <a className="button button-secondary" href={SIGN_IN_PATH}>
+              Sign in again
+            </a>
+          ) : null}
+        </Notice>
+      )}
       {message === undefined ? null : (
         <p className="form-message" role="status">
           {message}
@@ -261,6 +362,16 @@ function KeyForm(props: {
               ? "Save key"
               : "Replace key"}
         </button>
+        {installation.aiKey === null ? null : (
+          <button
+            type="button"
+            className="button button-secondary"
+            disabled={isBusy}
+            onClick={() => void test()}
+          >
+            {activity === "testing" ? "Testing…" : "Test key"}
+          </button>
+        )}
         {installation.aiKey === null ? null : isConfirmingRemoval ? (
           <>
             <span>Remove this key? AI review for this installation will stop using it.</span>

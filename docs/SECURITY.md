@@ -269,6 +269,8 @@ secret that is not its own.
 | K11 | A key outlives the installation                                | Uninstalling deletes it with the installation's other data                                                   | `api/modules/github/installation-store.ts`     |
 | K12 | The feature runs without encryption                            | Without the master key its routes are not registered; a malformed master key stops start-up                  | `config/env.ts`, `api/app.ts`                  |
 | K13 | The save route is used to test stolen keys in bulk             | It needs an owner's session and is rate limited with the rest of the API                                     | `api/app.ts`                                   |
+| K14 | An Azure resource name is used to reach another host           | Lower-case letters, digits and hyphens only, so no dot, slash, colon or `@`; the domain is fixed in code     | `ai-key-store.ts`                              |
+| K15 | The test route spends a customer's money, or leaks the key     | Owners only, the three locks of a write, rate limited; it answers a result and a status, never the key       | `ai-key.router.ts`                             |
 
 ### Known limits
 

@@ -8,12 +8,41 @@ import type { SecretCipher } from "./secret-cipher.js";
  * Providers a customer may choose. Each has its host fixed in code: a customer never supplies an
  * address, so the service cannot be pointed at its own network (D-074).
  */
-export const CUSTOMER_PROVIDERS = ["anthropic", "openai", "bedrock"] as const;
+export const CUSTOMER_PROVIDERS = ["anthropic", "openai", "bedrock", "azure"] as const;
 export type CustomerProvider = (typeof CUSTOMER_PROVIDERS)[number];
 
 const MIN_KEY_LENGTH = 8;
 const MAX_KEY_LENGTH = 4_096;
 const KEY_HINT_LENGTH = 4;
+
+/**
+ * The name of an Azure resource. It becomes the first label of a host name, so it may hold
+ * nothing that could end the label or the host: no dot, slash, colon or `@` (D-080).
+ */
+const AZURE_RESOURCE_PATTERN = /^[a-z0-9][a-z0-9-]{0,62}[a-z0-9]$/;
+const AZURE_ADDRESS_START = "https://";
+const AZURE_ADDRESS_END = ".openai.azure.com/openai/v1";
+
+/** Where an Azure resource is reached. The name must have passed `AZURE_RESOURCE_PATTERN`. */
+function azureBaseUrl(resource: string): string {
+  return `${AZURE_ADDRESS_START}${resource}${AZURE_ADDRESS_END}`;
+}
+
+/**
+ * The Azure resource a set of settings points at, or `null` for another provider.
+ * @throws {Error} if Azure settings carry an address this module did not build.
+ */
+function azureResourceOf(settings: ProviderSettings): string | null {
+  if (settings.provider !== "azure") {
+    return null;
+  }
+  const address = settings.baseUrl ?? "";
+  const resource = address.slice(AZURE_ADDRESS_START.length, -AZURE_ADDRESS_END.length);
+  if (!AZURE_RESOURCE_PATTERN.test(resource) || address !== azureBaseUrl(resource)) {
+    throw new Error("The Azure settings do not name a resource.");
+  }
+  return resource;
+}
 
 /** What an owner submits. The fields are checked again by the provider's own settings schema. */
 export const aiKeyInputSchema = z
@@ -21,6 +50,7 @@ export const aiKeyInputSchema = z
     provider: z.enum(CUSTOMER_PROVIDERS),
     model: z.string().min(1).max(200),
     region: z.string().max(40).optional(),
+    resource: z.string().max(64).optional(),
     // No surrounding space and nothing that is not printable: such a key is a pasting mistake.
     apiKey: z
       .string()
@@ -29,13 +59,24 @@ export const aiKeyInputSchema = z
       .regex(/^[\x21-\x7e]+$/, "must not contain spaces or control characters"),
   })
   .transform((input, context): ProviderSettings => {
+    const isAzure = input.provider === "azure";
+    if (isAzure && !AZURE_RESOURCE_PATTERN.test(input.resource ?? "")) {
+      context.addIssue({
+        code: "custom",
+        path: ["resource"],
+        message: "must be the name of an Azure resource",
+      });
+      return z.NEVER;
+    }
     // The provider's schema owns the rules for models and regions; a region is passed on only
-    // for Bedrock, and an address is never passed at all.
+    // for Bedrock. An address is never taken from the input: for Azure it is built here from
+    // the resource's name, and no other provider gets one.
     const settings = providerSettingsSchema.safeParse({
       provider: input.provider,
       model: input.model,
       apiKey: input.apiKey,
       ...(input.provider === "bedrock" ? { region: input.region } : {}),
+      ...(isAzure ? { baseUrl: azureBaseUrl(input.resource ?? "") } : {}),
     });
     if (!settings.success) {
       for (const issue of settings.error.issues) {
@@ -52,6 +93,8 @@ export interface AiKeySummary {
   readonly provider: CustomerProvider;
   readonly model: string;
   readonly region: string | null;
+  /** The Azure resource's name; `null` for every other provider. */
+  readonly resource: string | null;
   /** The last four characters of the key. */
   readonly keyHint: string;
   /** ISO 8601. */
@@ -79,6 +122,7 @@ interface KeyRow {
   readonly provider: CustomerProvider;
   readonly model: string;
   readonly region: string | null;
+  readonly resource: string | null;
   readonly key_hint: string;
   readonly updated_at: Date;
 }
@@ -89,6 +133,7 @@ function toSummary(row: KeyRow): AiKeySummary {
     provider: row.provider,
     model: row.model,
     region: row.region,
+    resource: row.resource,
     keyHint: row.key_hint,
     updatedAt: row.updated_at.toISOString(),
   };
@@ -116,7 +161,7 @@ export function createPostgresAiKeyStore(database: Database, cipher: SecretCiphe
   return {
     async list(installationIds) {
       const result = await database.query<KeyRow>(
-        `SELECT installation_id, provider, model, region, key_hint, updated_at
+        `SELECT installation_id, provider, model, region, resource, key_hint, updated_at
          FROM installation_ai_keys
          WHERE installation_id = ANY($1::bigint[])
          ORDER BY installation_id`,
@@ -127,24 +172,26 @@ export function createPostgresAiKeyStore(database: Database, cipher: SecretCiphe
 
     save(installationId, settings, userId) {
       const apiKey = settings.apiKey ?? "";
+      const resource = azureResourceOf(settings);
       const encrypted = cipher.encrypt(apiKey, contextOf(installationId, settings.provider));
       return database.transaction(async (transaction) => {
         const result = await transaction.query<KeyRow>(
           `INSERT INTO installation_ai_keys
              (installation_id, provider, model, region, key_ciphertext, key_nonce, key_id,
-              key_hint, updated_by)
-           VALUES ($1, $2, $3, $4, decode($5, 'base64'), decode($6, 'base64'), $7, $8, $9)
+              key_hint, updated_by, resource)
+           VALUES ($1, $2, $3, $4, decode($5, 'base64'), decode($6, 'base64'), $7, $8, $9, $10)
            ON CONFLICT (installation_id) DO UPDATE
              SET provider       = EXCLUDED.provider,
                  model          = EXCLUDED.model,
                  region         = EXCLUDED.region,
+                 resource       = EXCLUDED.resource,
                  key_ciphertext = EXCLUDED.key_ciphertext,
                  key_nonce      = EXCLUDED.key_nonce,
                  key_id         = EXCLUDED.key_id,
                  key_hint       = EXCLUDED.key_hint,
                  updated_by     = EXCLUDED.updated_by,
                  updated_at     = now()
-           RETURNING installation_id, provider, model, region, key_hint, updated_at`,
+           RETURNING installation_id, provider, model, region, resource, key_hint, updated_at`,
           [
             installationId,
             settings.provider,
@@ -155,6 +202,7 @@ export function createPostgresAiKeyStore(database: Database, cipher: SecretCiphe
             encrypted.keyId,
             apiKey.slice(-KEY_HINT_LENGTH),
             userId,
+            resource,
           ],
         );
         const row = result.rows[0];
@@ -185,11 +233,12 @@ export function createPostgresAiKeyStore(database: Database, cipher: SecretCiphe
         provider: CustomerProvider;
         model: string;
         region: string | null;
+        resource: string | null;
         ciphertext: string;
         nonce: string;
         key_id: string;
       }>(
-        `SELECT provider, model, region, encode(key_ciphertext, 'base64') AS ciphertext,
+        `SELECT provider, model, region, resource, encode(key_ciphertext, 'base64') AS ciphertext,
                 encode(key_nonce, 'base64') AS nonce, key_id
          FROM installation_ai_keys
          WHERE installation_id = $1`,
@@ -208,12 +257,13 @@ export function createPostgresAiKeyStore(database: Database, cipher: SecretCiphe
         contextOf(installationId, row.provider),
       );
       // Read back through the same schema that accepted it, so a row edited by hand cannot
-      // carry an address or a malformed region into a request.
-      return providerSettingsSchema.parse({
+      // carry an address or a malformed region or resource name into a request.
+      return aiKeyInputSchema.parse({
         provider: row.provider,
         model: row.model,
         apiKey,
         ...(row.region === null ? {} : { region: row.region }),
+        ...(row.resource === null ? {} : { resource: row.resource }),
       });
     },
   };
