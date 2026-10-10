@@ -498,6 +498,47 @@ that refused to start would be worse than a clear warning.
 **Why.** It must not depend on the operator remembering to configure it in the proxy. It is not
 sent for `http://localhost`, where it would be wrong.
 
+### D-066 — Requested reviews are remembered in the database until they finish
+
+**Decision.** A webhook that asks for a review writes a row to `pending_reviews` before it is
+acknowledged. The row is deleted when the review finishes. At start-up the service queues every
+row that is left. The in-process queue (D-018) still decides what runs when.
+**Why.** A webhook is acknowledged before its review runs. A restart in between used to lose the
+review silently, and GitHub does not redeliver what was acknowledged.
+**Cost.** At-least-once, not exactly-once: a review interrupted after it published runs again,
+which is harmless because publishing is idempotent. Two instances would each recover the same
+rows; that too only repeats work.
+**Revisit when.** Several instances must share work; then the table becomes the queue itself.
+
+### D-067 — Recovery is bounded
+
+**Decision.** A pending review is retried at most three times and only within 24 hours of the
+request. Beyond that it is dropped.
+**Why.** A review that fails every time, for example because the app was uninstalled, must not
+be retried at every start for ever. After a day the pull request has usually moved on, and its
+next push asks for a review anyway.
+
+### D-068 — Reviews are kept for 365 days unless the operator says otherwise
+
+**Decision.** `REVIEW_RETENTION_DAYS` defaults to 365. Older reviews are deleted, with their
+findings, once a day and at start-up, in batches. `0` keeps everything.
+**Why.** Stored findings include file paths. Keeping them for ever is a growing liability and a
+growing table, and no feature needs history that old.
+**Cost.** A deployment upgraded to this version loses reviews older than a year at its next
+start, unless it sets the variable first. The release notes must say so.
+
+### D-069 — Uninstalling the app deletes that installation's history
+
+**Decision.** On `installation.deleted` the service deletes the installation's repositories,
+reviews, findings, pending reviews and sessions. On `suspend`, and when a repository is removed
+from an installation, it ends the sessions that could see the data; a removed repository's
+history is deleted.
+**Why.** Once the app is uninstalled nobody can sign in to see that data, so keeping it serves
+no one and exposes it to any later breach. Ending sessions closes the eight-hour window of D-050
+for the cases GitHub tells the service about.
+**Cost.** Reinstalling starts with an empty history. A person removed from an organisation is
+not an installation event, so that case still waits for the session to end.
+
 ## 3. Glossary
 
 | Term       | Meaning                                                                                 |
@@ -513,13 +554,13 @@ sent for `http://localhost`, where it would be wrong.
 
 ## 4. Open questions
 
-| #   | Question                                                                               | Needed by                    |
-| --- | -------------------------------------------------------------------------------------- | ---------------------------- |
-| Q1  | Answered by D-029: neither; SQL is hand-written                                        | —                            |
-| Q2  | Answered by D-018: an in-process queue is enough until reviews must survive a restart  | —                            |
-| Q3  | Should findings also be allowed on removed lines (the old side)?                       | M2                           |
-| Q4  | Which static-analysis and secret-scanning tools to integrate rather than re-implement? | M3                           |
-| Q5  | Should third-party rules run in a worker thread with a hard time limit?                | When third-party rules exist |
+| #   | Question                                                                                         | Needed by                    |
+| --- | ------------------------------------------------------------------------------------------------ | ---------------------------- |
+| Q1  | Answered by D-029: neither; SQL is hand-written                                                  | —                            |
+| Q2  | Answered by D-018 and D-066: an in-process queue, with requests stored so they survive a restart | —                            |
+| Q3  | Should findings also be allowed on removed lines (the old side)?                                 | M2                           |
+| Q4  | Which static-analysis and secret-scanning tools to integrate rather than re-implement?           | M3                           |
+| Q5  | Should third-party rules run in a worker thread with a hard time limit?                          | When third-party rules exist |
 
 ## 5. Lessons learned
 

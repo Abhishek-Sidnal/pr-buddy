@@ -145,3 +145,58 @@ LIMIT 20;
 -- How often each rule reports
 SELECT rule_id, severity, count(*) FROM findings GROUP BY rule_id, severity ORDER BY 3 DESC;
 ```
+
+## 10. Pending reviews: surviving a restart
+
+A webhook is acknowledged before its review runs, so a restart between the two used to lose the
+review. `pending_reviews` closes that gap (D-066).
+
+| Column                                 | Meaning                                                            |
+| -------------------------------------- | ------------------------------------------------------------------ |
+| `repository_id`, `pull_request_number` | The key: one row per pull request, like the queue's own coalescing |
+| `installation_id`, `owner`, `name`     | What is needed to fetch the pull request again                     |
+| `generation`                           | Raised by every new request for the same pull request              |
+| `attempts`                             | Reviews of this request that failed                                |
+| `requested_at`                         | When the latest request arrived                                    |
+
+```
+webhook ──► upsert row (generation n) ──► 202 ──► queue ──► review
+                                                              ├─ finished: delete the row if it is still generation n
+                                                              └─ failed:   attempts + 1
+start-up ──► drop rows older than 24 h or with 3 attempts ──► queue the rest
+```
+
+The generation is what makes a late finish harmless: if a push arrives while a review runs, the
+row moves to the next generation, the finishing review deletes nothing, and the queued review
+for the new push deletes it when it is done.
+
+Recovery is at-least-once. A review that was interrupted after it published its comment runs
+again and updates the same comment. A row holds identifiers only: no title, no commit, no code.
+
+Without a database there is nothing to recover from, and the service behaves as before.
+
+## 11. Retention
+
+Reviews older than `REVIEW_RETENTION_DAYS` (default 365; `0` keeps everything) are deleted with
+their findings, rule executions and AI records (D-068). The job runs at start-up and once a day,
+in batches of 1,000 reviews, outside any request or review. It also removes expired sessions.
+A repository's row stays, so a repository whose reviews have all aged out is listed with none.
+
+**Upgrading:** the first start of a version with retention deletes reviews older than the limit.
+Set the variable beforehand to keep them.
+
+## 12. When an installation changes
+
+GitHub tells the app when it is uninstalled, suspended, or loses a repository. These events are
+verified like every webhook and carry only IDs (D-069).
+
+| Event                                           | Sessions that list the installation | Stored history                    |
+| ----------------------------------------------- | ----------------------------------- | --------------------------------- |
+| `installation` `deleted`                        | Ended                               | Deleted, for all its repositories |
+| `installation` `suspend`                        | Ended                               | Kept                              |
+| `installation_repositories` `removed`           | Ended                               | Deleted, for those repositories   |
+| Anything else, including `created`, `unsuspend` | Untouched                           | Untouched                         |
+
+A person whose session is ended signs in again and sees whatever GitHub lists for them then.
+Losing access in a way GitHub does not announce to the app, such as leaving an organisation,
+still takes effect when the session ends (D-050).

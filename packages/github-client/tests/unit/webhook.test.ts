@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { parseInstallationEvent } from "../../src/webhook/installation-event.js";
 import { parsePullRequestEvent, REVIEWABLE_ACTIONS } from "../../src/webhook/pull-request-event.js";
 import { signWebhookBody, verifyWebhookSignature } from "../../src/webhook/verify-signature.js";
 
@@ -123,5 +124,71 @@ describe("parsePullRequestEvent", () => {
       kind: "ignored",
       reason: "malformed-payload",
     });
+  });
+});
+
+describe("parseInstallationEvent", () => {
+  const installation = { id: 1001, account: { login: "ACCOUNT-CANARY" } };
+
+  it("recognises an uninstall and a suspension", () => {
+    expect(parseInstallationEvent("installation", { action: "deleted", installation })).toEqual({
+      kind: "removed",
+      installationId: 1001,
+    });
+    expect(parseInstallationEvent("installation", { action: "suspend", installation })).toEqual({
+      kind: "suspended",
+      installationId: 1001,
+    });
+  });
+
+  it("recognises repositories removed from an installation, by ID only", () => {
+    const change = parseInstallationEvent("installation_repositories", {
+      action: "removed",
+      installation,
+      repositories_removed: [
+        { id: 2002, full_name: "acme/NAME-CANARY" },
+        { id: 2003, full_name: "acme/other" },
+      ],
+    });
+
+    expect(change).toEqual({
+      kind: "repositories-removed",
+      installationId: 1001,
+      repositoryIds: [2002, 2003],
+    });
+    expect(JSON.stringify(change)).not.toContain("CANARY");
+  });
+
+  it.each<[string, string, unknown]>([
+    ["a new installation", "installation", { action: "created", installation }],
+    ["an unsuspension", "installation", { action: "unsuspend", installation }],
+    [
+      "repositories added",
+      "installation_repositories",
+      { action: "added", installation, repositories_removed: [] },
+    ],
+    [
+      "an empty removal",
+      "installation_repositories",
+      { action: "removed", installation, repositories_removed: [] },
+    ],
+    ["a removal without a list", "installation_repositories", { action: "removed", installation }],
+    ["a missing installation", "installation", { action: "deleted" }],
+    [
+      "an installation ID that is text",
+      "installation",
+      { action: "deleted", installation: { id: "1001" } },
+    ],
+    ["a negative installation ID", "installation", { action: "deleted", installation: { id: -1 } }],
+    [
+      "a repository ID that is text",
+      "installation_repositories",
+      { action: "removed", installation, repositories_removed: [{ id: "2002" }] },
+    ],
+    ["a body that is not an object", "installation", "deleted"],
+    ["no body", "installation", undefined],
+    ["another event", "pull_request", { action: "deleted", installation }],
+  ])("ignores %s", (_name, event, payload) => {
+    expect(parseInstallationEvent(event, payload)).toEqual({ kind: "ignored" });
   });
 });

@@ -6,12 +6,22 @@ Legend: ✅ done · 🚧 in progress · ⬜ not started
 
 ## Milestones
 
-| Milestone | Deliverable                                         | Status              |
-| --------- | --------------------------------------------------- | ------------------- |
-| M1        | Deterministic review engine                         | ✅                  |
-| M2        | GitHub App integration                              | ✅                  |
-| M3        | Storage, rules and thresholds, AI review, dashboard | ✅                  |
-| M4        | Hardening and `v0.1.0`                              | 🚧 part 1 of 4 done |
+| Milestone | Deliverable                                         | Status                     |
+| --------- | --------------------------------------------------- | -------------------------- |
+| M1        | Deterministic review engine                         | ✅                         |
+| M2        | GitHub App integration                              | ✅                         |
+| M3        | Storage, rules and thresholds, AI review, dashboard | ✅                         |
+| M4        | Hardening and `v0.1.0`                              | 🚧 parts 1 and 2 of 4 done |
+
+## Latest verified check
+
+The one current figure. Counts in the sections below are what was true when each part was
+accepted and are kept as history.
+
+| Date       | Command                                            | Result                                                                                 |
+| ---------- | -------------------------------------------------- | -------------------------------------------------------------------------------------- |
+| 2026-10-10 | `docker compose run --rm dev npm run check`        | Passed: 1,448 tests (engine 474, AI reviewer 186, GitHub client 250, API 418, web 120) |
+| 2026-10-10 | `docker compose run --rm dev npm audit --omit=dev` | 0 vulnerabilities                                                                      |
 
 ## Milestone 4 — hardening and `v0.1.0`
 
@@ -44,6 +54,37 @@ Guide: [DEPLOYMENT.md](DEPLOYMENT.md). Decisions D-063 to D-065.
 | Backup and restore commands    | Passed: a dump of the development database restored into a scratch database with the same row counts                                                                                               |
 | Not done                       | A real domain with a public certificate; sign-in completed over HTTPS (needs the HTTPS callback URL added to the app); a webhook delivered by GitHub to the stack; an upgrade between two releases |
 
+### Part 2 — data lifecycle and recovery
+
+Design: [DESIGN-STORAGE.md](DESIGN-STORAGE.md) sections 10 to 12. Decisions D-066 to D-069. It
+also answers the external review of Milestone 3 (2026-10-10):
+
+| Review item                                   | Outcome                                                                                      |
+| --------------------------------------------- | -------------------------------------------------------------------------------------------- |
+| P1: queued reviews are lost on restart        | ✅ Requests are stored and recovered at start-up (D-066, D-067). At-least-once, one instance |
+| P1: no retention limit                        | ✅ 365 days by default, configurable, `0` keeps everything (D-068)                           |
+| P1: AI providers not all validated live       | Open. Only Bedrock with an API key has run live; the rest need the maintainer's keys         |
+| P2: tracker marks M3 done but backlog says M3 | ✅ Backlog relabelled; see the note above it                                                 |
+| P2: stale test counts                         | ✅ One "Latest verified check" section; older counts are labelled as history                 |
+| Reproduce the checks from a clean checkout    | Open; planned with the release in part 4                                                     |
+
+| Task                                                            | Requirement   | Status |
+| --------------------------------------------------------------- | ------------- | ------ |
+| `pending_reviews`: remember a request until its review finishes | FR-83         | ✅     |
+| Recovery at start-up, at most three attempts within a day       | FR-83, NFR-84 | ✅     |
+| Retention job at start-up and daily, in batches                 | FR-84, NFR-86 | ✅     |
+| Uninstall deletes the installation's history and sessions       | FR-85         | ✅     |
+| Suspension and repository removal end access at once            | FR-86         | ✅     |
+| All of it optional without a database                           | NFR-85        | ✅     |
+
+| Check               | Result                                                                                                                                                                                |
+| ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Recovery, live      | Passed: a pending request for `pr-buddy-test#4` was written to the database, the API restarted, and the log showed it recovered and the review completed; the row was gone afterwards |
+| Migration `0005`    | Applied at start-up on the running database                                                                                                                                           |
+| Retention, live     | Ran at start-up and deleted nothing, as no review is older than a year. Deletion itself is covered by tests against PostgreSQL only                                                   |
+| Installation events | Covered by tests against PostgreSQL with signed requests. Not exercised live: it would mean uninstalling the app from the test repository                                             |
+| A crash mid-review  | Not staged. The test above restarts between request and review; a kill during a running review relies on the same row and was not tried                                               |
+
 ## Milestone 3, part 4 — the dashboard
 
 Design: [DESIGN-DASHBOARD.md](DESIGN-DASHBOARD.md) and [DESIGN-SYSTEM.md](DESIGN-SYSTEM.md).
@@ -67,7 +108,7 @@ Visual direction: [ADR 0001](ADR/0001-visual-direction.md).
 
 | Check                        | Result                                                                                                                                                                                                         |
 | ---------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `npm run check`              | Passed: 1,279 tests (engine 474, AI reviewer 93, GitHub client 236, API 356, web 120)                                                                                                                          |
+| `npm run check` then         | Passed: 1,279 tests (engine 474, AI reviewer 93, GitHub client 236, API 356, web 120)                                                                                                                          |
 | Tenant isolation             | Passed: two tenants in one database; every route tried with the other tenant's IDs answers `404`, the same as a missing ID                                                                                     |
 | Production image             | Passed: migration `0004` applied at start-up; the page is served with the Content-Security-Policy and no inline script; fonts load from the same origin                                                        |
 | Browser, real stored reviews | Passed with a session row created by hand in the development database: all six routes in the dark and light themes; no console CSP errors                                                                      |
@@ -267,21 +308,25 @@ Complete. Engine, three rules, 348 tests at 100% coverage. Details are in the ch
 
 ## Backlog
 
-| Item                                                                                | Milestone |
-| ----------------------------------------------------------------------------------- | --------- |
-| Retention limit for stored reviews                                                  | M3        |
-| Durable job queue so queued reviews survive a restart                               | M3        |
-| Check run with a pass or fail conclusion                                            | M3        |
-| AWS credentials from roles, profiles or single sign-on (needs the SDK or more code) | Later     |
-| Line comments for AI suggestions, with a fingerprint that survives rewording        | M3        |
-| Per-repository AI budget and usage report                                           | M3        |
-| Dashboard: editing settings, roles within an installation, charts                   | Later     |
-| YAML repository configuration                                                       | M3        |
-| Run third-party rules in a worker thread with a hard time limit                     | M3        |
-| Revoke dashboard access as soon as GitHub does, from installation webhooks          | M4        |
-| Browser test of the dashboard and of sign-in against real GitHub in CI              | M4        |
-| Pin GitHub Actions and base images to digests                                       | M4        |
-| Release `v0.1.0`                                                                    | M4        |
+Milestone 3 was accepted on its core scope: storage, rules and thresholds, the AI reviewer and
+the dashboard. Items that once carried "M3" here were optional extras; they are now marked
+"Later" so that the milestone table and this list agree.
+
+| Item                                                                                                            | When                            |
+| --------------------------------------------------------------------------------------------------------------- | ------------------------------- |
+| Pin GitHub Actions and base images to digests                                                                   | M4, part 3                      |
+| Release `v0.1.0`                                                                                                | M4, part 4                      |
+| Run Anthropic, OpenAI, Azure and OpenAI-compatible, and Bedrock with an access key, against their real services | M4, needs the maintainer's keys |
+| Reproduce the full check from a clean checkout and keep the log as release evidence                             | M4, part 4                      |
+| A queue shared by several instances                                                                             | Later                           |
+| Check run with a pass or fail conclusion                                                                        | Later                           |
+| AWS credentials from roles, profiles or single sign-on (needs the SDK or more code)                             | Later                           |
+| Line comments for AI suggestions, with a fingerprint that survives rewording                                    | Later                           |
+| Per-repository AI budget and usage report                                                                       | Later                           |
+| Dashboard: editing settings, roles within an installation, charts                                               | Later                           |
+| YAML repository configuration                                                                                   | Later                           |
+| Run third-party rules in a worker thread with a hard time limit                                                 | Later                           |
+| Browser test of the dashboard and of sign-in against real GitHub in CI                                          | Later                           |
 
 ## Change log
 
@@ -303,3 +348,4 @@ Complete. Engine, three rules, 348 tests at 100% coverage. Details are in the ch
 | 2026-10-10 | AI providers: Bedrock (with own request signing), Anthropic, OpenAI, Azure AI Foundry, OpenAI-compatible          |
 | 2026-10-10 | Bedrock verified live: five suggestions on a test pull request; Milestone 3 complete                              |
 | 2026-10-10 | Milestone 4 started: example HTTPS deployment, deployment guide, start-up warnings, HSTS                          |
+| 2026-10-10 | Recovery of requested reviews after a restart, a retention limit, clean-up on uninstall; tracker reconciled       |

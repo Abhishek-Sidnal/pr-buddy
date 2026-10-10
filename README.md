@@ -170,8 +170,10 @@ More detail: [architecture](docs/ARCHITECTURE.md) · [engine design](docs/DESIGN
   stack was checked up to the redirect to GitHub, on a local certificate, not on a real domain.
 - Dashboard access is read at sign-in. Losing access on GitHub takes effect when the session
   ends, at most eight hours later.
-- Reviews waiting in the queue are lost when the service restarts. Without a database, so is the
-  memory of webhook deliveries.
+- Without a database, reviews waiting in the queue are lost when the service restarts, and so is
+  the memory of webhook deliveries. With one, a requested review is run again after a restart.
+- Reviews are deleted after 365 days by default (`REVIEW_RETENTION_DAYS`), and an
+  installation's history is deleted when the app is uninstalled.
 - There is no check run: PR Buddy comments but does not set a pass or fail status.
 - Of the AI providers, only Bedrock with a Bedrock API key has answered a real request. The
   others, and Bedrock with a signed access key, are written from published APIs and tested

@@ -6,6 +6,7 @@ export {
   type ReviewableAction,
   type ReviewTrigger,
 } from "./webhook/pull-request-event.js";
+export { parseInstallationEvent, type InstallationChange } from "./webhook/installation-event.js";
 
 export type {
   FileListLimits,

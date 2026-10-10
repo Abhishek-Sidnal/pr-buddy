@@ -212,6 +212,7 @@ describe("the project's migrations", () => {
       expect(tables.rows.map((row) => row.table_name).sort()).toEqual([
         "ai_reviews",
         "findings",
+        "pending_reviews",
         "repositories",
         "reviews",
         "rule_executions",

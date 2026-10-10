@@ -17,6 +17,8 @@ of actionable, evidence-backed findings. Humans keep the merge decision.
 - The AI reviewer has five providers (AWS Bedrock, Anthropic, OpenAI, Azure AI Foundry, any
   OpenAI-compatible service). It is off until the operator sets `AI_PROVIDER` and a repository
   sets `ai.enabled`. Bedrock was verified live on 2026-10-10; the others have not been run live.
+- With a database, a requested review survives a restart, reviews are deleted after 365 days by
+  default, and uninstalling the app deletes that installation's history.
 - The **dashboard** is built: sign-in with GitHub, a read-only API limited to the installations
   a person can access, and a React app (`apps/web`) in the Graphite / Signal Lime design. It is
   off unless the database and three settings are present. Sign-in was verified against real

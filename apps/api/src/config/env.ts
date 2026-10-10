@@ -80,6 +80,7 @@ const environmentSchema = z.object({
     .refine(isPostgresUrl, "must be a postgres:// or postgresql:// URL")
     .optional(),
   DATABASE_POOL_SIZE: integerSetting(1, 100, 5),
+  REVIEW_RETENTION_DAYS: integerSetting(0, 3_650, 365),
   GITHUB_CLIENT_ID: z.string().min(1).max(100).optional(),
   GITHUB_CLIENT_SECRET: z.string().min(1).max(200).optional(),
   PUBLIC_URL: z
@@ -102,6 +103,8 @@ export interface AppConfig {
   readonly reviewQueueLimit: number;
   /** Webhook requests allowed per minute from one client address. */
   readonly webhookRateLimit: number;
+  /** Reviews older than this many days are deleted. Zero keeps every review. */
+  readonly reviewRetentionDays: number;
   /** Absent when the service runs without a database. Contains a password: never log it. */
   readonly database?: {
     readonly url: string;
@@ -251,6 +254,7 @@ export function loadConfig(environment: Readonly<Record<string, string | undefin
     reviewConcurrency: values.REVIEW_CONCURRENCY,
     reviewQueueLimit: values.REVIEW_QUEUE_LIMIT,
     webhookRateLimit: values.WEBHOOK_RATE_LIMIT,
+    reviewRetentionDays: values.REVIEW_RETENTION_DAYS,
     ...(values.DATABASE_URL === undefined
       ? {}
       : { database: { url: values.DATABASE_URL, poolSize: values.DATABASE_POOL_SIZE } }),

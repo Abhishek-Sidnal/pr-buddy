@@ -42,6 +42,7 @@ describe("loadConfig", () => {
       reviewConcurrency: 2,
       reviewQueueLimit: 100,
       webhookRateLimit: 300,
+      reviewRetentionDays: 365,
     });
   });
 
@@ -118,6 +119,15 @@ describe("loadConfig", () => {
     const issues = issuesOf({ DATABASE_URL: "mysql://admin:PASSWORD-CANARY@host/db" });
 
     expect(issues.join()).not.toContain("PASSWORD-CANARY");
+  });
+
+  it("reads how long reviews are kept, and accepts zero for keeping them all", () => {
+    expect(loadConfig(environment({ REVIEW_RETENTION_DAYS: "90" })).reviewRetentionDays).toBe(90);
+    expect(loadConfig(environment({ REVIEW_RETENTION_DAYS: "0" })).reviewRetentionDays).toBe(0);
+  });
+
+  it.each(["-1", "3651", "1.5", "forever"])("rejects a retention of %s days", (value) => {
+    expect(issuesOf({ REVIEW_RETENTION_DAYS: value })).toHaveLength(1);
   });
 
   it("rejects a pool size of zero", () => {

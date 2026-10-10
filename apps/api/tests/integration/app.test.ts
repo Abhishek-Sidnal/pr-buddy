@@ -232,7 +232,7 @@ describe("webhook validation", () => {
     expect(response.body).toEqual({ status: "pong" });
   });
 
-  it.each(["push", "issues", "installation", "pull_request_review"])(
+  it.each(["push", "issues", "check_run", "pull_request_review"])(
     "acknowledges and ignores the %s event",
     async (event) => {
       const response = await deliver(pullRequestEvent(), { event });
