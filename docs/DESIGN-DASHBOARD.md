@@ -138,11 +138,93 @@ dashboard and its API share one origin: no CORS, and the cookie never crosses si
 | `GITHUB_CLIENT_ID`     | The GitHub App's client ID                                      |
 | `GITHUB_CLIENT_SECRET` | A client secret generated on the app's settings page            |
 | `PUBLIC_URL`           | Where the service is reached; the callback URL is built from it |
+| `GITHUB_APP_SLUG`      | Optional. The app's name in `github.com/apps/<slug>`; section 8 |
 
 The app's settings on GitHub must list `<PUBLIC_URL>/auth/callback` as a callback URL. Setup
 steps are in [GITHUB_APP.md](GITHUB_APP.md).
 
-## 8. Testing
+## 8. Onboarding
+
+How someone who has never used PR Buddy gets from the address of a hosted service to a first
+review, without reading a guide. Decisions D-083 to D-085.
+
+A new user never registers anything on GitHub. Registering the app is the operator's job, done
+once ([GITHUB_APP.md](GITHUB_APP.md)). A user installs the operator's app.
+
+### The path
+
+```
+prbuddy.example.com ──► "Install on GitHub" ──► GitHub: choose repositories, confirm
+                                                        │
+        dashboard, signed in  ◄── /auth/login ◄─────────┘  (the app's "Setup URL")
+                │
+                ▼
+        "Getting started": installed ✓ → open a pull request → (optional) AI review
+```
+
+### The page a signed-out visitor sees
+
+It replaces the bare sign-in page, at every address, and says, in this order:
+
+1. What PR Buddy does, in sentences that are true of every deployment: it reviews pull
+   requests with fixed rules, keeps one comment up to date, and never merges or changes code.
+2. Two actions: **Install on GitHub** and **Sign in with GitHub**. Install is the main action
+   when the service knows its app; otherwise it is absent and sign-in is the main action.
+3. The steps: install, open a pull request, sign in to see history, optionally turn on AI.
+4. What is stored and what is never stored: the same list as on the settings page, from one
+   shared component, so the two cannot drift apart.
+5. What GitHub shares at sign-in, as before.
+
+It names no permission list of its own: GitHub shows the exact permissions before a person
+confirms, and the operator may have registered the app differently from the guide.
+
+### Where the Install link comes from (D-083)
+
+The operator sets `GITHUB_APP_SLUG`, the app's name as it appears in `github.com/apps/<slug>`.
+A route that needs no session, `GET /auth/service`, answers `{ "appSlug": "<slug>" }`, or
+`null` when it is not set. The browser builds
+`https://github.com/apps/<slug>/installations/new` through `github-links.ts`, which checks the
+slug against a strict pattern first. Without the setting there is no Install button anywhere:
+no button that leads nowhere (D-058). The service warns at start-up when the dashboard is on
+and the slug is missing.
+
+The slug is not a secret: it is in the address of the app's public page.
+
+### Coming back from GitHub (D-084)
+
+The operator sets the app's **Setup URL** to `<PUBLIC_URL>/auth/login`. After installing,
+GitHub sends the person there, the normal sign-in runs, and they arrive on the dashboard with
+the new installation already in their session. Nothing GitHub adds to that address is read:
+which installations a person has is always asked of GitHub at sign-in (D-050). No new route.
+
+### Getting started (D-085)
+
+The overview shows a short list of steps until the first review exists. Each step's state
+comes from what the service already knows, never from a flag the person ticks:
+
+| Step                   | Done when                                                        |
+| ---------------------- | ---------------------------------------------------------------- |
+| Install the app        | The session has at least one installation                        |
+| Get a first review     | A review exists for a visible repository                         |
+| AI review, if you want | An installation of the session has its own key. Marked optional. |
+
+The AI step appears only when the service offers installation keys, and says that a repository
+must also opt in. The first step that is not done carries the action: the Install button, or
+what to do in the repository. When the first review exists, the list is gone for good.
+
+The notice shown to someone with no installation gains the Install button when the service
+knows its app.
+
+### Limits
+
+- No terms of service or privacy policy: those are the operator's texts, and the service has
+  nowhere to take them from yet. The page states what the software stores and sends.
+- A person who installs the app while already signed in sees the new installation only after
+  signing in again; the Setup URL does exactly that.
+- The steps are per person, not per installation: someone with two installations sees the list
+  only until any of their repositories has a review.
+
+## 9. Testing
 
 - Sign-in: the whole flow against a fake GitHub, including a wrong or missing state, a refused
   authorisation, a failed exchange, and canaries showing the user token is never logged or stored.

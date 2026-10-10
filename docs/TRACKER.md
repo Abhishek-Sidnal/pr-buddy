@@ -32,7 +32,20 @@ accepted and are kept as history.
 | ---- | ------------------------------- | ------ |
 | 1    | An installation's own AI key    | ✅     |
 | 2    | A first public deployment       | ✅     |
+| 3    | Onboarding                      | 🟡     |
 | —    | Later parts are not planned yet | ⬜     |
+
+### Part 3 — onboarding
+
+Design: [DESIGN-DASHBOARD.md](DESIGN-DASHBOARD.md), section 8. Decisions D-083 to D-085.
+
+| Task                                                              | Requirement   | Status |
+| ----------------------------------------------------------------- | ------------- | ------ |
+| `GITHUB_APP_SLUG`, a start-up warning, and `GET /auth/service`    | FR-98, NFR-98 | ⬜     |
+| The page a signed-out visitor sees                                | FR-97, FR-98  | ⬜     |
+| "Getting started" on the overview, from stored state              | FR-100        | ⬜     |
+| The Install button in the notice for someone with no installation | FR-98, NFR-97 | ⬜     |
+| The Setup URL in the guide, and on the public deployment          | FR-99         | ⬜     |
 
 ### Part 2 — a first public deployment
 
