@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { EnvironmentError, loadConfig } from "../../src/config/env.js";
+import { EnvironmentError, findConfigurationWarnings, loadConfig } from "../../src/config/env.js";
 import { createLogger, describeError } from "../../src/logger.js";
 
 const PRIVATE_KEY = [
@@ -393,6 +393,48 @@ describe("loadConfig for AI review", () => {
 
     expect(issues.length).toBeGreaterThan(1);
     expect(issues.join()).not.toContain("CANARY");
+  });
+});
+
+describe("findConfigurationWarnings", () => {
+  const dashboard = {
+    DATABASE_URL: "postgres://user:pw@db.example:5432/prbuddy",
+    GITHUB_CLIENT_ID: "Iv1.abcdef",
+    GITHUB_CLIENT_SECRET: "secret",
+    PUBLIC_URL: "https://buddy.example",
+  };
+  const warningsFor = (overrides: Record<string, string | undefined>): string[] =>
+    findConfigurationWarnings(loadConfig(environment(overrides)));
+
+  it("has nothing to say about a plain local set-up", () => {
+    expect(warningsFor({})).toEqual([]);
+    expect(warningsFor({ ...dashboard, PUBLIC_URL: "http://localhost:3000" })).toEqual([]);
+  });
+
+  it("has nothing to say about HTTPS behind a trusted proxy", () => {
+    expect(warningsFor({ ...dashboard, TRUST_PROXY: "1" })).toEqual([]);
+  });
+
+  it("warns when the public address is HTTPS but no proxy is trusted", () => {
+    const warnings = warningsFor(dashboard);
+
+    expect(warnings).toHaveLength(1);
+    expect(warnings[0]).toContain("PUBLIC_URL is HTTPS but TRUST_PROXY is 0");
+  });
+
+  it.each(["?sslmode=disable", "?application_name=x&sslmode=disable"])(
+    "warns when the database connection is unencrypted: %s",
+    (query) => {
+      const warnings = warningsFor({ DATABASE_URL: `postgres://u:pw-CANARY@db:5432/p${query}` });
+
+      expect(warnings).toHaveLength(1);
+      expect(warnings[0]).toContain("DATABASE_URL turns encryption off");
+      expect(warnings[0]).not.toContain("CANARY");
+    },
+  );
+
+  it("does not warn about an encrypted database connection", () => {
+    expect(warningsFor({ DATABASE_URL: "postgres://u:p@db:5432/p?sslmode=require" })).toEqual([]);
   });
 });
 

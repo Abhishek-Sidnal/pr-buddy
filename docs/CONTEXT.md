@@ -57,6 +57,7 @@ of actionable, evidence-backed findings. Humans keep the merge decision.
 | [DESIGN-DASHBOARD.md](DESIGN-DASHBOARD.md) | Sign-in, sessions, the read API, the web application              |
 | [DESIGN-SYSTEM.md](DESIGN-SYSTEM.md)       | Colours, type, components and the rules every screen follows      |
 | [GITHUB_APP.md](GITHUB_APP.md)             | Registering the app and running the API                           |
+| [DEPLOYMENT.md](DEPLOYMENT.md)             | Running on a server over HTTPS; upgrade, backup, what is exposed  |
 | [RULES.md](RULES.md)                       | Reference for each built-in review rule                           |
 | [SECURITY.md](SECURITY.md)                 | Threat model and controls                                         |
 | [BRAIN.md](BRAIN.md)                       | Decisions and their reasons, glossary, open questions             |

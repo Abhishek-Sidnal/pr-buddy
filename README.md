@@ -166,8 +166,8 @@ More detail: [architecture](docs/ARCHITECTURE.md) · [engine design](docs/DESIGN
   redelivery have only been exercised in automated tests.
 - The dashboard is read-only and shows what is stored: no pull request titles, authors, diffs or
   AI suggestion text, and no way to re-run a review or edit rules from it.
-- Sign-in with GitHub was verified live once, on a local run over `http://localhost`. It has not
-  been tried behind HTTPS or a reverse proxy.
+- Sign-in with GitHub was completed live only on `http://localhost`. Behind HTTPS the example
+  stack was checked up to the redirect to GitHub, on a local certificate, not on a real domain.
 - Dashboard access is read at sign-in. Losing access on GitHub takes effect when the session
   ends, at most eight hours later.
 - Reviews waiting in the queue are lost when the service restarts. Without a database, so is the
@@ -191,22 +191,23 @@ More detail: [architecture](docs/ARCHITECTURE.md) · [engine design](docs/DESIGN
 
 ## Documentation
 
-| Document                                     | Contents                                            |
-| -------------------------------------------- | --------------------------------------------------- |
-| [Context](docs/CONTEXT.md)                   | Start here: orientation, commands, ground rules     |
-| [Product requirements](docs/PRD.md)          | What is being built and why                         |
-| [Architecture](docs/ARCHITECTURE.md)         | Modules and their boundaries                        |
-| [Engine design](docs/DESIGN.md)              | Data contracts, pipeline, limits                    |
-| [GitHub App design](docs/DESIGN-GITHUB.md)   | Webhook, queue, review service, permissions         |
-| [GitHub App setup](docs/GITHUB_APP.md)       | Registering the app and running the service         |
-| [Storage design](docs/DESIGN-STORAGE.md)     | Database schema and what is stored                  |
-| [AI reviewer design](docs/DESIGN-AI.md)      | What is sent to a model and how replies are checked |
-| [Dashboard design](docs/DESIGN-DASHBOARD.md) | Sign-in, sessions, the read API, the web app        |
-| [Design system](docs/DESIGN-SYSTEM.md)       | Colours, type, components, rules for every screen   |
-| [Rules](docs/RULES.md)                       | Reference for the built-in rules                    |
-| [Security](docs/SECURITY.md)                 | Threat model and controls                           |
-| [Brain](docs/BRAIN.md)                       | Decisions and their reasons                         |
-| [Tracker](docs/TRACKER.md)                   | Status of the work                                  |
+| Document                                     | Contents                                             |
+| -------------------------------------------- | ---------------------------------------------------- |
+| [Context](docs/CONTEXT.md)                   | Start here: orientation, commands, ground rules      |
+| [Product requirements](docs/PRD.md)          | What is being built and why                          |
+| [Architecture](docs/ARCHITECTURE.md)         | Modules and their boundaries                         |
+| [Engine design](docs/DESIGN.md)              | Data contracts, pipeline, limits                     |
+| [GitHub App design](docs/DESIGN-GITHUB.md)   | Webhook, queue, review service, permissions          |
+| [GitHub App setup](docs/GITHUB_APP.md)       | Registering the app and running the service          |
+| [Deployment](docs/DEPLOYMENT.md)             | Running it on a server over HTTPS; backups, upgrades |
+| [Storage design](docs/DESIGN-STORAGE.md)     | Database schema and what is stored                   |
+| [AI reviewer design](docs/DESIGN-AI.md)      | What is sent to a model and how replies are checked  |
+| [Dashboard design](docs/DESIGN-DASHBOARD.md) | Sign-in, sessions, the read API, the web app         |
+| [Design system](docs/DESIGN-SYSTEM.md)       | Colours, type, components, rules for every screen    |
+| [Rules](docs/RULES.md)                       | Reference for the built-in rules                     |
+| [Security](docs/SECURITY.md)                 | Threat model and controls                            |
+| [Brain](docs/BRAIN.md)                       | Decisions and their reasons                          |
+| [Tracker](docs/TRACKER.md)                   | Status of the work                                   |
 
 ## Roadmap
 
@@ -215,7 +216,7 @@ More detail: [architecture](docs/ARCHITECTURE.md) · [engine design](docs/DESIGN
 | M1        | Deterministic review engine                              | Implemented |
 | M2        | GitHub App: webhooks, diffs, published reviews           | Implemented |
 | M3        | Storage, then rules and thresholds, AI review, dashboard | Implemented |
-| M4        | Hardening and `v0.1.0`                                   | Planned     |
+| M4        | Hardening and `v0.1.0`                                   | In progress |
 
 PR Buddy does not merge pull requests or change code.
 

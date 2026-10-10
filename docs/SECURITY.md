@@ -208,6 +208,32 @@ Design: [DESIGN-DASHBOARD.md](DESIGN-DASHBOARD.md).
 - **File paths are visible** in findings to everyone who can sign in for that installation.
 - **Sessions store a GitHub ID and login** for up to 8 hours after sign-in, plus cleanup time.
 
+## 6D. Threats and controls in Milestone 4 — deployment
+
+Guide: [DEPLOYMENT.md](DEPLOYMENT.md). The controls marked "example stack" are in `deploy/`; a
+deployment built another way has to provide its own.
+
+| #   | Threat                                                         | Control                                                                                                | Where                                          |
+| --- | -------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------ | ---------------------------------------------- |
+| P1  | Traffic is read or changed in transit                          | The example stack serves HTTPS only; port 80 redirects. `PUBLIC_URL` must be HTTPS except on localhost | `deploy/Caddyfile`, `config/env.ts`            |
+| P2  | A browser is downgraded to HTTP later                          | Over an HTTPS address every response carries `Strict-Transport-Security` for a year                    | `api/app.ts`                                   |
+| P3  | The API or the database is reached around the proxy            | In the example stack neither publishes a port; only the proxy does                                     | `deploy/compose.yaml`                          |
+| P4  | A deployment runs with a known database password               | The example stack has no default and refuses to start without one                                      | `deploy/compose.yaml`                          |
+| P5  | A visitor escapes the rate limit by forging `X-Forwarded-For`  | The proxy replaces the header; the API trusts exactly the configured number of proxies                 | `deploy/compose.yaml`, `api/app.ts`            |
+| P6  | Every visitor shares one rate limit, or the wrong one is used  | The service warns at start-up when the address is HTTPS and no proxy is trusted                        | `config/env.ts`, `api/main.ts`                 |
+| P7  | A compromised API container changes itself or gains privileges | Unprivileged user, read-only file system, all capabilities dropped, no new privileges                  | `docker/api.Dockerfile`, `deploy/compose.yaml` |
+| P8  | An oversized request ties up the service                       | The proxy refuses bodies over 2 MB; the API refuses webhook bodies over 1 MB                           | `deploy/Caddyfile`, `webhook.router.ts`        |
+
+### Known limits
+
+- **One machine, no redundancy.** An outage loses webhooks until they are redelivered.
+- **Backups are manual.** The guide gives the commands; nothing schedules them.
+- **The database connection inside the stack is unencrypted.** It never leaves the stack's
+  private network. The service warns if `sslmode=disable` is used anywhere.
+- **Secrets are in a file on the host.** `deploy/.env` must be readable by the operator alone.
+  There is no integration with a secret manager.
+- **Images and actions are pinned to tags, not digests.** That is part 3 of this milestone.
+
 ## 8. What PR Buddy does not claim
 
 PR Buddy holds no security certification. It is not a replacement for dedicated secret scanning,

@@ -476,6 +476,28 @@ is not read into the error.
 **Why.** Error bodies from model services can repeat the request. The status is what an operator
 needs to tell a bad key (401, 403) from a missing model (404) or a rate limit (429).
 
+### D-063 — The example deployment is Docker Compose with Caddy in front
+
+**Decision.** `deploy/` holds a Compose file with three services: Caddy, the API and PostgreSQL.
+Caddy terminates TLS and gets its certificate by itself.
+**Why.** It is the smallest stack that is honestly production-shaped: one command, automatic
+certificates, nothing but the proxy exposed. The same file serves `localhost` with a local
+certificate, so the guide can be tried before a domain exists.
+**Cost.** One machine, no redundancy. Anything larger is the operator's design.
+
+### D-064 — Unsafe combinations of valid settings are warnings, not errors
+
+**Decision.** At start-up the service logs a warning when settings are each valid but risky
+together, for example an HTTPS public address with `TRUST_PROXY=0`. It still starts.
+**Why.** The service cannot see the network in front of it, so it cannot be sure. A wrong guess
+that refused to start would be worse than a clear warning.
+
+### D-065 — The service sends `Strict-Transport-Security` itself
+
+**Decision.** When `PUBLIC_URL` is HTTPS, dashboard responses carry HSTS for one year.
+**Why.** It must not depend on the operator remembering to configure it in the proxy. It is not
+sent for `http://localhost`, where it would be wrong.
+
 ## 3. Glossary
 
 | Term       | Meaning                                                                                 |
@@ -503,8 +525,10 @@ needs to tell a bad key (401, 403) from a missing model (404) or a rate limit (4
 
 Add an entry whenever something surprising costs time.
 
-| Date       | Lesson                                                                                                                                                                    |
-| ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 2026-10-10 | The project folder is inside OneDrive. Keep `node_modules` out of it (it lives in a Docker volume) so OneDrive does not try to sync tens of thousands of files.           |
-| 2026-10-10 | A well-known library is not automatically safe on hostile input. Measure the worst case of anything that touches pull request content before depending on it (see D-011). |
-| 2026-10-10 | typescript-eslint supports TypeScript below 6.1, so the project uses TypeScript 6 even though 7 is released. Check that peer range before upgrading TypeScript.           |
+| Date       | Lesson                                                                                                                                                                                                                              |
+| ---------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 2026-10-10 | The project folder is inside OneDrive. Keep `node_modules` out of it (it lives in a Docker volume) so OneDrive does not try to sync tens of thousands of files.                                                                     |
+| 2026-10-10 | A well-known library is not automatically safe on hostile input. Measure the worst case of anything that touches pull request content before depending on it (see D-011).                                                           |
+| 2026-10-10 | typescript-eslint supports TypeScript below 6.1, so the project uses TypeScript 6 even though 7 is released. Check that peer range before upgrading TypeScript.                                                                     |
+| 2026-10-10 | Two Compose files with the same project name share containers and volumes. The example production stack took over the development database's container until it was given a name of its own. Name every Compose project explicitly. |
+| 2026-10-10 | `docker compose up` does not rebuild an image. A restart after a merge ran the old code until `--build` was passed.                                                                                                                 |

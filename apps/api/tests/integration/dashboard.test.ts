@@ -223,6 +223,19 @@ describe("signing in", () => {
     );
   });
 
+  it("tells browsers to stay on HTTPS when the public address is HTTPS, and only then", async () => {
+    const secure = buildApp({ publicUrl: "https://buddy.example" });
+
+    for (const path of ["/", "/auth/login", "/api/me", "/healthz"]) {
+      expect((await request(secure).get(path)).headers["strict-transport-security"]).toBe(
+        "max-age=31536000",
+      );
+      expect((await request(app).get(path)).headers).not.toHaveProperty(
+        "strict-transport-security",
+      );
+    }
+  });
+
   it("creates a session when GitHub sends the person back", async () => {
     const login = await request(app).get("/auth/login");
     const state = setCookieValue(login, STATE_COOKIE) ?? "";

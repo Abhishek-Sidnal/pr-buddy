@@ -41,6 +41,11 @@ Run the API itself (needs `.env`, see `docs/GITHUB_APP.md`):
 docker compose --profile app up --build api
 ```
 
+The running API uses a built image: after changing code, pass `--build`, or the container keeps
+the old code. The example production stack in `deploy/` is a separate Compose project
+(`prbuddy-deploy`); see `docs/DEPLOYMENT.md`. Never give it the development project's name: the
+two would share containers and the database volume.
+
 Things that will trip you up:
 
 - **Build before lint, type-check or tests.** Packages import each other's compiled `dist/`, not
@@ -100,7 +105,7 @@ or updates the comment.
 
 ## Invariants
 
-These are design decisions with reasons recorded in `docs/BRAIN.md` (D-001 to D-062). Read the
+These are design decisions with reasons recorded in `docs/BRAIN.md` (D-001 to D-065). Read the
 relevant entry before changing one.
 
 - A webhook body is only a trigger. What gets reviewed is fetched from the API.
@@ -169,6 +174,7 @@ The maintainer wants design documents written before code and kept current. In t
 | Change a contract, limit or flow | `docs/DESIGN.md`, `-GITHUB`, `-STORAGE`, `-AI`, `-DASHBOARD` |
 | Change how the dashboard looks   | `docs/DESIGN-SYSTEM.md`                                      |
 | Add or move a module             | `docs/ARCHITECTURE.md`                                       |
+| Change how it is deployed        | `docs/DEPLOYMENT.md`, `deploy/`                              |
 | Change a rule                    | `docs/RULES.md`                                              |
 
 `docs/CONTEXT.md` is the orientation page; `CONTRIBUTING.md` has the full coding rules.
