@@ -99,8 +99,6 @@ with a hard kill is a later option.
 
 - **One page of GitHub's file listing is held in memory before it can be trimmed.** GitHub
   limits the size of that response itself; PR Buddy cannot bound it further without streaming.
-- **The single-file permission is unverified against GitHub.** See section 8 of
-  [DESIGN-GITHUB.md](DESIGN-GITHUB.md) for the fallback and its cost.
 - **Delivery memory and the queue live in the process.** After a restart a redelivered event is
   processed again. That is safe, because publishing updates one comment in place, but it costs a
   review. A database removes this limit; see D-018 in [BRAIN.md](BRAIN.md).

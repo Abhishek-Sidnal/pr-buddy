@@ -3,10 +3,9 @@
 An open-source assistant that reviews GitHub pull requests. It reports a small number of
 actionable findings, shows the evidence behind each one, and leaves the merge decision to people.
 
-> **Status: Milestone 2.** The review engine and the GitHub App are implemented and tested. The
-> app has been tested against an in-memory GitHub and as a running container, but not yet against
-> the real GitHub API. A database, dashboard and optional AI review are planned. See the
-> [tracker](docs/TRACKER.md).
+> **Status: Milestone 2 complete.** The review engine and the GitHub App are implemented, tested
+> and verified against the real GitHub API on a test repository. A database, dashboard and optional
+> AI review are planned. See the [tracker](docs/TRACKER.md).
 
 ## What exists today
 
@@ -154,8 +153,8 @@ More detail: [architecture](docs/ARCHITECTURE.md) · [engine design](docs/DESIGN
 
 ## Known limitations
 
-- The GitHub App has not been run against the real GitHub API yet. In particular, reading the
-  configuration file with the single-file permission is unverified.
+- The live test covered one small private repository. Large pull requests, rate limits and
+  redelivery have only been exercised in automated tests.
 - Nothing is stored. Delivery memory and queued reviews are lost when the service restarts.
 - The summary is a single comment: there are no inline comments and no check run.
 - The built-in rules look at pull request metadata and file names only. None inspects code.
@@ -185,12 +184,12 @@ More detail: [architecture](docs/ARCHITECTURE.md) · [engine design](docs/DESIGN
 
 ## Roadmap
 
-| Milestone | Deliverable                                      | Status                         |
-| --------- | ------------------------------------------------ | ------------------------------ |
-| M1        | Deterministic review engine                      | Implemented                    |
-| M2        | GitHub App: webhooks, diffs, published reviews   | Implemented; live test pending |
-| M3        | Optional AI review, policy thresholds, dashboard | Planned                        |
-| M4        | Hardening and `v0.1.0`                           | Planned                        |
+| Milestone | Deliverable                                      | Status      |
+| --------- | ------------------------------------------------ | ----------- |
+| M1        | Deterministic review engine                      | Implemented |
+| M2        | GitHub App: webhooks, diffs, published reviews   | Implemented |
+| M3        | Optional AI review, policy thresholds, dashboard | Planned     |
+| M4        | Hardening and `v0.1.0`                           | Planned     |
 
 PR Buddy does not merge pull requests or change code.
 

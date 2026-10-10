@@ -10,8 +10,8 @@ of actionable, evidence-backed findings. Humans keep the merge decision.
 ## Current state
 
 - **Milestone 1**, the deterministic review engine, is done.
-- **Milestone 2**, the GitHub App, is implemented and tested against an in-memory GitHub. It has
-  not yet been run against the real GitHub API; that needs a registered app.
+- **Milestone 2**, the GitHub App, is done. It was verified against the real GitHub API on a
+  private test repository on 2026-10-10; results are in the tracker.
 - There is no database, dashboard or AI integration yet.
 - Live status: [TRACKER.md](TRACKER.md).
 
