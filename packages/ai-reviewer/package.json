@@ -1,6 +1,6 @@
 {
   "name": "@pr-buddy/ai-reviewer",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Optional AI review for PR Buddy: prompt building, output validation and a provider interface.",
   "license": "MIT",
   "type": "module",
@@ -26,7 +26,7 @@
     "test:coverage": "vitest run --coverage"
   },
   "dependencies": {
-    "@pr-buddy/review-engine": "0.2.0",
+    "@pr-buddy/review-engine": "0.3.0",
     "zod": "^4.6.5"
   }
 }
