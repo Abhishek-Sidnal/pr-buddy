@@ -686,6 +686,59 @@ first review exists. Nothing records that a person dismissed or completed a step
 **Why.** D-058: the dashboard shows only what the service can back. A checklist a person ticks
 by hand can say "done" when nothing works.
 
+### D-086 — Backups leave the server, and the master key is not in them
+
+**Decision.** A nightly `pg_dump` is checked and copied to a bucket outside the server.
+`deploy/.env`, which holds the master key and the GitHub App's private key, is never part of it.
+**Why.** A backup on the disk it protects is lost with that disk. Keeping the master key out
+means a stolen backup holds customers' AI keys only as ciphertext.
+**Cost.** The operator must keep `deploy/.env` somewhere else, by hand. Without it a restore
+brings back the history and no stored AI key.
+
+### D-087 — Backups and alerts are shell scripts that sign requests with `curl`
+
+**Decision.** `deploy/backup.sh` and `deploy/watch.sh`, run by cron, using `curl --aws-sigv4`.
+The server's credential may only write objects to one bucket and publish to one topic.
+**Why.** They must work when the API does not, so they are not part of it. `curl` is already on
+the server; a cloud vendor's tool would be one more thing to install, update and trust.
+**Rejected.** A backup container in the Compose stack: it would need the Docker socket or the
+database password, and a schedule of its own.
+
+### D-088 — The watcher alerts when the set of problems changes
+
+**Decision.** `watch.sh` remembers which checks failed last time and sends one message when
+that set changes, including when it becomes empty.
+**Why.** A message every five minutes during an outage is switched off within the hour, and
+then the next outage is silent.
+**Cost.** A problem that stays is reported once. The watcher cannot report a server that is
+down; that needs an alarm outside it.
+
+### D-089 — The queue is shared fairly between installations
+
+**Decision.** Each job carries its installation. A free slot goes to the installation with the
+fewest running reviews, then the one served longest ago, then the oldest job. One installation
+may have a limited number of reviews waiting.
+**Why.** On a shared service one busy customer must slow down only themselves.
+**Rejected.** A queue per installation with its own concurrency: more reviews in total than the
+machine was sized for. Rate limiting webhooks per installation: it drops work that there may be
+room for.
+
+### D-090 — The operator says who they are; the service does not guess
+
+**Decision.** `OPERATOR_NAME`, `OPERATOR_CONTACT`, `OPERATOR_PRIVACY_URL` and
+`OPERATOR_TERMS_URL`, all optional, shown on a public page. Unset, the page says the operator
+has not published them, and the service warns at start-up.
+**Why.** People should know who holds their data before they install anything. Saying "not
+published" is true; hiding the section would look like an answer.
+
+### D-091 — The privacy page describes the software and links to the operator's own texts
+
+**Decision.** `/privacy` states what the code does with data, in fixed text kept with the code,
+and separately what the operator configured. It does not contain terms of service or a legal
+policy; it links to the operator's.
+**Why.** The software can vouch for its own behaviour on every deployment. It cannot know an
+operator's jurisdiction, company or promises, and inventing them would be worse than silence.
+
 ## 3. Glossary
 
 | Term       | Meaning                                                                                 |

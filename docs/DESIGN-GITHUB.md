@@ -71,7 +71,7 @@ it never acts on a title, description or commit taken from a webhook body.
 
 ## 4. Review queue
 
-An in-process queue with three guarantees:
+An in-process queue with four guarantees:
 
 - **One review at a time per pull request.** Two reviews of the same pull request can never
   publish out of order.
@@ -79,6 +79,10 @@ An in-process queue with three guarantees:
   into the waiting one. A burst of pushes produces one review, not ten.
 - **Bounded.** At most `REVIEW_CONCURRENCY` reviews run at once and at most `REVIEW_QUEUE_LIMIT`
   wait. Beyond that the webhook answers `503` and the delivery can be sent again from GitHub.
+- **Fair between installations.** A free slot goes to the installation with the fewest reviews
+  running, then to the one served longest ago, then to the job that arrived first. One
+  installation may have at most `REVIEW_QUEUE_LIMIT_PER_INSTALLATION` reviews waiting; beyond
+  that its webhook answers `503` as for a full queue (D-089).
 
 With a database, a review that was requested but had not finished when the process stopped is
 run again at the next start: the request is stored before the webhook is acknowledged

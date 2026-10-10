@@ -279,6 +279,23 @@ secret that is not its own.
 | K14 | An Azure resource name is used to reach another host           | Lower-case letters, digits and hyphens only, so no dot, slash, colon or `@`; the domain is fixed in code     | `ai-key-store.ts`                              |
 | K15 | The test route spends a customer's money, or leaks the key     | Owners only, the three locks of a write, rate limited; it answers a result and a status, never the key       | `ai-key.router.ts`                             |
 
+## 6F. Threats and controls in Milestone 5 — operations
+
+Design: [DESIGN-OPERATIONS.md](DESIGN-OPERATIONS.md).
+
+| #   | Threat                                                         | Control                                                                                                         | Where                          |
+| --- | -------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------- | ------------------------------ |
+| O1  | The server is lost and the history and keys with it            | A nightly dump is copied to a bucket elsewhere; a restore from the bucket has been carried out                  | `deploy/backup.sh`             |
+| O2  | A stolen backup reveals customers' AI keys                     | Keys are encrypted in the database; the master key is not in the backup and is kept separately                  | `deploy/backup.sh`, D-086      |
+| O3  | Whoever takes over the server deletes or reads the backups     | The server's credential may only write objects and publish alerts; the bucket keeps versions                    | Bucket and credential policy   |
+| O4  | A backup that cannot be restored goes unnoticed                | Each dump is listed with `pg_restore` before it is kept; a failed run alerts; the watcher alerts on a stale one | `deploy/backup.sh`, `watch.sh` |
+| O5  | The service fails and nobody knows                             | A watcher checks reachability, containers, certificate, disk, backups and failed reviews, and alerts on change  | `deploy/watch.sh`              |
+| O6  | An alert leaks what was reviewed                               | A message names the site and the failing checks only                                                            | `deploy/watch.sh`              |
+| O7  | The server is down and so is its watcher                       | Documented: an alarm outside the server is needed; the example deployment uses its provider's                   | `docs/DEPLOYMENT.md`           |
+| O8  | One installation takes the whole review queue                  | The next job is chosen across installations; one installation's waiting reviews are capped                      | `review-queue.ts`, D-089       |
+| O9  | An operator's contact or link becomes a script or another site | Each is checked against a pattern when configured and again in the browser; links are `https://` only           | `config/env.ts`, `web/`        |
+| O10 | The privacy page promises what the software does not do        | Its software statements are fixed text reviewed with the code; operator statements come only from settings      | `web/src/pages/privacy.tsx`    |
+
 ### Known limits
 
 - **The running service can decrypt.** Encryption protects backups and database access, not a

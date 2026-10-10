@@ -29,12 +29,30 @@ accepted and are kept as history.
 
 ## Milestone 5 — a hosted service
 
-| Part | Contents                        | Status |
-| ---- | ------------------------------- | ------ |
-| 1    | An installation's own AI key    | ✅     |
-| 2    | A first public deployment       | ✅     |
-| 3    | Onboarding                      | 🟡     |
-| —    | Later parts are not planned yet | ⬜     |
+| Part | Contents                       | Status |
+| ---- | ------------------------------ | ------ |
+| 1    | An installation's own AI key   | ✅     |
+| 2    | A first public deployment      | ✅     |
+| 3    | Onboarding                     | ✅     |
+| 4    | Operations: backups and alerts | 🟡     |
+| 5    | Who runs the service           | 🟡     |
+| 6    | A fair share of the queue      | 🟡     |
+
+### Parts 4 to 6 — operations, the operator's page, the queue
+
+Design: [DESIGN-OPERATIONS.md](DESIGN-OPERATIONS.md). Decisions D-086 to D-091. Threats O1 to
+O10.
+
+| Task                                                                      | Requirement                     | Status |
+| ------------------------------------------------------------------------- | ------------------------------- | ------ |
+| A fair queue between installations, with a cap per installation           | FR-107, FR-108, NFR-103         | ⬜     |
+| Operator settings, the start-up warning and `GET /auth/service`           | FR-105, FR-106, NFR-102         | ⬜     |
+| The `/privacy` page and the links to it                                   | FR-104 to FR-106                | ⬜     |
+| `deploy/backup.sh`: dump, check, upload, prune, alert on failure          | FR-101, NFR-99, NFR-100         | ⬜     |
+| `deploy/watch.sh`: six checks, alert on change                            | FR-102, FR-103, NFR-101         | ⬜     |
+| On the public deployment: bucket, write-only credential, schedule, alerts | FR-101, FR-102                  | ⬜     |
+| A restore from the bucket                                                 | NFR-100                         | ⬜     |
+| —                                                                         | Later parts are not planned yet | ⬜     |
 
 ### Part 3 — onboarding
 
