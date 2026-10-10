@@ -18,10 +18,11 @@ Legend: ✅ done · 🚧 in progress · ⬜ not started
 The one current figure. Counts in the sections below are what was true when each part was
 accepted and are kept as history.
 
-| Date       | Command                                            | Result                                                                                 |
-| ---------- | -------------------------------------------------- | -------------------------------------------------------------------------------------- |
-| 2026-10-10 | `docker compose run --rm dev npm run check`        | Passed: 1,448 tests (engine 474, AI reviewer 186, GitHub client 250, API 418, web 120) |
-| 2026-10-10 | `docker compose run --rm dev npm audit --omit=dev` | 0 vulnerabilities                                                                      |
+| Date       | Command                                                                                                                         | Result                                                                                 |
+| ---------- | ------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------- |
+| 2026-10-10 | `docker compose run --rm dev npm run check`                                                                                     | Passed: 1,448 tests (engine 474, AI reviewer 186, GitHub client 250, API 418, web 120) |
+| 2026-10-10 | Clean export of commit `6929d67` in a fresh `node:24-alpine` container: `npm ci`, `npm run check`, audit, signatures, pin check | Passed: 1,448 tests; 0 vulnerabilities; 358 signatures verified                        |
+| 2026-10-10 | `docker compose run --rm dev npm audit --omit=dev`                                                                              | 0 vulnerabilities                                                                      |
 
 ## Milestone 4 — hardening and `v0.1.0`
 
@@ -68,7 +69,7 @@ also answers the external review of Milestone 3 (2026-10-10):
 | Second review: M4 table still showed part 2 as not started   | ✅ Corrected. The edit that should have set it missed the line                               |
 | Second review: recovery after a kill during an active review | ✅ Staged live, with the retry limit; see the checks below                                   |
 | P2: stale test counts                                        | ✅ One "Latest verified check" section; older counts are labelled as history                 |
-| Reproduce the checks from a clean checkout                   | Open; planned with the release in part 4                                                     |
+| Reproduce the checks from a clean checkout                   | ✅ Done for the release; see part 4                                                          |
 
 | Task                                                            | Requirement   | Status |
 | --------------------------------------------------------------- | ------------- | ------ |
@@ -109,12 +110,12 @@ Decision D-070. Controls in [SECURITY.md](SECURITY.md), section 4.
 
 How a release is made: [RELEASING.md](RELEASING.md). Notes: [CHANGELOG.md](../CHANGELOG.md).
 
-| Task                                                     | Status                                 |
-| -------------------------------------------------------- | -------------------------------------- |
-| Changelog with what is verified, what is not, and limits | ✅                                     |
-| Release procedure written down                           | ✅                                     |
-| Clean-checkout check of the committed files              | RELEASE_CHECK_STATUS                   |
-| Tag `v0.1.0` and publish the release                     | ⬜ Waits for the maintainer's go-ahead |
+| Task                                                     | Status                                                                                                                                                                                                                                                                              |
+| -------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Changelog with what is verified, what is not, and limits | ✅                                                                                                                                                                                                                                                                                  |
+| Release procedure written down                           | ✅                                                                                                                                                                                                                                                                                  |
+| Clean-checkout check of the committed files              | ✅ Passed on commit `6929d67`, Node.js 24.21: 236 committed files exported with `git archive` into a fresh container, `npm ci`, then 1,448 tests, audit with 0 vulnerabilities, 358 registry signatures verified, pin check. Log kept as `release-check-v0.1.0.log` for the release |
+| Tag `v0.1.0` and publish the release                     | ⬜ Waits for the maintainer's go-ahead                                                                                                                                                                                                                                              |
 
 ## Milestone 3, part 4 — the dashboard
 
@@ -379,4 +380,5 @@ the dashboard. Items that once carried "M3" here were optional extras; they are 
 | 2026-10-10 | Bedrock verified live: five suggestions on a test pull request; Milestone 3 complete                              |
 | 2026-10-10 | Milestone 4 started: example HTTPS deployment, deployment guide, start-up warnings, HSTS                          |
 | 2026-10-10 | Recovery of requested reviews after a restart, a retention limit, clean-up on uninstall; tracker reconciled       |
+| 2026-10-10 | Actions and images pinned; changelog and release procedure written; clean-checkout check passed                   |
 | 2026-10-10 | Second external review: tracker row corrected; kill during a running review and the retry limit staged live       |
