@@ -1,5 +1,6 @@
 import { providerSettingsSchema, type ProviderSettings } from "@pr-buddy/ai-reviewer";
 import { z } from "zod";
+import { decodeMasterKey } from "../modules/ai-keys/secret-cipher.js";
 
 export const LOG_LEVELS = ["fatal", "error", "warn", "info", "debug", "trace", "silent"] as const;
 
@@ -60,6 +61,12 @@ function isPublicUrl(value: string): boolean {
   );
 }
 
+/** A master key for stored secrets: 32 random bytes, written in base64. */
+const masterKeySetting = z
+  .string()
+  .transform((value) => decodeMasterKey(value))
+  .refine((key): key is Buffer => key !== undefined, "must be 32 random bytes in base64");
+
 const environmentSchema = z.object({
   GITHUB_APP_ID: z.coerce.number().int().positive(),
   GITHUB_PRIVATE_KEY: z
@@ -81,6 +88,8 @@ const environmentSchema = z.object({
     .optional(),
   DATABASE_POOL_SIZE: integerSetting(1, 100, 5),
   REVIEW_RETENTION_DAYS: integerSetting(0, 3_650, 365),
+  SECRETS_ENCRYPTION_KEY: masterKeySetting.optional(),
+  SECRETS_ENCRYPTION_KEY_PREVIOUS: masterKeySetting.optional(),
   GITHUB_CLIENT_ID: z.string().min(1).max(100).optional(),
   GITHUB_CLIENT_SECRET: z.string().min(1).max(200).optional(),
   PUBLIC_URL: z
@@ -109,6 +118,15 @@ export interface AppConfig {
   readonly database?: {
     readonly url: string;
     readonly poolSize: number;
+  };
+  /**
+   * Master keys for secrets stored for customers. Absent when none is configured, and then no
+   * customer secret can be stored. Never log it.
+   */
+  readonly secretKeys?: {
+    readonly current: Buffer;
+    /** Still accepted for decryption, so that the current key can be rotated in. */
+    readonly previous: readonly Buffer[];
   };
   /** Absent when AI review is off. Contains secrets: never log it. */
   readonly ai?: ProviderSettings;
@@ -239,10 +257,29 @@ export function loadConfig(environment: Readonly<Record<string, string | undefin
   }
   const values = parsed.data;
   const dashboard = readDashboardSettings(values);
+  if (
+    values.SECRETS_ENCRYPTION_KEY_PREVIOUS !== undefined &&
+    values.SECRETS_ENCRYPTION_KEY === undefined
+  ) {
+    throw new EnvironmentError([
+      "SECRETS_ENCRYPTION_KEY: is required when SECRETS_ENCRYPTION_KEY_PREVIOUS is set",
+    ]);
+  }
   const ai = readAiSettings(environment);
   return {
     ...(dashboard === undefined ? {} : { dashboard }),
     ...(ai === undefined ? {} : { ai }),
+    ...(values.SECRETS_ENCRYPTION_KEY === undefined
+      ? {}
+      : {
+          secretKeys: {
+            current: values.SECRETS_ENCRYPTION_KEY,
+            previous:
+              values.SECRETS_ENCRYPTION_KEY_PREVIOUS === undefined
+                ? []
+                : [values.SECRETS_ENCRYPTION_KEY_PREVIOUS],
+          },
+        }),
     github: {
       appId: values.GITHUB_APP_ID,
       privateKey: values.GITHUB_PRIVATE_KEY,

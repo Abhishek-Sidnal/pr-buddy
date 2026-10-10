@@ -34,12 +34,17 @@ let logger: RecordingLogger;
 let sessionStore: SessionStore;
 let app: Express;
 
+/** Who signs in next. The installations' accounts and roles are filled in from `owned`. */
+type SignedInAs = Omit<UserAccess, "installations">;
+
 /** Stands in for GitHub's sign-in: answers with `access`, or throws `failure`. */
 const github = {
   access: {
     user: { id: 583231, login: "octocat" },
     installationIds: [OURS.installationId],
-  } as UserAccess,
+  } as SignedInAs,
+  /** Installations the person owns; the others are only readable. */
+  owned: new Set<number>(),
   failure: undefined as Error | undefined,
   signIns: [] as { code: string; redirectUri: string }[],
 };
@@ -49,7 +54,14 @@ const authClient: UserAuthClient = {
   signIn(code, redirectUri) {
     github.signIns.push({ code, redirectUri });
     return github.failure === undefined
-      ? Promise.resolve(github.access)
+      ? Promise.resolve({
+          ...github.access,
+          installations: github.access.installationIds.map((id) => ({
+            id,
+            account: `account-${id}`,
+            isOwner: github.owned.has(id),
+          })),
+        })
       : Promise.reject(github.failure);
   },
 };

@@ -12,17 +12,56 @@ Legend: ✅ done · 🚧 in progress · ⬜ not started
 | M2        | GitHub App integration                              | ✅                      |
 | M3        | Storage, rules and thresholds, AI review, dashboard | ✅                      |
 | M4        | Hardening and `v0.1.0`                              | ✅ released as `v0.1.0` |
+| M5        | Hosted service: an installation's own AI key first  | 🚧 part 1 done          |
 
 ## Latest verified check
 
 The one current figure. Counts in the sections below are what was true when each part was
 accepted and are kept as history.
 
-| Date       | Command                                                                                                                         | Result                                                                                 |
-| ---------- | ------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------- |
-| 2026-10-10 | `docker compose run --rm dev npm run check`                                                                                     | Passed: 1,448 tests (engine 474, AI reviewer 186, GitHub client 250, API 418, web 120) |
-| 2026-10-10 | Clean export of commit `6929d67` in a fresh `node:24-alpine` container: `npm ci`, `npm run check`, audit, signatures, pin check | Passed: 1,448 tests; 0 vulnerabilities; 358 signatures verified                        |
-| 2026-10-10 | `docker compose run --rm dev npm audit --omit=dev`                                                                              | 0 vulnerabilities                                                                      |
+| Date | Command | Result |
+| 2026-10-10 | `docker compose run --rm dev npm run check` | Passed: 1,655 tests (engine 474, AI reviewer 186, GitHub client 266, API 556, web 173) |
+| 2026-10-10 | `docker compose run --rm dev npm run check` | Passed: 1,581 tests (engine 474, AI reviewer 186, GitHub client 266, API 504, web 151) |
+| 2026-10-10 | `docker compose run --rm dev npm run check` | Passed: 1,448 tests (engine 474, AI reviewer 186, GitHub client 250, API 418, web 120) |
+| 2026-10-10 | Clean export of commit `6929d67` in a fresh `node:24-alpine` container: `npm ci`, `npm run check`, audit, signatures, pin check | Passed: 1,448 tests; 0 vulnerabilities; 358 signatures verified |
+| 2026-10-10 | `docker compose run --rm dev npm audit --omit=dev` | 0 vulnerabilities |
+
+## Milestone 5 — a hosted service
+
+| Part | Contents                        | Status |
+| ---- | ------------------------------- | ------ |
+| 1    | An installation's own AI key    | ✅     |
+| —    | Later parts are not planned yet | ⬜     |
+
+### Part 1 — an installation's own AI key
+
+Design: [DESIGN-AI-KEYS.md](DESIGN-AI-KEYS.md). Decisions D-071 to D-081. Threats K1 to K15.
+
+| Task                                                              | Requirement           | Status |
+| ----------------------------------------------------------------- | --------------------- | ------ |
+| Owner check at sign-in: own account, or organisation role `admin` | FR-92                 | ✅     |
+| Encryption with a master key, bound to the row, with rotation     | NFR-90                | ✅     |
+| Key store, summaries without the key, audit of every change       | FR-90, NFR-91, NFR-93 | ✅     |
+| Save and remove routes behind three locks                         | NFR-92                | ✅     |
+| A key is checked with the provider before it is stored            | FR-94                 | ✅     |
+| Anthropic, OpenAI and Bedrock only; no address                    | FR-95                 | ✅     |
+| Azure by resource name; the service builds the address            | FR-95                 | ✅     |
+| An owner can test the stored key                                  | FR-96                 | ✅     |
+| Reviews use the installation's key and never fall back            | FR-91, NFR-94         | ✅     |
+| Uninstalling deletes the key                                      | NFR-95                | ✅     |
+| Settings section for owners and for members                       | FR-93                 | ✅     |
+| Absent without `SECRETS_ENCRYPTION_KEY`                           | NFR-96                | ✅     |
+
+| Check                         | Result                                                                                                                                                                                                                                                                                         |
+| ----------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Migrations `0006`, `0007`     | Applied at start-up on the running database                                                                                                                                                                                                                                                    |
+| Locks, live                   | Passed on the running service with sessions created by hand: a write without the `Origin`, with another site's `Origin`, or without the custom header answered `403`                                                                                                                           |
+| Roles, live                   | Passed: a member's write answered `403`; a write to an installation outside the session answered `404`                                                                                                                                                                                         |
+| Check with the provider, live | Passed against the real Anthropic API with a made-up key: the provider answered `401`, the service answered `422` and stored nothing; the log named the status and not the key                                                                                                                 |
+| Settings page, live           | Passed in the built image: the section lists the installation, offers the four providers and a password field, with no layout overflow and no policy violation                                                                                                                                 |
+| Test key, live                | Passed: a made-up key stored for a temporary installation was tested through the page; the real Anthropic API answered `401` and the page said the key is not working. Without the custom header, or with another site's `Origin`, the route answered `403`; with no key it answered `missing` |
+| Azure input, live             | Passed: a resource name holding an address, a missing name and a `baseUrl` field each answered `400` and no request left the service; a well-formed name of a resource that does not exist answered `502` and stored nothing                                                                   |
+| Not done                      | A real key saved through the page and used by a review: it must be typed by the maintainer. The organisation owner check against a real organisation: the test installation is on a personal account. An Azure key against a real Azure resource: there is no Azure account to test with       |
 
 ## Milestone 4 — hardening and `v0.1.0`
 
@@ -382,3 +421,4 @@ the dashboard. Items that once carried "M3" here were optional extras; they are 
 | 2026-10-10 | Actions and images pinned; changelog and release procedure written; clean-checkout check passed                   |
 | 2026-10-10 | `v0.1.0` released                                                                                                 |
 | 2026-10-10 | Second external review: tracker row corrected; kill during a running review and the retry limit staged live       |
+| 2026-10-10 | Milestone 5 started: an installation can store its own AI key, encrypted, managed by its owners                   |

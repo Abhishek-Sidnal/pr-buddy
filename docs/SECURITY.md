@@ -249,6 +249,38 @@ deployment built another way has to provide its own.
 - **Secrets are in a file on the host.** `deploy/.env` must be readable by the operator alone.
   There is no integration with a secret manager.
 
+## 6E. Threats and controls in Milestone 5 — customers' AI keys
+
+Design: [DESIGN-AI-KEYS.md](DESIGN-AI-KEYS.md). This is the first place the service stores a
+secret that is not its own.
+
+| #   | Threat                                                         | Control                                                                                                      | Where                                          |
+| --- | -------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------ | ---------------------------------------------- |
+| K1  | A copy of the database reveals customers' keys                 | AES-256-GCM under a master key that is only in the environment; a new nonce for every save                   | `api/modules/ai-keys/secret-cipher.ts`         |
+| K2  | A ciphertext is moved to another installation's row            | The installation ID and provider are authenticated with the ciphertext; decryption elsewhere fails           | `secret-cipher.ts`, `postgres-ai-key-store.ts` |
+| K3  | A key is read back through the API or the browser              | No route returns it; responses carry the provider, model and last four characters only                       | `api/modules/ai-keys/ai-key.router.ts`         |
+| K4  | A key appears in a log or an error                             | `apiKey` is redacted in logs; provider errors are reduced to a status (D-062); tests assert it with canaries | `api/logger.ts`, `ai-reviewer/providers/`      |
+| K5  | A member who is not an owner redirects the organisation's code | Writes need the owner role, read from GitHub at sign-in; anything short of a clear yes is no                 | `github-client/oauth/`, `ai-key.router.ts`     |
+| K6  | One tenant changes or uses another tenant's key                | Every statement is keyed by the installation; an installation outside the session answers `404`              | `postgres-ai-key-store.ts`                     |
+| K7  | Another site makes a signed-in browser change a key (CSRF)     | `SameSite=Lax` cookie, an `Origin` check, and a custom header that a cross-site form cannot send             | `ai-key.router.ts`                             |
+| K8  | A customer points the service at an internal address (SSRF)    | Customers choose a provider, never an address; hosts are fixed in code and the region is pattern-checked     | `ai-key.schema.ts`                             |
+| K9  | A failing customer key sends code to the operator's provider   | An installation with a key never falls back                                                                  | `api/modules/reviews/review.service.ts`        |
+| K10 | Nobody can tell who changed a key                              | An audit row per change: installation, user ID, action, time                                                 | `postgres-ai-key-store.ts`                     |
+| K11 | A key outlives the installation                                | Uninstalling deletes it with the installation's other data                                                   | `api/modules/github/installation-store.ts`     |
+| K12 | The feature runs without encryption                            | Without the master key its routes are not registered; a malformed master key stops start-up                  | `config/env.ts`, `api/app.ts`                  |
+| K13 | The save route is used to test stolen keys in bulk             | It needs an owner's session and is rate limited with the rest of the API                                     | `api/app.ts`                                   |
+| K14 | An Azure resource name is used to reach another host           | Lower-case letters, digits and hyphens only, so no dot, slash, colon or `@`; the domain is fixed in code     | `ai-key-store.ts`                              |
+| K15 | The test route spends a customer's money, or leaks the key     | Owners only, the three locks of a write, rate limited; it answers a result and a status, never the key       | `ai-key.router.ts`                             |
+
+### Known limits
+
+- **The running service can decrypt.** Encryption protects backups and database access, not a
+  takeover of the service itself. Customers should use a key made for PR Buddy, with a limit.
+- **The master key is an environment variable.** A key service is the better home for a hosted
+  service; the cipher is an interface so that one can be added.
+- **The owner role is a snapshot** from sign-in, for at most eight hours.
+- **The last four characters of a key are stored in clear**, to let an owner recognise it.
+
 ## 8. What PR Buddy does not claim
 
 PR Buddy holds no security certification. It is not a replacement for dedicated secret scanning,

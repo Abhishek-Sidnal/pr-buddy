@@ -11,6 +11,8 @@ import {
 import { createDatabase, isReachable, type Database } from "./database/database.js";
 import { migrate } from "./database/migrate.js";
 import { createLogger, describeError, type Logger } from "./logger.js";
+import { createPostgresAiKeyStore, type AiKeyStore } from "./modules/ai-keys/ai-key-store.js";
+import { createLocalSecretCipher } from "./modules/ai-keys/secret-cipher.js";
 import { createPostgresSessionStore } from "./modules/auth/postgres-session-store.js";
 import {
   createInMemoryDeliveryStore,
@@ -112,6 +114,22 @@ try {
 }
 const { database } = storage;
 
+/**
+ * Customers' AI keys need the database to live in and a master key to be encrypted with. Without
+ * either, no key can be stored and reviews use the operator's provider, if there is one.
+ */
+function buildAiKeyStore(): AiKeyStore | undefined {
+  if (config.secretKeys === undefined || database === undefined) {
+    return undefined;
+  }
+  logger.info({}, "Installations may store their own AI keys");
+  return createPostgresAiKeyStore(
+    database,
+    createLocalSecretCipher(config.secretKeys.current, config.secretKeys.previous),
+  );
+}
+const aiKeyStore = buildAiKeyStore();
+
 /** The dashboard needs its settings and the database; without either it does not exist. */
 function buildDashboard(): DashboardDependencies | undefined {
   if (config.dashboard === undefined || database === undefined) {
@@ -130,6 +148,7 @@ function buildDashboard(): DashboardDependencies | undefined {
     webRoot: WEB_ROOT,
     authRateLimit: AUTH_RATE_LIMIT,
     apiRateLimit: API_RATE_LIMIT,
+    ...(aiKeyStore === undefined ? {} : { aiKeys: { aiKeyStore } }),
   };
 }
 const dashboard = buildDashboard();
@@ -162,6 +181,20 @@ const reviewService = createReviewService({
   logger,
   reviewStore: storage.reviewStore,
   ...(aiReviewer === undefined ? {} : { aiReviewer }),
+  ...(aiKeyStore === undefined
+    ? {}
+    : {
+        // Built for each review, so a key that was replaced or removed takes effect at once.
+        resolveInstallationReviewer: async (installationId: number) => {
+          const settings = await aiKeyStore.load(installationId);
+          return settings === undefined
+            ? undefined
+            : createAiReviewer({
+                provider: createProvider(settings),
+                timeoutMs: settings.timeoutMs,
+              });
+        },
+      }),
 });
 
 const app = createApp({

@@ -49,6 +49,13 @@ export function createPostgresInstallationStore(database: Database): Installatio
              AND ($2::bigint[] IS NULL OR repository_id = ANY($2::bigint[]))`,
           [installationId, repositoryFilter],
         );
+        // The installation's own AI key goes when the app is uninstalled, not when one
+        // repository leaves it.
+        if (change.kind === "removed") {
+          await transaction.query("DELETE FROM installation_ai_keys WHERE installation_id = $1", [
+            installationId,
+          ]);
+        }
         // Reviews, findings, rule executions and AI records go with their repository.
         const repositories = await transaction.query(
           `DELETE FROM repositories

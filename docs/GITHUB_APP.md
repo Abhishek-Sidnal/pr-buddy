@@ -188,7 +188,54 @@ when the model has something to say. If the call fails, the comment says the AI 
 be completed, and the API log has a line `AI review failed` with an error such as
 `ProviderHttp403`.
 
-## 9. Troubleshooting
+## 9. Let installations use their own AI key
+
+Optional, and meant for a PR Buddy that serves other people. It lets the owners of an
+installation store their own AI provider and key on the dashboard, so their reviews go to a
+provider they chose and pay for. Design: [DESIGN-AI-KEYS.md](DESIGN-AI-KEYS.md).
+
+1. Turn the dashboard on (section 7).
+2. Create a master key and add it to `.env`:
+
+   ```bash
+   openssl rand -base64 32
+   ```
+
+   ```
+   SECRETS_ENCRYPTION_KEY=<the output>
+   ```
+
+3. Restart the API. The log says `Installations may store their own AI keys`.
+4. Sign in again. On **Settings**, the section **AI review key** lists each installation. An
+   owner of the account sees a form; everyone else sees what is set.
+
+Keep the master key safe and backed up: stored keys cannot be read without it. To replace it,
+set the new value as `SECRETS_ENCRYPTION_KEY` and the old one as
+`SECRETS_ENCRYPTION_KEY_PREVIOUS`; a key is re-encrypted when its owner saves it again.
+
+An installation's own key is used in place of `AI_PROVIDER` for that installation's
+repositories, and `AI_PROVIDER` may be left unset. A repository still has to opt in with
+`"ai": { "enabled": true }`.
+
+Who counts as an owner: on a personal account, that person; on an organisation, a member whose
+role GitHub reports as `admin`. The role is read at sign-in.
+
+What an owner enters:
+
+| Provider                        | Fields                                                             |
+| ------------------------------- | ------------------------------------------------------------------ |
+| Anthropic, OpenAI               | Model, API key                                                     |
+| AWS Bedrock                     | Model or inference profile ID, region, Bedrock API key             |
+| Azure AI Foundry / Azure OpenAI | Deployment name, resource name, API key. The name, not the address |
+
+For Azure, the resource name is the part before `.openai.azure.com` in the resource's endpoint.
+PR Buddy builds the address from it; an owner cannot enter one.
+
+Once a key is saved, **Test key** asks the provider once with the stored key and shows whether
+it still works. Use it after rotating a key, or when the comment on a pull request says the AI
+review could not be completed. Each test is one very small request on the owner's key.
+
+## 10. Troubleshooting
 
 | Symptom                                         | Likely cause                                                                                       |
 | ----------------------------------------------- | -------------------------------------------------------------------------------------------------- |
@@ -204,3 +251,8 @@ be completed, and the API log has a line `AI review failed` with an error such a
 | AI review fails with `ProviderHttp404`          | The model ID, deployment name or base URL is wrong                                                 |
 | AI review fails with `ProviderHttp429`          | The provider is rate limiting; the next push tries again                                           |
 | No "AI suggestions" section                     | The repository has not opted in on its base branch, or the model found nothing worth reporting     |
+| No "AI review key" section on Settings          | `SECRETS_ENCRYPTION_KEY` is not set, or the dashboard is off                                       |
+| The section shows no form                       | You are not an owner of that account, or you signed in before the feature was on: sign in again    |
+| Saving a key says the provider refused it       | The key is wrong, or may not use that model or region; the status is shown                         |
+| An Azure key is refused with HTTP 404           | The deployment name or the resource name is wrong; the model's own name is not the deployment name |
+| Test key says the key is not working            | It expired, was revoked, ran out of credit or lost access to the model: replace it                 |

@@ -9,8 +9,9 @@ How a person signs in and reads the review history PR Buddy has stored. Decision
 - A read-only HTTP API over the stored history, limited to what the signed-in person may see.
 - A React application, `apps/web`, served by the API from the same origin.
 
-The dashboard changes nothing: it has no settings to edit, and a repository is still configured
-through `.github/pr-buddy.json`.
+The dashboard reads history and changes one thing: an installation's owner can store that
+installation's own AI key ([DESIGN-AI-KEYS.md](DESIGN-AI-KEYS.md)). A repository is still
+configured through `.github/pr-buddy.json`.
 
 ## 2. The dashboard is optional
 
@@ -80,14 +81,15 @@ query is limited to the session's installation IDs **in SQL**, so a row outside 
 selected, whatever ID is asked for. Something that exists but is not visible answers `404`, the
 same as something that does not exist.
 
-| Route                               | Returns                                                            |
-| ----------------------------------- | ------------------------------------------------------------------ |
-| `GET /api/me`                       | The signed-in person's login and how many installations            |
-| `GET /api/overview`                 | Totals for the last 30 days and the most recent reviews            |
-| `GET /api/repositories`             | Visible repositories with their latest review                      |
-| `GET /api/repositories/:id/reviews` | Reviews of one repository, newest first, 25 per page               |
-| `GET /api/reviews`                  | Reviews of every visible repository; `?status=` filters by outcome |
-| `GET /api/reviews/:id`              | One review: findings, rule executions and the AI review record     |
+| Route                                                                      | Returns                                                                  |
+| -------------------------------------------------------------------------- | ------------------------------------------------------------------------ |
+| `GET /api/me`                                                              | The signed-in person's login and how many installations                  |
+| `GET /api/overview`                                                        | Totals for the last 30 days and the most recent reviews                  |
+| `GET /api/repositories`                                                    | Visible repositories with their latest review                            |
+| `GET /api/repositories/:id/reviews`                                        | Reviews of one repository, newest first, 25 per page                     |
+| `GET /api/reviews`                                                         | Reviews of every visible repository; `?status=` filters by outcome       |
+| `GET /api/reviews/:id`                                                     | One review: findings, rule executions and the AI review record           |
+| `GET /api/installations`; `PUT`, `DELETE` and `POST …/test` on an `ai-key` | An installation's own AI key; see [DESIGN-AI-KEYS.md](DESIGN-AI-KEYS.md) |
 
 Paging uses a cursor made of the last row's time and ID, so a page never shifts when new reviews
 arrive. IDs in paths and cursors are validated before they reach a query.

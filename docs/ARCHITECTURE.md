@@ -149,6 +149,7 @@ apps/api/src/
     ├── github/       Webhook endpoint; delivery store; clean-up when an installation changes
     ├── reviews/      Review queue; review service; review store; pending reviews; retention
     ├── auth/         Sign-in with GitHub; session store and cookie
+    ├── ai-keys/      An installation's own AI key: encryption, store, routes
     ├── history/      Read API over stored reviews, limited to the session
     └── web/          Serves the built dashboard with its security headers
 apps/api/migrations/  SQL files that create and upgrade the schema

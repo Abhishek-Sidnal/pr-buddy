@@ -35,16 +35,18 @@ webhook_deliveries
 schema_migrations
 ```
 
-| Table                | One row per                         | Key columns                                                                   |
-| -------------------- | ----------------------------------- | ----------------------------------------------------------------------------- |
-| `repositories`       | GitHub repository PR Buddy has seen | `id` (GitHub's), `installation_id`, `owner`, `name`                           |
-| `reviews`            | review attempt                      | `repository_id`, `pull_request_number`, `head_sha`, `status`, timings, counts |
-| `findings`           | finding of a completed review       | `review_id`, `rule_id`, `severity`, `confidence`, `message`, `evidence`       |
-| `rule_executions`    | rule in a completed review          | `review_id`, `rule_id`, `rule_version`, `status`                              |
-| `ai_reviews`         | review in which a model was asked   | `review_id`, `provider`, `model`, `status`, counts, token usage, duration     |
-| `webhook_deliveries` | delivery accepted in the last day   | `delivery_id`, `received_at`                                                  |
-| `sessions`           | signed-in browser, for 8 hours      | `token_hash`, `user_id`, `login`, `installation_ids`, `expires_at`            |
-| `schema_migrations`  | applied migration                   | `name`, `checksum`                                                            |
+| Table                  | One row per                             | Key columns                                                                        |
+| ---------------------- | --------------------------------------- | ---------------------------------------------------------------------------------- |
+| `repositories`         | GitHub repository PR Buddy has seen     | `id` (GitHub's), `installation_id`, `owner`, `name`                                |
+| `reviews`              | review attempt                          | `repository_id`, `pull_request_number`, `head_sha`, `status`, timings, counts      |
+| `findings`             | finding of a completed review           | `review_id`, `rule_id`, `severity`, `confidence`, `message`, `evidence`            |
+| `rule_executions`      | rule in a completed review              | `review_id`, `rule_id`, `rule_version`, `status`                                   |
+| `ai_reviews`           | review in which a model was asked       | `review_id`, `provider`, `model`, `status`, counts, token usage, duration          |
+| `webhook_deliveries`   | delivery accepted in the last day       | `delivery_id`, `received_at`                                                       |
+| `sessions`             | signed-in browser, for 8 hours          | `token_hash`, `user_id`, `login`, `installation_ids`, `expires_at`                 |
+| `installation_ai_keys` | installation that stored its own AI key | `installation_id`, `provider`, `model`, `resource`, encrypted key, last four chars |
+| `audit_events`         | change to an AI key                     | `installation_id`, `user_id`, `action`, `occurred_at`                              |
+| `schema_migrations`    | applied migration                       | `name`, `checksum`                                                                 |
 
 `reviews.suppressed_finding_count` records how many findings a repository's reporting thresholds
 hid from that review.
@@ -57,13 +59,14 @@ chain is what later lets a query be limited to the installations a signed-in use
 
 ### What is stored, and what is not
 
-| Stored                                                       | Not stored                           |
-| ------------------------------------------------------------ | ------------------------------------ |
-| Repository owner and name                                    | Pull request titles and descriptions |
-| Pull request number, base and head commit IDs                | Patches and file contents            |
-| Findings: rule, severity, message, evidence, file path, line | Rule error messages                  |
-| Counts, timings, the comment action taken                    | Tokens, secrets, webhook bodies      |
-| AI review: provider, model, status, counts, token usage      | The text of AI suggestions           |
+| Stored                                                         | Not stored                           |
+| -------------------------------------------------------------- | ------------------------------------ |
+| Repository owner and name                                      | Pull request titles and descriptions |
+| Pull request number, base and head commit IDs                  | Patches and file contents            |
+| Findings: rule, severity, message, evidence, file path, line   | Rule error messages                  |
+| Counts, timings, the comment action taken                      | Tokens, secrets, webhook bodies      |
+| AI review: provider, model, status, counts, token usage        | The text of AI suggestions           |
+| An installation's AI key, encrypted under a key held elsewhere | Any AI key in clear                  |
 
 AI suggestions are published on the pull request and nowhere else: a model that has read the code
 may quote it (D-046). Their rows in `ai_reviews` say that suggestions were made, not what they

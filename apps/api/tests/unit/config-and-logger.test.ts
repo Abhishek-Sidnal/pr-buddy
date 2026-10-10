@@ -406,6 +406,41 @@ describe("loadConfig for AI review", () => {
   });
 });
 
+describe("loadConfig for stored secrets", () => {
+  const KEY = Buffer.alloc(32, 7).toString("base64");
+  const OLD_KEY = Buffer.alloc(32, 9).toString("base64");
+
+  it("has no master key unless one is set", () => {
+    expect(loadConfig(environment())).not.toHaveProperty("secretKeys");
+  });
+
+  it("reads the master key, and a previous one for rotation", () => {
+    const one = loadConfig(environment({ SECRETS_ENCRYPTION_KEY: KEY }));
+    const two = loadConfig(
+      environment({ SECRETS_ENCRYPTION_KEY: KEY, SECRETS_ENCRYPTION_KEY_PREVIOUS: OLD_KEY }),
+    );
+
+    expect(one.secretKeys?.current.equals(Buffer.alloc(32, 7))).toBe(true);
+    expect(one.secretKeys?.previous).toEqual([]);
+    expect(two.secretKeys?.previous[0]?.equals(Buffer.alloc(32, 9))).toBe(true);
+  });
+
+  it.each([
+    ["too short", Buffer.alloc(16).toString("base64")],
+    ["not base64", "CANARY not a key"],
+  ])("stops at start-up for a master key that is %s, without repeating it", (_name, value) => {
+    const issues = issuesOf({ SECRETS_ENCRYPTION_KEY: value });
+
+    expect(issues).toEqual(["SECRETS_ENCRYPTION_KEY: must be 32 random bytes in base64"]);
+  });
+
+  it("requires the current key when a previous one is given", () => {
+    expect(issuesOf({ SECRETS_ENCRYPTION_KEY_PREVIOUS: OLD_KEY })).toEqual([
+      "SECRETS_ENCRYPTION_KEY: is required when SECRETS_ENCRYPTION_KEY_PREVIOUS is set",
+    ]);
+  });
+});
+
 describe("findConfigurationWarnings", () => {
   const dashboard = {
     DATABASE_URL: "postgres://user:pw@db.example:5432/prbuddy",

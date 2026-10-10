@@ -58,6 +58,14 @@ export interface ReviewServiceDependencies {
    * request content leaves the service.
    */
   readonly aiReviewer?: AiReviewer;
+  /**
+   * The reviewer for an installation that has stored a provider and key of its own, or
+   * `undefined` if it has none. It may reject when the stored key cannot be used; the operator's
+   * reviewer is then not tried.
+   */
+  readonly resolveInstallationReviewer?: (
+    installationId: number,
+  ) => Promise<AiReviewer | undefined>;
   /** Replaceable so tests control time. */
   readonly now?: () => Date;
 }
@@ -75,7 +83,16 @@ function splitConfiguration(config: unknown): { ai: unknown; engineConfig: unkno
 }
 
 /** Reduces an AI review to what is kept: identifiers, counts and timings, never its text. */
-function toAiReviewRecord(reviewer: AiReviewer, review: AiReview): AiReviewRecord {
+/** Which provider and model a review was asked of. */
+type ReviewerIdentity = Pick<AiReviewer, "provider" | "model">;
+
+/** Stands for the provider in the record of a review whose installation key could not be used. */
+const UNUSABLE_INSTALLATION_KEY: ReviewerIdentity = {
+  provider: "installation-key",
+  model: "unavailable",
+};
+
+function toAiReviewRecord(reviewer: ReviewerIdentity, review: AiReview): AiReviewRecord {
   return {
     provider: reviewer.provider,
     model: reviewer.model,
@@ -103,7 +120,7 @@ interface ConfiguredEngine {
 }
 
 export function createReviewService(dependencies: ReviewServiceDependencies): ReviewService {
-  const { clientFactory, logger, aiReviewer } = dependencies;
+  const { clientFactory, logger, aiReviewer, resolveInstallationReviewer } = dependencies;
   const reviewStore = dependencies.reviewStore ?? createDiscardingReviewStore();
   const now = dependencies.now ?? ((): Date => new Date());
   const defaultEngine = createReviewEngine();
@@ -160,15 +177,45 @@ export function createReviewService(dependencies: ReviewServiceDependencies): Re
   async function reviewWithAi(
     context: unknown,
     configured: ConfiguredEngine,
+    installationId: number,
     logFields: LogFields,
-  ): Promise<AiReview | undefined> {
-    if (aiReviewer === undefined || !configured.isAiEnabled) {
+  ): Promise<{ reviewer: ReviewerIdentity; review: AiReview } | undefined> {
+    if (!configured.isAiEnabled) {
       return undefined;
     }
+
+    // An installation's own provider wins over the operator's. If its key cannot be used, the
+    // AI review fails: falling back would send the code to a company the customer did not
+    // choose (D-078).
+    let reviewer: AiReviewer | undefined;
+    try {
+      reviewer = (await resolveInstallationReviewer?.(installationId)) ?? aiReviewer;
+    } catch (error) {
+      const { errorName } = describeError(error);
+      logger.warn({ ...logFields, errorName }, "The installation's AI key could not be used");
+      return {
+        reviewer: UNUSABLE_INSTALLATION_KEY,
+        review: {
+          status: "failed",
+          failureReason: "provider-error",
+          errorName: "InstallationKeyUnusable",
+          findings: [],
+          suppressedFindingCount: 0,
+          rejectedFindingCount: 0,
+          sentFileCount: 0,
+          omittedFileCount: 0,
+          durationMs: 0,
+        },
+      };
+    }
+    if (reviewer === undefined) {
+      return undefined;
+    }
+
     let review: AiReview;
     try {
       // The engine has accepted this context already; parsing it again yields the typed form.
-      review = await aiReviewer.review(parseReviewContext(context), configured.engine.thresholds);
+      review = await reviewer.review(parseReviewContext(context), configured.engine.thresholds);
     } catch (error) {
       // Only the name: the message of an error from this path could quote the pull request.
       const { errorName } = describeError(error);
@@ -185,7 +232,7 @@ export function createReviewService(dependencies: ReviewServiceDependencies): Re
         "AI review failed",
       );
     }
-    return review;
+    return { reviewer, review };
   }
 
   /** What is known about the pull request so far; filled in as the review proceeds. */
@@ -229,12 +276,10 @@ export function createReviewService(dependencies: ReviewServiceDependencies): Re
     const { engine, configurationIssues } = configured;
     const { context, skippedFileCount, omittedPatchCount } = toReviewContext(pullRequest, files);
     const result = await engine.review(context);
-    const aiReview = await reviewWithAi(context, configured, logFields);
+    const ai = await reviewWithAi(context, configured, trigger.installationId, logFields);
+    const aiReview = ai?.review;
     // A review that sent nothing has nothing to show; one that failed is mentioned in the notes.
-    const aiRecord =
-      aiReviewer === undefined || aiReview === undefined
-        ? undefined
-        : toAiReviewRecord(aiReviewer, aiReview);
+    const aiRecord = ai === undefined ? undefined : toAiReviewRecord(ai.reviewer, ai.review);
     const aiFindings = aiReview?.findings ?? [];
 
     // A push may have arrived while the review ran. Its own review is queued behind this one,

@@ -211,7 +211,9 @@ describe("the project's migrations", () => {
       );
       expect(tables.rows.map((row) => row.table_name).sort()).toEqual([
         "ai_reviews",
+        "audit_events",
         "findings",
+        "installation_ai_keys",
         "pending_reviews",
         "repositories",
         "reviews",

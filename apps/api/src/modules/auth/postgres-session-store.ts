@@ -1,6 +1,10 @@
 import { createHash, randomBytes } from "node:crypto";
 import type { Queryable } from "../../database/database.js";
-import { SESSION_TTL_SECONDS, type SessionStore } from "./session-store.js";
+import {
+  SESSION_TTL_SECONDS,
+  sessionInstallationsSchema,
+  type SessionStore,
+} from "./session-store.js";
 
 export interface PostgresSessionStoreOptions {
   /** How long a session lasts. */
@@ -18,6 +22,7 @@ interface SessionRow {
   readonly user_id: string;
   readonly login: string;
   readonly installation_ids: readonly string[];
+  readonly installations: unknown;
   readonly expires_at: Date;
 }
 
@@ -53,14 +58,16 @@ export function createPostgresSessionStore(
 
       const token = randomBytes(TOKEN_BYTES).toString("base64url");
       await database.query(
-        `INSERT INTO sessions (token_hash, user_id, login, installation_ids, expires_at)
-         VALUES ($1, $2, $3, $4::bigint[], now() + make_interval(secs => $5))`,
+        `INSERT INTO sessions
+           (token_hash, user_id, login, installation_ids, installations, expires_at)
+         VALUES ($1, $2, $3, $4::bigint[], $6::jsonb, now() + make_interval(secs => $5))`,
         [
           hashToken(token),
           session.userId,
           session.login,
           toBigintArrayLiteral(session.installationIds),
           ttlSeconds,
+          JSON.stringify(session.installations ?? []),
         ],
       );
       return token;
@@ -71,7 +78,7 @@ export function createPostgresSessionStore(
         return undefined;
       }
       const result = await database.query<SessionRow>(
-        `SELECT user_id, login, installation_ids, expires_at
+        `SELECT user_id, login, installation_ids, installations, expires_at
          FROM sessions
          WHERE token_hash = $1 AND expires_at > now()`,
         [hashToken(token)],
@@ -85,6 +92,7 @@ export function createPostgresSessionStore(
         userId: Number(row.user_id),
         login: row.login,
         installationIds: row.installation_ids.map(Number),
+        installations: sessionInstallationsSchema.catch([]).parse(row.installations),
         expiresAt: row.expires_at,
       };
     },

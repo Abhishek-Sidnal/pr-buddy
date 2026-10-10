@@ -89,6 +89,7 @@ apps/api ──► packages/github-client ──► packages/review-engine
   in `docs/DESIGN-SYSTEM.md`. It is tested with Testing Library against a fake `fetch`.
 - In **`api`**, `modules/auth` holds sign-in and sessions, `modules/history` the read API, and
   `modules/web` serves the built dashboard. All three exist only when the dashboard is configured.
+  `modules/ai-keys` stores an installation's own AI key and exists only with a master key.
 - **`github-client`** is the only package that knows GitHub: signature verification, event
   parsing, the `RepositoryClient` interface and its Octokit implementation, mapping GitHub files
   to engine input, and rendering and publishing the summary comment.
@@ -105,7 +106,7 @@ or updates the comment.
 
 ## Invariants
 
-These are design decisions with reasons recorded in `docs/BRAIN.md` (D-001 to D-070). Read the
+These are design decisions with reasons recorded in `docs/BRAIN.md` (D-001 to D-081). Read the
 relevant entry before changing one.
 
 - A webhook body is only a trigger. What gets reviewed is fetched from the API.
@@ -131,7 +132,13 @@ relevant entry before changing one.
 - Every dashboard query is limited **in SQL** to the installations of the session, and a hidden
   row answers `404` like a missing one (D-054). New read methods take `installationIds` first.
 - No GitHub user token is stored, logged or sent to the browser; session tokens are stored only
-  as a SHA-256 (D-049, D-051). The dashboard is read-only (D-056).
+  as a SHA-256 (D-049, D-051). The dashboard reads history and can change one thing, an
+- An installation's AI key is encrypted before it reaches SQL, bound to its installation and
+  provider, never returned by any route and never logged (D-073). Only an owner may change it,
+  and writes need the dashboard's `Origin` and the `X-PR-Buddy-Request` header (D-072, D-075).
+  Customers pick a fixed provider, never an address; Azure is named by resource (D-074, D-080). A review whose installation key
+  fails does not fall back to the operator's provider (D-078).
+  installation's own AI key (D-056, D-075).
 - The dashboard shows only what the service can back: no sample data, no control that does
   nothing (D-058). Web code uses design tokens, never raw colours; every API answer is parsed
   with a Zod schema; stored text is rendered as text; GitHub links go through

@@ -100,6 +100,11 @@ describe("signIn", () => {
     expect(await client.signIn("the-code", REDIRECT_URI)).toEqual({
       user: { id: 583231, login: "octocat" },
       installationIds: [1001, 1002],
+      // The fake describes no accounts, so nobody is taken for an owner.
+      installations: [
+        { id: 1001, account: "", isOwner: false },
+        { id: 1002, account: "", isOwner: false },
+      ],
     });
   });
 
@@ -262,5 +267,117 @@ describe("signIn", () => {
     expect((await failureOf(client.signIn("the-code", REDIRECT_URI))).reason).toBe(
       "github-unavailable",
     );
+  });
+});
+
+describe("who owns an installation", () => {
+  const USER_ID = 583231;
+  const installations =
+    (...accounts: unknown[]): Handler =>
+    () =>
+      json({ installations: accounts.map((account, index) => ({ id: 1001 + index, account })) });
+  const membership =
+    (role: string, state = "active"): Handler =>
+    () =>
+      json({ role, state });
+
+  async function ownership(overrides: Record<string, Handler>): Promise<unknown> {
+    const { client } = fakeGitHub(overrides);
+    return (await client.signIn("the-code", REDIRECT_URI)).installations;
+  }
+
+  it("is the person for an installation on their own account", async () => {
+    expect(
+      await ownership({
+        "/user/installations": installations(
+          { id: USER_ID, login: "octocat", type: "User" },
+          { id: 999, login: "someone-else", type: "User" },
+        ),
+      }),
+    ).toEqual([
+      { id: 1001, account: "octocat", isOwner: true },
+      { id: 1002, account: "someone-else", isOwner: false },
+    ]);
+  });
+
+  it("is an organisation's owner, and not its other members", async () => {
+    const { client, requests } = fakeGitHub({
+      "/user/installations": installations(
+        { id: 50, login: "acme", type: "Organization" },
+        { id: 51, login: "other-org", type: "Organization" },
+      ),
+      "/user/memberships/orgs/acme": membership("admin"),
+      "/user/memberships/orgs/other-org": membership("member"),
+    });
+
+    const access = await client.signIn("the-code", REDIRECT_URI);
+
+    expect(access.installations).toEqual([
+      { id: 1001, account: "acme", isOwner: true },
+      { id: 1002, account: "other-org", isOwner: false },
+    ]);
+    const lookup = requests.find(({ url }) => url.pathname === "/user/memberships/orgs/acme");
+    expect(lookup?.headers.get("authorization")).toBe(`Bearer ${TOKEN}`);
+  });
+
+  it.each<[string, Handler]>([
+    ["a billing manager", membership("billing_manager")],
+    ["an owner whose invitation is pending", membership("admin", "pending")],
+    ["a role GitHub may add later", membership("super-admin")],
+    ["someone GitHub does not list as a member", () => json({ message: "Not Found" }, 404)],
+    ["an organisation that blocks the app", () => json({ message: "Forbidden" }, 403)],
+    ["a failing GitHub", () => json({}, 500)],
+    ["an answer of another shape", () => json({ role: 1 })],
+    [
+      "a network failure",
+      () => {
+        throw new TypeError("fetch failed");
+      },
+    ],
+  ])("does not make an owner of %s", async (_name, handler) => {
+    expect(
+      await ownership({
+        "/user/installations": installations({ id: 50, login: "acme", type: "Organization" }),
+        "/user/memberships/orgs/acme": handler,
+      }),
+    ).toEqual([{ id: 1001, account: "acme", isOwner: false }]);
+  });
+
+  it.each<[string, unknown]>([
+    ["no account", undefined],
+    ["a null account", null],
+    ["an account of an unknown type", { id: USER_ID, login: "octocat", type: "Bot" }],
+    ["an account without a type", { id: USER_ID, login: "octocat" }],
+    [
+      "an account whose login could not be a GitHub name",
+      { id: USER_ID, login: "../x", type: "User" },
+    ],
+  ])("does not make an owner of anyone for %s", async (_name, account) => {
+    const result = (await ownership({ "/user/installations": installations(account) })) as {
+      isOwner: boolean;
+    }[];
+
+    expect(result).toHaveLength(1);
+    expect(result[0]?.isOwner).toBe(false);
+  });
+
+  it("stops asking about organisations after fifty", async () => {
+    const accounts = Array.from({ length: 60 }, (_unused, index) => ({
+      id: 100 + index,
+      login: `org-${index}`,
+      type: "Organization",
+    }));
+    const handlers: Record<string, Handler> = { "/user/installations": installations(...accounts) };
+    for (const { login } of accounts) {
+      handlers[`/user/memberships/orgs/${login}`] = membership("admin");
+    }
+    const { client, requests } = fakeGitHub(handlers);
+
+    const access = await client.signIn("the-code", REDIRECT_URI);
+
+    expect(access.installations.filter(({ isOwner }) => isOwner)).toHaveLength(50);
+    expect(
+      requests.filter(({ url }) => url.pathname.startsWith("/user/memberships/")),
+    ).toHaveLength(50);
   });
 });

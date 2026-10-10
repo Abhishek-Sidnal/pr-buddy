@@ -6,6 +6,26 @@ change behaviour or configuration; such changes are listed under "Upgrade notes"
 
 ## [Unreleased]
 
+### Added
+
+- An installation can store its own AI provider and key, so that its reviews go to a provider it
+  chose and pays for. Owners of the account manage it on the settings page; the key is checked
+  with the provider, stored encrypted, never shown again, and deleted on uninstall. Customers
+  choose Anthropic, OpenAI, AWS Bedrock, or Azure AI Foundry and Azure OpenAI. For Azure they
+  enter the name of their resource, never an address. Needs `SECRETS_ENCRYPTION_KEY`; without
+  it the feature does not exist. See `docs/DESIGN-AI-KEYS.md`.
+- An owner can test the stored key from the settings page at any time. The page says whether
+  the provider accepts it, or the status the provider answered with.
+- Sign-in now records which installations a person owns: their own account, or an organisation
+  where GitHub reports their role as `admin`.
+
+### Upgrade notes
+
+- People signed in before this version must sign in again before they are recognised as owners.
+- Keep `SECRETS_ENCRYPTION_KEY` safe once keys are stored: without it they cannot be decrypted
+  and must be entered again. To change it, set the old value as
+  `SECRETS_ENCRYPTION_KEY_PREVIOUS`.
+
 ### Changed
 
 - Dependabot no longer proposes a new major version of PostgreSQL for the Compose files: such an
