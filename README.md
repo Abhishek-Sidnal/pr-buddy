@@ -3,7 +3,7 @@
 An open-source assistant that reviews GitHub pull requests. It reports a small number of
 actionable findings, shows the evidence behind each one, and leaves the merge decision to people.
 
-> **Status: Milestone 3 in progress.** The review engine and the GitHub App are implemented and
+> **Status: Milestone 3 complete.** The review engine and the GitHub App are implemented and
 > verified against the real GitHub API. Seven rules run, findings on a line are posted on that line,
 > and review history is stored in PostgreSQL. An optional AI reviewer can use AWS Bedrock,
 > Anthropic, OpenAI, Azure AI Foundry or any OpenAI-compatible service; it is off until an operator
@@ -173,8 +173,9 @@ More detail: [architecture](docs/ARCHITECTURE.md) · [engine design](docs/DESIGN
 - Reviews waiting in the queue are lost when the service restarts. Without a database, so is the
   memory of webhook deliveries.
 - There is no check run: PR Buddy comments but does not set a pass or fail status.
-- The AI providers are written from each service's published API and tested against stand-ins.
-  The tracker says which have answered a real request; treat the others as unproven. With any of
+- Of the AI providers, only Bedrock with a Bedrock API key has answered a real request. The
+  others, and Bedrock with a signed access key, are written from published APIs and tested
+  against stand-ins; treat them as unproven. With any of
   them, a repository must still opt in with `"ai": { "enabled": true }`.
 - Only `debug-statements` reads the changed lines, and only for JavaScript and TypeScript. The
   other rules look at pull request metadata and file names.
@@ -209,12 +210,12 @@ More detail: [architecture](docs/ARCHITECTURE.md) · [engine design](docs/DESIGN
 
 ## Roadmap
 
-| Milestone | Deliverable                                              | Status                 |
-| --------- | -------------------------------------------------------- | ---------------------- |
-| M1        | Deterministic review engine                              | Implemented            |
-| M2        | GitHub App: webhooks, diffs, published reviews           | Implemented            |
-| M3        | Storage, then rules and thresholds, AI review, dashboard | An AI provider is left |
-| M4        | Hardening and `v0.1.0`                                   | Planned                |
+| Milestone | Deliverable                                              | Status      |
+| --------- | -------------------------------------------------------- | ----------- |
+| M1        | Deterministic review engine                              | Implemented |
+| M2        | GitHub App: webhooks, diffs, published reviews           | Implemented |
+| M3        | Storage, then rules and thresholds, AI review, dashboard | Implemented |
+| M4        | Hardening and `v0.1.0`                                   | Planned     |
 
 PR Buddy does not merge pull requests or change code.
 
