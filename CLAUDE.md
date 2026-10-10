@@ -97,6 +97,10 @@ relevant entry before changing one.
 - A finding never claims more than its evidence shows. `missing-test-changes` is a signal, not
   proof, and its wording and 0.6 confidence reflect that.
 - Never invent a file or line for a finding.
+- A rule never copies source text into a finding: findings are stored and published, source is
+  not (D-035). A rule that matches text or names reports a confidence below 1 (D-036).
+- Line comments are reconciled by fingerprint; only the app's own marked comments are ever
+  deleted (D-039). They are best-effort: a failure there must not fail the review (D-040).
 - Text a contributor can choose (file names, config keys) is published as inline code or escaped;
   see `github-client/src/output/markdown.ts`.
 - Never log pull request titles, bodies, file names, patches, tokens or secrets. Tests assert this

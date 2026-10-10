@@ -63,3 +63,27 @@ export function resolveRules(registry: RuleRegistry, rawConfig: unknown): readon
   }
   return resolved;
 }
+
+/** The least a finding must be to be reported. */
+export interface ReportThresholds {
+  readonly minSeverity: Severity;
+  readonly minConfidence: number;
+}
+
+/** Thresholds that hide nothing. */
+export const REPORT_EVERYTHING: ReportThresholds = { minSeverity: "low", minConfidence: 0 };
+
+/**
+ * Validates untrusted configuration and returns its reporting thresholds.
+ * @throws {ConfigurationError}
+ */
+export function resolveReportThresholds(rawConfig: unknown): ReportThresholds {
+  const parsed = engineConfigSchema.safeParse(rawConfig ?? {});
+  if (!parsed.success) {
+    throw new ConfigurationError(formatZodIssues(parsed.error));
+  }
+  return {
+    minSeverity: parsed.data.report?.minSeverity ?? REPORT_EVERYTHING.minSeverity,
+    minConfidence: parsed.data.report?.minConfidence ?? REPORT_EVERYTHING.minConfidence,
+  };
+}

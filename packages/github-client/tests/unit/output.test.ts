@@ -49,6 +49,7 @@ function buildResult(
       ...(status === "failed" ? { error: "SECRET INTERNAL DETAIL at /srv/app/rule.js:10" } : {}),
     })),
     diagnostics: [],
+    suppressedFindingCount: 0,
     summary: { total: findings.length, bySeverity },
   };
 }
@@ -240,6 +241,16 @@ describe("renderReviewSummary", () => {
     );
   });
 
+  it("says how many findings the repository's thresholds hid", () => {
+    const one = renderReviewSummary({ ...buildResult(), suppressedFindingCount: 1 }, NO_NOTES);
+    const many = renderReviewSummary({ ...buildResult(), suppressedFindingCount: 4 }, NO_NOTES);
+
+    expect(one).toContain("- 1 finding below this repository's reporting thresholds is not shown.");
+    expect(many).toContain(
+      "- 4 findings below this repository's reporting thresholds are not shown.",
+    );
+  });
+
   it("reports configuration problems as code", () => {
     const body = renderReviewSummary(buildResult(), {
       ...NO_NOTES,
@@ -306,6 +317,9 @@ function fakeClient(comments: StoredComment[]): RepositoryClient {
     getPullRequest: unsupported,
     listPullRequestFiles: unsupported,
     getFileText: unsupported,
+    listOwnReviewComments: unsupported,
+    createReviewWithComments: unsupported,
+    deleteReviewComment: unsupported,
     findOwnComment: (_number, marker) =>
       Promise.resolve(comments.find((comment) => comment.body.includes(marker))?.id),
     createComment: (_number, body) => {

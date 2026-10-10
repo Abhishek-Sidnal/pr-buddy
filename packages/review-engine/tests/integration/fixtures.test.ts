@@ -101,7 +101,11 @@ describe("example configuration", () => {
     expect(engine.rules).toEqual([
       expect.objectContaining({ id: "pr-description", enabled: true, severity: "low" }),
       expect.objectContaining({ id: "max-changed-files", enabled: true, severity: "high" }),
+      expect.objectContaining({ id: "max-changed-lines", enabled: true }),
       expect.objectContaining({ id: "missing-test-changes", enabled: true, severity: "low" }),
+      expect.objectContaining({ id: "debug-statements", enabled: true }),
+      expect.objectContaining({ id: "credential-files", enabled: true }),
+      expect.objectContaining({ id: "sensitive-file-changes", enabled: true }),
     ]);
   });
 

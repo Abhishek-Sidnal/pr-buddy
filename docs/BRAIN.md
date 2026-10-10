@@ -261,6 +261,49 @@ mock would only confirm that the code sends the SQL it sends.
 **Why.** By then the comment is on the pull request. Failing would release the delivery and
 invite a redelivery that repeats work the user has already received.
 
+### D-035 — Findings never quote source lines
+
+**Decision.** A rule that reads added lines reports what it found and where (rule, file, line),
+never the text of the line.
+**Why.** Findings are stored (D-031 forbids storing file contents) and published. The line is
+already visible in the diff at the location the finding points to.
+
+### D-036 — Text matching reports less than full confidence
+
+**Decision.** `debug-statements` reports 0.9, `credential-files` 0.8.
+**Why.** A `console.log(` can sit inside a string; a `.key` file can be something harmless. The
+rules match text and names, not meaning, and their confidence should say so (principle 2).
+
+### D-037 — Credential detection is by file name only
+
+**Decision.** `credential-files` looks at names such as `.env` and `*.pem`. It does not scan file
+contents for secrets.
+**Why.** Pattern-matching secrets inside code is what dedicated scanners do well and regular
+expressions do badly. A file name is cheap, deterministic and rarely wrong.
+
+### D-038 — Thresholds are applied by the engine and are visible
+
+**Decision.** `report.minSeverity` and `report.minConfidence` live in the engine's configuration.
+Hidden findings are counted, and the comment states the count.
+**Why.** Every integration gets the same filtering, and a reader can tell that something was
+hidden rather than wondering whether it was checked.
+
+### D-039 — Line comments are reconciled by fingerprint
+
+**Decision.** Each line comment carries a hidden fingerprint of its finding (rule, file, line,
+message). On each review PR Buddy posts comments for new fingerprints, leaves existing ones, and
+deletes its own comments whose fingerprint is gone. New comments go out as one review, so a
+review sends one notification.
+**Why.** Without reconciliation every push would repeat every comment.
+**Cost.** When a push moves a flagged line, its comment is deleted and posted again at the new
+line.
+
+### D-040 — Line comments are best-effort; the summary is the record
+
+**Decision.** The summary comment lists every finding. Line comments are an addition, capped at 20
+per review, and a failure to post them is logged without failing the review.
+**Why.** The summary is already on the pull request by then (same reasoning as D-034).
+
 ## 3. Glossary
 
 | Term       | Meaning                                                                                 |

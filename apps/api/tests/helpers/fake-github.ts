@@ -19,6 +19,15 @@ export interface FakeComment {
   readonly byThisApp: boolean;
 }
 
+export interface FakeLineComment {
+  readonly id: number;
+  readonly byThisApp: boolean;
+  readonly commitId: string;
+  readonly path: string;
+  readonly line: number;
+  readonly body: string;
+}
+
 type ClientMethod = keyof RepositoryClient;
 
 /**
@@ -49,6 +58,9 @@ export class FakeGitHub {
   readonly fileListLimits: FileListLimits[] = [];
 
   comments: FakeComment[] = [];
+  /** Comments placed on lines of the pull request. */
+  lineComments: FakeLineComment[] = [];
+  #nextLineCommentId = 100;
   /** Every client method called, in order. */
   readonly calls: ClientMethod[] = [];
   /** Every repository a client was created for. */
@@ -98,6 +110,30 @@ export class FakeGitHub {
         throw Object.assign(new Error("Not Found"), { status: 404 });
       }
       comment.body = body;
+    },
+    listOwnReviewComments: async () => {
+      await this.#enter("listOwnReviewComments");
+      return this.lineComments
+        .filter((comment) => comment.byThisApp)
+        .map(({ id, body }) => ({ id, body }));
+    },
+    createReviewWithComments: async (_number, commitId, comments) => {
+      await this.#enter("createReviewWithComments");
+      for (const comment of comments) {
+        this.#nextLineCommentId += 1;
+        this.lineComments.push({
+          id: this.#nextLineCommentId,
+          byThisApp: true,
+          commitId,
+          path: comment.path,
+          line: comment.line,
+          body: comment.body,
+        });
+      }
+    },
+    deleteReviewComment: async (commentId) => {
+      await this.#enter("deleteReviewComment");
+      this.lineComments = this.lineComments.filter((comment) => comment.id !== commentId);
     },
   };
 

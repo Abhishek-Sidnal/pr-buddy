@@ -10,11 +10,13 @@ export {
 export type {
   FileListLimits,
   FileLookup,
+  NewLineComment,
   PullRequestFile,
   PullRequestSnapshot,
   RepositoryClient,
   RepositoryClientFactory,
   RepositoryTarget,
+  ReviewComment,
 } from "./api/repository-client.js";
 export {
   createRepositoryClientFactory,
@@ -43,3 +45,12 @@ export {
   type PublishOptions,
 } from "./output/publish-summary.js";
 export { escapeMarkdown, inlineCode } from "./output/markdown.js";
+export {
+  fingerprintOf,
+  MAX_INLINE_COMMENTS,
+  planInlineComments,
+  publishInlineComments,
+  renderInlineComment,
+  type InlineCommentPlan,
+  type InlinePublishResult,
+} from "./output/inline-comments.js";

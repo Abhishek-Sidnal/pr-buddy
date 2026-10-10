@@ -1,4 +1,8 @@
 {
+  "report": {
+    "minSeverity": "low",
+    "minConfidence": 0.5
+  },
   "rules": {
     "pr-description": {
       "options": {
@@ -12,12 +16,33 @@
         "exclude": ["**/package-lock.json", "**/*.snap"]
       }
     },
+    "max-changed-lines": {
+      "options": {
+        "maxLines": 600
+      }
+    },
     "missing-test-changes": {
       "enabled": true,
       "options": {
         "sourcePatterns": ["src/**/*.{ts,tsx}"],
         "testPatterns": ["**/*.test.{ts,tsx}", "tests/**"],
         "ignorePatterns": ["**/*.d.ts", "src/generated/**"]
+      }
+    },
+    "debug-statements": {
+      "options": {
+        "consoleMethods": ["log", "debug"],
+        "exclude": ["**/*.test.{ts,tsx}", "tests/**", "scripts/**"]
+      }
+    },
+    "credential-files": {
+      "options": {
+        "allow": ["**/.env.example", "fixtures/**"]
+      }
+    },
+    "sensitive-file-changes": {
+      "options": {
+        "patterns": [".github/workflows/**", "**/Dockerfile", "infra/**/*.tf"]
       }
     }
   }

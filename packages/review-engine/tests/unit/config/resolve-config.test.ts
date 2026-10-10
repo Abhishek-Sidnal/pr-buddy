@@ -40,7 +40,11 @@ describe("resolveRules", () => {
     expect(rules.map((entry) => entry.rule.id)).toEqual([
       "pr-description",
       "max-changed-files",
+      "max-changed-lines",
       "missing-test-changes",
+      "debug-statements",
+      "credential-files",
+      "sensitive-file-changes",
     ]);
     expect(rules.every((entry) => entry.enabled)).toBe(true);
     expect(rules.every((entry) => entry.severityOverride === undefined)).toBe(true);
@@ -102,7 +106,7 @@ describe("resolveRules", () => {
     const issues = issuesOf({ rules: { "max-change-files": { enabled: false } } });
 
     expect(issues).toEqual([
-      "rules.max-change-files: unknown rule. Registered rules: pr-description, max-changed-files, missing-test-changes",
+      "rules.max-change-files: unknown rule. Registered rules: pr-description, max-changed-files, max-changed-lines, missing-test-changes, debug-statements, credential-files, sensitive-file-changes",
     ]);
   });
 

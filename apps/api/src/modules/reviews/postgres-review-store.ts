@@ -6,6 +6,7 @@ interface OutcomeColumns {
   readonly skipReason: string | null;
   readonly commentAction: string | null;
   readonly findingCount: number;
+  readonly suppressedFindingCount: number;
   readonly skippedFileCount: number;
   readonly omittedPatchCount: number;
   readonly errorName: string | null;
@@ -16,6 +17,7 @@ const NO_OUTCOME_DETAILS: OutcomeColumns = {
   skipReason: null,
   commentAction: null,
   findingCount: 0,
+  suppressedFindingCount: 0,
   skippedFileCount: 0,
   omittedPatchCount: 0,
   errorName: null,
@@ -29,6 +31,7 @@ function toOutcomeColumns(outcome: RecordedOutcome): OutcomeColumns {
         ...NO_OUTCOME_DETAILS,
         commentAction: outcome.comment,
         findingCount: outcome.result.findings.length,
+        suppressedFindingCount: outcome.result.suppressedFindingCount,
         skippedFileCount: outcome.skippedFileCount,
         omittedPatchCount: outcome.omittedPatchCount,
       };
@@ -63,9 +66,9 @@ async function insertReview(transaction: Queryable, record: ReviewRecord): Promi
     `INSERT INTO reviews (
        repository_id, pull_request_number, head_sha, base_sha, status, skip_reason,
        comment_action, finding_count, skipped_file_count, omitted_patch_count,
-       error_name, error_status, started_at, completed_at
+       error_name, error_status, started_at, completed_at, suppressed_finding_count
      )
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
      RETURNING id`,
     [
       record.repository.id,
@@ -82,6 +85,7 @@ async function insertReview(transaction: Queryable, record: ReviewRecord): Promi
       columns.errorStatus,
       record.startedAt,
       record.completedAt,
+      columns.suppressedFindingCount,
     ],
   );
   const id = inserted.rows[0]?.id;

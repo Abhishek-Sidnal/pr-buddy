@@ -43,6 +43,9 @@ schema_migrations
 | `webhook_deliveries` | delivery accepted in the last day   | `delivery_id`, `received_at`                                                  |
 | `schema_migrations`  | applied migration                   | `name`, `checksum`                                                            |
 
+`reviews.suppressed_finding_count` records how many findings a repository's reporting thresholds
+hid from that review.
+
 `reviews.status` is `completed`, `skipped` or `failed`. A skipped review records why (`draft`,
 `closed`, `stale`). A failed review records the error's name and HTTP status, never its message.
 

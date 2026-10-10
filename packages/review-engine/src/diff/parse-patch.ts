@@ -5,6 +5,8 @@ export interface PatchHunk {
   readonly newLines: number;
   /** New-side line numbers of added ("+") lines. */
   readonly addedLines: readonly number[];
+  /** The text of each added line, without its "+", in the same order as `addedLines`. */
+  readonly addedLineTexts: readonly string[];
   /** New-side line numbers of unchanged (" ") lines. */
   readonly contextLines: readonly number[];
   /**
@@ -23,6 +25,7 @@ interface HunkCursor {
   readonly newStart: number;
   readonly newLines: number;
   readonly addedLines: number[];
+  readonly addedLineTexts: string[];
   readonly contextLines: number[];
   nextNewLine: number;
   remainingOld: number;
@@ -41,6 +44,7 @@ function openHunk(header: RegExpExecArray): HunkCursor {
     newStart,
     newLines,
     addedLines: [],
+    addedLineTexts: [],
     contextLines: [],
     nextNewLine: newStart,
     remainingOld: oldLines,
@@ -56,6 +60,7 @@ function closeHunk(cursor: HunkCursor): PatchHunk {
     newStart: cursor.newStart,
     newLines: cursor.newLines,
     addedLines: cursor.addedLines,
+    addedLineTexts: cursor.addedLineTexts,
     contextLines: cursor.contextLines,
     isWellFormed: cursor.remainingOld === 0 && cursor.remainingNew === 0 && !cursor.hasExtraLines,
   };
@@ -66,6 +71,7 @@ function consumeLine(cursor: HunkCursor, line: string): void {
   if (marker === "+") {
     if (cursor.remainingNew > 0) {
       cursor.addedLines.push(cursor.nextNewLine);
+      cursor.addedLineTexts.push(line.slice(1));
       cursor.nextNewLine += 1;
       cursor.remainingNew -= 1;
     } else {
@@ -145,4 +151,28 @@ export function getNewSideLines(patch: string): Set<number> {
     }
   }
   return lines;
+}
+
+/** One line that a change adds to a file. */
+export interface AddedLine {
+  /** 1-based line number in the file after the change. */
+  readonly line: number;
+  readonly text: string;
+}
+
+/**
+ * The lines a patch adds, with their text. Like `getNewSideLines`, it reads well-formed hunks
+ * only, so every line it returns can be used as a verified location.
+ */
+export function getAddedLines(patch: string): AddedLine[] {
+  const added: AddedLine[] = [];
+  for (const hunk of parsePatch(patch)) {
+    if (!hunk.isWellFormed) {
+      continue;
+    }
+    hunk.addedLines.forEach((line, index) => {
+      added.push({ line, text: hunk.addedLineTexts[index] ?? "" });
+    });
+  }
+  return added;
 }
