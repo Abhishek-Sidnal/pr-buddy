@@ -146,8 +146,8 @@ apps/api/src/
 ├── config/           Environment variables, validated at start-up
 ├── database/         Connection pool, transactions, migration runner
 └── modules/
-    ├── github/       Webhook endpoint; delivery store, in memory and in PostgreSQL
-    ├── reviews/      Review queue; review service; review store
+    ├── github/       Webhook endpoint; delivery store; clean-up when an installation changes
+    ├── reviews/      Review queue; review service; review store; pending reviews; retention
     ├── auth/         Sign-in with GitHub; session store and cookie
     ├── history/      Read API over stored reviews, limited to the session
     └── web/          Serves the built dashboard with its security headers

@@ -80,8 +80,13 @@ An in-process queue with three guarantees:
 - **Bounded.** At most `REVIEW_CONCURRENCY` reviews run at once and at most `REVIEW_QUEUE_LIMIT`
   wait. Beyond that the webhook answers `503` and the delivery can be sent again from GitHub.
 
-A queued review is lost if the process stops. That is acceptable in Milestone 2 because any later
-event on the pull request triggers a fresh review, and a delivery can be redelivered by hand.
+With a database, a review that was requested but had not finished when the process stopped is
+run again at the next start: the request is stored before the webhook is acknowledged
+([DESIGN-STORAGE.md](DESIGN-STORAGE.md), section 10). Without a database a queued review is lost
+with the process, and a later event on the pull request, or a redelivery, triggers a fresh one.
+
+The same endpoint receives `installation` and `installation_repositories` events and cleans up
+when the app is uninstalled, suspended or loses a repository (DESIGN-STORAGE.md, section 12).
 
 When a review fails, its delivery ID is forgotten. GitHub's "Redeliver" reuses the delivery ID, so
 this is what allows a failed review to be run again instead of being dropped as a duplicate.

@@ -1,13 +1,21 @@
 import {
   isRateLimitError,
+  parseInstallationEvent,
   parsePullRequestEvent,
   verifyWebhookSignature,
+  type ReviewTrigger,
 } from "@pr-buddy/github-client";
 import express, { type RequestHandler, type Router } from "express";
 import { describeError, type Logger } from "../../logger.js";
-import type { ReviewQueue } from "../reviews/review-queue.js";
+import {
+  createForgetfulPendingReviewStore,
+  type PendingReview,
+  type PendingReviewStore,
+} from "../reviews/pending-review-store.js";
+import type { EnqueueResult, ReviewQueue } from "../reviews/review-queue.js";
 import type { ReviewService } from "../reviews/review.service.js";
 import type { DeliveryStore } from "./delivery-store.js";
+import { createIdleInstallationStore, type InstallationStore } from "./installation-store.js";
 
 /** Pull request events are tens of kilobytes; anything near this limit is not one. */
 export const MAX_WEBHOOK_BODY_BYTES = 1_024 * 1_024;
@@ -21,6 +29,45 @@ export interface WebhookRouterDependencies {
   readonly reviewQueue: ReviewQueue;
   readonly reviewService: ReviewService;
   readonly logger: Logger;
+  /** Remembers requested reviews across restarts. Defaults to remembering nothing. */
+  readonly pendingReviewStore?: PendingReviewStore;
+  /** Cleans up when the app is uninstalled or suspended. Defaults to doing nothing. */
+  readonly installationStore?: InstallationStore;
+}
+
+const INSTALLATION_EVENTS = new Set(["installation", "installation_repositories"]);
+
+export interface ReviewDispatchDependencies {
+  readonly reviewQueue: ReviewQueue;
+  readonly reviewService: ReviewService;
+  readonly pendingReviewStore: PendingReviewStore;
+}
+
+/**
+ * Puts a requested review on the queue. When it finishes its record is forgotten; when it fails
+ * the failure is counted, `onFailure` runs, and the error goes on to the queue's error handler.
+ */
+export function dispatchReview(
+  dependencies: ReviewDispatchDependencies,
+  pending: PendingReview,
+  onFailure: () => Promise<void> = () => Promise.resolve(),
+): EnqueueResult {
+  const { reviewQueue, reviewService, pendingReviewStore } = dependencies;
+  const { trigger } = pending;
+  return reviewQueue.enqueue(reviewKeyOf(trigger), async () => {
+    try {
+      await reviewService.review(trigger);
+    } catch (error) {
+      await pendingReviewStore.recordFailure(pending);
+      await onFailure();
+      throw error;
+    }
+    await pendingReviewStore.complete(pending);
+  });
+}
+
+function reviewKeyOf(trigger: ReviewTrigger): string {
+  return `${trigger.repository.id}#${trigger.pullRequestNumber}`;
 }
 
 function parseJson(body: Buffer): { ok: true; value: unknown } | { ok: false } {
@@ -37,6 +84,9 @@ function parseJson(body: Buffer): { ok: true; value: unknown } | { ok: false } {
  */
 export function createWebhookRouter(dependencies: WebhookRouterDependencies): Router {
   const { webhookSecret, deliveryStore, reviewQueue, reviewService, logger } = dependencies;
+  const pendingReviewStore = dependencies.pendingReviewStore ?? createForgetfulPendingReviewStore();
+  const installationStore = dependencies.installationStore ?? createIdleInstallationStore();
+  const dispatch = { reviewQueue, reviewService, pendingReviewStore };
 
   const handleWebhook: RequestHandler = async (request, response) => {
     const rawBody: unknown = request.body;
@@ -56,6 +106,22 @@ export function createWebhookRouter(dependencies: WebhookRouterDependencies): Ro
     const event = request.get("x-github-event");
     if (event === "ping") {
       response.status(200).json({ status: "pong" });
+      return;
+    }
+    if (event !== undefined && INSTALLATION_EVENTS.has(event)) {
+      const body = parseJson(rawBody);
+      const change = parseInstallationEvent(event, body.ok ? body.value : undefined);
+      if (change.kind === "ignored") {
+        response.status(202).json({ status: "ignored", reason: "unsupported-action" });
+        return;
+      }
+      // Applying a change twice removes nothing more, so a redelivery needs no special care.
+      const cleanup = await installationStore.apply(change);
+      logger.info(
+        { deliveryId, change: change.kind, installationId: change.installationId, ...cleanup },
+        "Installation changed",
+      );
+      response.status(200).json({ status: "applied" });
       return;
     }
     if (event !== "pull_request") {
@@ -81,19 +147,17 @@ export function createWebhookRouter(dependencies: WebhookRouterDependencies): Ro
     }
 
     const { trigger } = parsed;
-    const key = `${trigger.repository.id}#${trigger.pullRequestNumber}`;
-    const result = reviewQueue.enqueue(key, async () => {
-      try {
-        await reviewService.review(trigger);
-      } catch (error) {
-        // GitHub's "Redeliver" reuses the delivery ID. Forgetting it here is what lets a failed
-        // review, for example one that hit a rate limit, be run again by redelivering.
-        await deliveryStore.release(deliveryId);
-        throw error;
-      }
-    });
+    // Written before the request is acknowledged: from here on a restart cannot lose the review.
+    const pending = { trigger, generation: await pendingReviewStore.add(trigger) };
+    const result = dispatchReview(dispatch, pending, () =>
+      // GitHub's "Redeliver" reuses the delivery ID. Forgetting it here is what lets a failed
+      // review, for example one that hit a rate limit, be run again by redelivering.
+      deliveryStore.release(deliveryId),
+    );
     if (result === "rejected") {
-      // Forget the delivery so that GitHub's "Redeliver" can succeed once there is room.
+      // Forget the request and the delivery, so that GitHub's "Redeliver" can succeed once
+      // there is room.
+      await pendingReviewStore.complete(pending);
       await deliveryStore.release(deliveryId);
       logger.warn({ deliveryId }, "Webhook rejected: review queue is full");
       response.status(503).json({ error: "queue_full" });
@@ -135,4 +199,28 @@ export function createReviewErrorLogger(logger: Logger): (error: unknown, key: s
       rateLimited ? "Review abandoned: GitHub rate limit" : "Review failed",
     );
   };
+}
+
+/**
+ * Queues the reviews that were requested before the service last stopped and never finished.
+ * Called once at start-up. Returns how many were queued.
+ */
+export async function recoverPendingReviews(
+  dependencies: ReviewDispatchDependencies & { readonly logger: Logger },
+): Promise<number> {
+  const pending = await dependencies.pendingReviewStore.takeRecoverable();
+  let queued = 0;
+  for (const review of pending) {
+    // One that does not fit stays in the table and is picked up at the next start.
+    if (dispatchReview(dependencies, review) !== "rejected") {
+      queued += 1;
+    }
+  }
+  if (pending.length > 0) {
+    dependencies.logger.info(
+      { found: pending.length, queued },
+      "Recovered reviews that were requested before the last stop",
+    );
+  }
+  return queued;
 }

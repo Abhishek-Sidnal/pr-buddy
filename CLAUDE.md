@@ -105,7 +105,7 @@ or updates the comment.
 
 ## Invariants
 
-These are design decisions with reasons recorded in `docs/BRAIN.md` (D-001 to D-065). Read the
+These are design decisions with reasons recorded in `docs/BRAIN.md` (D-001 to D-069). Read the
 relevant entry before changing one.
 
 - A webhook body is only a trigger. What gets reviewed is fetched from the API.
@@ -149,6 +149,12 @@ relevant entry before changing one.
   files in `apps/api/migrations`; an applied migration is never edited.
 - The service must keep working without `DATABASE_URL` (D-030), and a storage failure must never
   fail a review whose comment is already posted (D-034).
+- A review request is written to `pending_reviews` before its webhook is acknowledged and
+  deleted only by the review of the same generation (D-066). Recovery is bounded: three attempts,
+  one day (D-067). Rows hold identifiers only.
+- Uninstalling the app deletes that installation's history and sessions; every such statement
+  is limited to the installation the signed event names (D-069). Reviews are deleted after
+  `REVIEW_RETENTION_DAYS` (D-068).
 - Sizes and timeouts are named constants (`review-engine/src/limits.ts`), not literals.
 - No empty scaffolding: a folder is created when its milestone starts.
 

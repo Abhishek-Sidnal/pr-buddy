@@ -213,20 +213,29 @@ Design: [DESIGN-DASHBOARD.md](DESIGN-DASHBOARD.md).
 Guide: [DEPLOYMENT.md](DEPLOYMENT.md). The controls marked "example stack" are in `deploy/`; a
 deployment built another way has to provide its own.
 
-| #   | Threat                                                         | Control                                                                                                | Where                                          |
-| --- | -------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------ | ---------------------------------------------- |
-| P1  | Traffic is read or changed in transit                          | The example stack serves HTTPS only; port 80 redirects. `PUBLIC_URL` must be HTTPS except on localhost | `deploy/Caddyfile`, `config/env.ts`            |
-| P2  | A browser is downgraded to HTTP later                          | Over an HTTPS address every response carries `Strict-Transport-Security` for a year                    | `api/app.ts`                                   |
-| P3  | The API or the database is reached around the proxy            | In the example stack neither publishes a port; only the proxy does                                     | `deploy/compose.yaml`                          |
-| P4  | A deployment runs with a known database password               | The example stack has no default and refuses to start without one                                      | `deploy/compose.yaml`                          |
-| P5  | A visitor escapes the rate limit by forging `X-Forwarded-For`  | The proxy replaces the header; the API trusts exactly the configured number of proxies                 | `deploy/compose.yaml`, `api/app.ts`            |
-| P6  | Every visitor shares one rate limit, or the wrong one is used  | The service warns at start-up when the address is HTTPS and no proxy is trusted                        | `config/env.ts`, `api/main.ts`                 |
-| P7  | A compromised API container changes itself or gains privileges | Unprivileged user, read-only file system, all capabilities dropped, no new privileges                  | `docker/api.Dockerfile`, `deploy/compose.yaml` |
-| P8  | An oversized request ties up the service                       | The proxy refuses bodies over 2 MB; the API refuses webhook bodies over 1 MB                           | `deploy/Caddyfile`, `webhook.router.ts`        |
+| #   | Threat                                                          | Control                                                                                                                                         | Where                                          |
+| --- | --------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------- |
+| P1  | Traffic is read or changed in transit                           | The example stack serves HTTPS only; port 80 redirects. `PUBLIC_URL` must be HTTPS except on localhost                                          | `deploy/Caddyfile`, `config/env.ts`            |
+| P2  | A browser is downgraded to HTTP later                           | Over an HTTPS address every response carries `Strict-Transport-Security` for a year                                                             | `api/app.ts`                                   |
+| P3  | The API or the database is reached around the proxy             | In the example stack neither publishes a port; only the proxy does                                                                              | `deploy/compose.yaml`                          |
+| P4  | A deployment runs with a known database password                | The example stack has no default and refuses to start without one                                                                               | `deploy/compose.yaml`                          |
+| P5  | A visitor escapes the rate limit by forging `X-Forwarded-For`   | The proxy replaces the header; the API trusts exactly the configured number of proxies                                                          | `deploy/compose.yaml`, `api/app.ts`            |
+| P6  | Every visitor shares one rate limit, or the wrong one is used   | The service warns at start-up when the address is HTTPS and no proxy is trusted                                                                 | `config/env.ts`, `api/main.ts`                 |
+| P7  | A compromised API container changes itself or gains privileges  | Unprivileged user, read-only file system, all capabilities dropped, no new privileges                                                           | `docker/api.Dockerfile`, `deploy/compose.yaml` |
+| P8  | An oversized request ties up the service                        | The proxy refuses bodies over 2 MB; the API refuses webhook bodies over 1 MB                                                                    | `deploy/Caddyfile`, `webhook.router.ts`        |
+| P9  | A restart silently drops reviews that were already acknowledged | Requests are stored before the webhook is acknowledged and recovered at start-up, at most three times within a day                              | `api/modules/reviews/pending-review-store.ts`  |
+| P10 | History grows without limit and outlives its use                | Reviews are deleted after a configurable number of days, 365 by default                                                                         | `api/modules/reviews/retention.ts`             |
+| P11 | Data stays behind after the app is uninstalled                  | The signed uninstall event deletes that installation's history and sessions; suspension ends its sessions                                       | `api/modules/github/installation-store.ts`     |
+| P12 | A forged or replayed installation event deletes data            | The event passes the same signature check as every webhook; deletion is limited to the installation it names; applying it twice changes nothing | `webhook.router.ts`, `installation-store.ts`   |
 
 ### Known limits
 
 - **One machine, no redundancy.** An outage loses webhooks until they are redelivered.
+- **Recovery is at-least-once and for one instance.** A review interrupted after it published
+  runs again and updates the same comment. Two instances would each recover the same requests.
+- **A person removed from an organisation keeps dashboard access until their session ends.**
+  GitHub does not send the app an event for that; only uninstall, suspension and repository
+  removal end access at once.
 - **Backups are manual.** The guide gives the commands; nothing schedules them.
 - **The database connection inside the stack is unencrypted.** It never leaves the stack's
   private network. The service warns if `sslmode=disable` is used anywhere.

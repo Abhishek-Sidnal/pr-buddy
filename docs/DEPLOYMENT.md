@@ -35,6 +35,7 @@ Fill in `deploy/.env`. It is ignored by git; keep it readable by you alone.
 | `GITHUB_APP_ID`         | From the app's settings                                                                  |
 | `GITHUB_PRIVATE_KEY`    | The private key on one line, with `\n` for each line break                               |
 | `GITHUB_WEBHOOK_SECRET` | The secret you gave the app                                                              |
+| `REVIEW_RETENTION_DAYS` | Optional. Days to keep reviews; 365 by default, `0` for ever                             |
 
 For the dashboard, also set `GITHUB_CLIENT_ID`, `GITHUB_CLIENT_SECRET` and
 `PUBLIC_URL=https://<SITE_ADDRESS>`: all three, or none. For AI review, add the provider's
@@ -84,8 +85,13 @@ docker compose -f deploy/compose.yaml --env-file deploy/.env up -d --build
 Database changes are applied by the API when it starts, in one transaction, and are never edited
 after release. Back up first (section 6): there is no automatic way back to an older schema.
 
-Reviews that are waiting or running when the API stops are given 25 seconds to finish. GitHub
-can redeliver a webhook that was lost; see "Recent Deliveries" in the app's settings.
+Reviews that are running when the API stops are given 25 seconds to finish. Any that were
+requested and did not finish are run again at the next start, at most three times and within a
+day of the request.
+
+**Retention.** Reviews older than `REVIEW_RETENTION_DAYS` (default 365) are deleted at start-up
+and daily. A version that introduces or shortens the limit deletes at its first start: set the
+variable before upgrading if you want to keep older reviews. `0` keeps everything.
 
 ## 6. Back up and restore
 
@@ -137,7 +143,7 @@ set-up for those.
 ## 9. Limits of this example
 
 - One machine. If it is down, webhooks are missed until GitHub's deliveries are redelivered.
-- Reviews waiting in the queue are lost on restart.
+- One instance. Requested reviews survive a restart, but two instances would not share work.
 - No metrics or alerting. The log is JSON, one object per line; collect it with whatever you use.
 - Backups are a command to run, not a schedule.
 - The database connection is unencrypted, which is safe only because it never leaves the stack's

@@ -17,9 +17,20 @@ import {
   type DeliveryStore,
 } from "./modules/github/delivery-store.js";
 import { createPostgresDeliveryStore } from "./modules/github/postgres-delivery-store.js";
-import { createReviewErrorLogger } from "./modules/github/webhook.router.js";
+import {
+  createIdleInstallationStore,
+  createPostgresInstallationStore,
+  type InstallationStore,
+} from "./modules/github/installation-store.js";
+import { createReviewErrorLogger, recoverPendingReviews } from "./modules/github/webhook.router.js";
 import { createPostgresHistoryStore } from "./modules/history/postgres-history-store.js";
+import {
+  createForgetfulPendingReviewStore,
+  createPostgresPendingReviewStore,
+  type PendingReviewStore,
+} from "./modules/reviews/pending-review-store.js";
 import { createPostgresReviewStore } from "./modules/reviews/postgres-review-store.js";
+import { deleteExpiredData } from "./modules/reviews/retention.js";
 import { createReviewQueue } from "./modules/reviews/review-queue.js";
 import { createDiscardingReviewStore, type ReviewStore } from "./modules/reviews/review-store.js";
 import { createReviewService } from "./modules/reviews/review.service.js";
@@ -31,6 +42,8 @@ const AUTH_RATE_LIMIT = 30;
 const API_RATE_LIMIT = 300;
 /** The built web application, next to the API in the image: apps/web/dist. */
 const WEB_ROOT = fileURLToPath(new URL("../../web/dist", import.meta.url));
+/** How often data past its keeping time is deleted. */
+const RETENTION_INTERVAL_MS = 24 * 60 * 60 * 1_000;
 
 function loadConfigOrExit(): AppConfig {
   try {
@@ -49,6 +62,8 @@ interface Storage {
   readonly database?: Database;
   readonly deliveryStore: DeliveryStore;
   readonly reviewStore: ReviewStore;
+  readonly pendingReviewStore: PendingReviewStore;
+  readonly installationStore: InstallationStore;
 }
 
 /** Connects to the database and brings its schema up to date, or falls back to memory. */
@@ -58,6 +73,8 @@ async function openStorage(config: AppConfig, logger: Logger): Promise<Storage> 
     return {
       deliveryStore: createInMemoryDeliveryStore(),
       reviewStore: createDiscardingReviewStore(),
+      pendingReviewStore: createForgetfulPendingReviewStore(),
+      installationStore: createIdleInstallationStore(),
     };
   }
 
@@ -74,6 +91,8 @@ async function openStorage(config: AppConfig, logger: Logger): Promise<Storage> 
     database,
     deliveryStore: createPostgresDeliveryStore(database),
     reviewStore: createPostgresReviewStore(database),
+    pendingReviewStore: createPostgresPendingReviewStore(database),
+    installationStore: createPostgresInstallationStore(database),
   };
 }
 
@@ -136,18 +155,22 @@ const reviewQueue = createReviewQueue({
   onError: createReviewErrorLogger(logger),
 });
 
+const reviewService = createReviewService({
+  clientFactory: createRepositoryClientFactory({
+    credentials: { appId: config.github.appId, privateKey: config.github.privateKey },
+  }),
+  logger,
+  reviewStore: storage.reviewStore,
+  ...(aiReviewer === undefined ? {} : { aiReviewer }),
+});
+
 const app = createApp({
   webhookSecret: config.github.webhookSecret,
   deliveryStore: storage.deliveryStore,
+  pendingReviewStore: storage.pendingReviewStore,
+  installationStore: storage.installationStore,
   reviewQueue,
-  reviewService: createReviewService({
-    clientFactory: createRepositoryClientFactory({
-      credentials: { appId: config.github.appId, privateKey: config.github.privateKey },
-    }),
-    logger,
-    reviewStore: storage.reviewStore,
-    ...(aiReviewer === undefined ? {} : { aiReviewer }),
-  }),
+  reviewService,
   logger,
   trustProxy: config.trustProxy,
   webhookRateLimit: config.webhookRateLimit,
@@ -158,6 +181,34 @@ const app = createApp({
 const server = app.listen(config.port, () => {
   logger.info({ port: config.port }, "PR Buddy API is listening");
 });
+
+// Reviews that were requested before the last stop and never finished are picked up again. A
+// failure here is logged and start-up continues: new webhooks must still be served.
+void recoverPendingReviews({
+  reviewQueue,
+  reviewService,
+  pendingReviewStore: storage.pendingReviewStore,
+  logger,
+}).catch((error: unknown) => {
+  logger.error(describeError(error), "Pending reviews could not be recovered");
+});
+
+/** Deletes data past its keeping time. Runs beside the service and never stops it. */
+function runRetention(): void {
+  if (database === undefined) {
+    return;
+  }
+  deleteExpiredData(database, { retentionDays: config.reviewRetentionDays }).then(
+    (result) => {
+      logger.info({ retentionDays: config.reviewRetentionDays, ...result }, "Retention ran");
+    },
+    (error: unknown) => {
+      logger.error(describeError(error), "Retention failed");
+    },
+  );
+}
+runRetention();
+setInterval(runRetention, RETENTION_INTERVAL_MS).unref();
 
 let isShuttingDown = false;
 

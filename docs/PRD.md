@@ -338,6 +338,25 @@ Until now the service has only run on `http://localhost`. Guide: [DEPLOYMENT.md]
 
 Out of scope: Kubernetes manifests, managed-database set-up, high availability, metrics.
 
+### Part 2 — data lifecycle and recovery
+
+What the service remembers, for how long, and what happens to work in progress when it stops.
+Prompted in part by an external review of Milestone 3. Design:
+[DESIGN-STORAGE.md](DESIGN-STORAGE.md), sections 10 to 12.
+
+| ID     | Requirement                                                                                              |
+| ------ | -------------------------------------------------------------------------------------------------------- |
+| FR-83  | A review that was requested but not finished when the service stopped is run after it starts again.      |
+| FR-84  | Reviews older than a configurable number of days are deleted. The default is 365; 0 keeps them forever.  |
+| FR-85  | When the app is uninstalled, that installation's stored history and sessions are deleted.                |
+| FR-86  | When an installation is suspended, or a repository is removed from it, access to that data ends at once. |
+| NFR-84 | Recovery is bounded: a review is retried at most three times and only within a day of being requested.   |
+| NFR-85 | Recovery, retention and installation changes need the database; without one the service runs as before.  |
+| NFR-86 | Deleting old reviews happens in batches and never blocks start-up or a review.                           |
+
+Out of scope: a queue shared by several instances, exactly-once delivery, per-repository
+retention, exporting data before deletion.
+
 ## 7. Success metrics (from M2 onward)
 
 These cannot be measured until PR Buddy reviews real pull requests.
