@@ -196,21 +196,17 @@ describe("the PostgreSQL review store", () => {
       await rows(
         "SELECT rule_id, rule_version, status, finding_count FROM rule_executions ORDER BY rule_id",
       ),
-    ).toEqual([
-      {
-        rule_id: "max-changed-files",
-        rule_version: "1.0.0",
-        status: "completed",
-        finding_count: 0,
-      },
-      {
-        rule_id: "missing-test-changes",
-        rule_version: "1.0.0",
-        status: "completed",
-        finding_count: 1,
-      },
-      { rule_id: "pr-description", rule_version: "1.0.0", status: "completed", finding_count: 1 },
-    ]);
+    ).toEqual(
+      result.rules
+        .map((rule) => ({
+          rule_id: rule.ruleId,
+          rule_version: rule.ruleVersion,
+          status: rule.status,
+          finding_count: rule.findingCount,
+        }))
+        .sort((a, b) => (a.rule_id < b.rule_id ? -1 : 1)),
+    );
+    expect(result.rules).toHaveLength(7);
     expect(
       await rows(
         "SELECT position, rule_id, severity, confidence, message, evidence FROM findings ORDER BY position",
@@ -225,6 +221,26 @@ describe("the PostgreSQL review store", () => {
         evidence: finding.evidence,
       })),
     );
+  });
+
+  it("records how many findings the thresholds hid", async () => {
+    const result = { ...(await realResult()), suppressedFindingCount: 3 };
+
+    await store.save(
+      buildRecord({
+        outcome: {
+          status: "completed",
+          comment: "created",
+          skippedFileCount: 0,
+          omittedPatchCount: 0,
+          result,
+        },
+      }),
+    );
+
+    expect(await rows("SELECT suppressed_finding_count FROM reviews")).toEqual([
+      { suppressed_finding_count: 3 },
+    ]);
   });
 
   it("records a finding's location and suggestion", async () => {

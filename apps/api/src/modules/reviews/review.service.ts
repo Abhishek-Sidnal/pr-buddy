@@ -1,4 +1,5 @@
 import {
+  publishInlineComments,
   publishReviewSummary,
   renderReviewSummary,
   REVIEW_FILE_LIMITS,
@@ -154,11 +155,31 @@ export function createReviewService(dependencies: ReviewServiceDependencies): Re
       createIfMissing: result.findings.length > 0 || configurationIssues.length > 0,
     });
 
+    // The summary above is the record of the review. Comments on lines are an extra: if they
+    // cannot be posted, the review still stands and the reason is logged.
+    let lineComments = { created: 0, deleted: 0 };
+    try {
+      lineComments = await publishInlineComments(
+        client,
+        pullRequestNumber,
+        pullRequest.headSha,
+        result.findings,
+      );
+    } catch (error) {
+      logger.warn(
+        { ...logFields, ...describeError(error) },
+        "Line comments could not be published",
+      );
+    }
+
     logger.info(
       {
         ...logFields,
         headSha: pullRequest.headSha,
         findingCount: result.findings.length,
+        suppressedFindingCount: result.suppressedFindingCount,
+        lineCommentsCreated: lineComments.created,
+        lineCommentsDeleted: lineComments.deleted,
         failedRuleCount: result.rules.filter((rule) => rule.status === "failed").length,
         skippedFileCount,
         omittedPatchCount,

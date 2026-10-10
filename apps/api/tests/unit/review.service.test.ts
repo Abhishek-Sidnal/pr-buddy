@@ -344,7 +344,7 @@ describe("unusual diffs", () => {
       {
         path: "src/feature.ts",
         status: "modified",
-        additions: 90_000,
+        additions: 900,
         deletions: 0,
         patchOmitted: true,
       },
@@ -437,6 +437,9 @@ describe("logging", () => {
           pullRequestNumber: 7,
           headSha: HEAD_SHA,
           findingCount: 2,
+          suppressedFindingCount: 0,
+          lineCommentsCreated: 0,
+          lineCommentsDeleted: 0,
           failedRuleCount: 0,
           skippedFileCount: 0,
           omittedPatchCount: 0,

@@ -3,13 +3,19 @@
 The deterministic rules built into `@pr-buddy/review-engine`. Every rule can be disabled, given a
 different severity and configured; see [Configuration](#configuration).
 
-| Rule                                            | Reports                                                | Default severity |
-| ----------------------------------------------- | ------------------------------------------------------ | ---------------- |
-| [`pr-description`](#pr-description)             | A missing or very short description                    | low              |
-| [`max-changed-files`](#max-changed-files)       | More changed files than the configured maximum         | medium           |
-| [`missing-test-changes`](#missing-test-changes) | Source files edited without any test file being edited | low              |
+| Rule                                                | Reports                                                    | Default severity |
+| --------------------------------------------------- | ---------------------------------------------------------- | ---------------- |
+| [`pr-description`](#pr-description)                 | A missing or very short description                        | low              |
+| [`max-changed-files`](#max-changed-files)           | More changed files than the configured maximum             | medium           |
+| [`missing-test-changes`](#missing-test-changes)     | Source files edited without any test file being edited     | low              |
+| [`max-changed-lines`](#max-changed-lines)           | More added and removed lines than the configured maximum   | medium           |
+| [`debug-statements`](#debug-statements)             | `console.log`, `debugger` and similar on added lines       | low              |
+| [`credential-files`](#credential-files)             | Files whose names say they usually hold credentials        | high             |
+| [`sensitive-file-changes`](#sensitive-file-changes) | Changes to files that control builds, deployment or review | medium           |
 
-None of these rules points at a file or line: each describes the pull request as a whole.
+`debug-statements` points at the line of each statement and `credential-files` at each file. On
+GitHub, a finding with a line is also posted as a comment on that line. The other rules describe
+the pull request as a whole.
 
 ## Configuration
 
@@ -33,6 +39,28 @@ None of these rules points at a file or line: each describes the pull request as
 
 Unknown rule IDs, unknown fields and invalid option values are errors. A complete example is in
 [`examples/prbuddy.config.json`](../examples/prbuddy.config.json).
+
+### Reporting thresholds
+
+A repository can hide findings it does not want to see:
+
+```json
+{
+  "report": {
+    "minSeverity": "medium",
+    "minConfidence": 0.7
+  }
+}
+```
+
+| Field           | Values                                      | Default | Meaning                                |
+| --------------- | ------------------------------------------- | ------- | -------------------------------------- |
+| `minSeverity`   | `"low"`, `"medium"`, `"high"`, `"critical"` | `"low"` | Findings less severe are not reported  |
+| `minConfidence` | 0 to 1                                      | `0`     | Findings less certain are not reported |
+
+Both limits are inclusive. Rules still run; only reporting changes. The comment states how many
+findings were hidden, so a reader can tell that something was left out. A severity set for a rule
+in `rules` is applied before the threshold.
 
 ### Glob patterns
 
@@ -136,6 +164,84 @@ Setting an option replaces its default list.
 
 **Limitations.** The rule looks at file names only. It cannot tell whether an edited test
 exercises the edited source, and one edited test file silences it for the whole pull request.
+
+## max-changed-lines
+
+Reports a pull request that adds and removes more lines than the configured maximum. It
+complements `max-changed-files`: one file with two thousand changed lines is as hard to review as
+forty small edits.
+
+**How it decides.** The added and removed lines of every changed file are summed, leaving out
+files that match an `exclude` pattern.
+
+| Option     | Type               | Default                   | Meaning                                 |
+| ---------- | ------------------ | ------------------------- | --------------------------------------- |
+| `maxLines` | integer, 1 or more | `1000`                    | Largest line count that is not reported |
+| `exclude`  | glob patterns      | package-manager lockfiles | Files whose lines do not count          |
+
+**Limitations.** Line counts come from GitHub and include moved code and reformatting.
+
+## debug-statements
+
+Reports debugging statements on lines a pull request adds, and points at each line.
+
+**How it decides.** For each added line of a checked file, it looks for a call to one of the
+configured `console` methods, or a `debugger` statement on a line of its own. Lines that start as
+a comment, and lines longer than 1,000 characters, are skipped. Lines that were only moved or
+left unchanged are not looked at.
+
+| Option           | Type          | Default                                 | Meaning                        |
+| ---------------- | ------------- | --------------------------------------- | ------------------------------ |
+| `consoleMethods` | method names  | `log`, `debug`, `trace`, `table`, `dir` | `console` methods that count   |
+| `include`        | glob patterns | JavaScript and TypeScript files         | Files that are checked         |
+| `exclude`        | glob patterns | test files                              | Files that are not checked     |
+| `maxFindings`    | integer, 1–50 | `10`                                    | Statements reported one by one |
+
+`console.warn` and `console.error` are not reported by default. Statements beyond `maxFindings`
+are counted in one further finding.
+
+**Confidence 0.9.** The rule matches text. A `console.log(` inside a string or a template would
+be reported too.
+
+**The line is not quoted.** The finding names the statement and its location. Findings are stored
+and published; source code is not.
+
+**Limitations.** JavaScript and TypeScript only. A command-line tool that prints with
+`console.log` on purpose will be reported: exclude its files or change `consoleMethods`.
+
+## credential-files
+
+Reports added or edited files whose names say they usually hold credentials.
+
+**How it decides.** A file that still exists after the change is reported if its path matches one
+of `patterns` and none of `allow`. Only the name is checked. Removing such a file is not reported.
+
+| Option        | Type          | Default                                                                                                                                                       |
+| ------------- | ------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `patterns`    | glob patterns | `.env`, `.env.*`, `*.pem`, `*.key`, `*.p12`, `*.pfx`, `*.jks`, `*.keystore`, `id_rsa`, `id_dsa`, `id_ecdsa`, `id_ed25519`, `.netrc`, `.pgpass`, in any folder |
+| `allow`       | glob patterns | `.env.example`, `.env.sample`, `.env.template`, `.env.dist`                                                                                                   |
+| `maxFindings` | integer, 1–50 | `10`                                                                                                                                                          |
+
+**Confidence 0.8.** A name suggests what a file holds; it does not prove it.
+
+**Limitations.** This is not a secret scanner. It does not read file contents, so a key pasted
+into source code is not found, and a harmless file with an alarming name is reported. Use a
+dedicated secret scanner alongside it.
+
+## sensitive-file-changes
+
+Reports changes to files that control how the project is built, deployed, installed or reviewed.
+It states a fact, that these files changed; whether the change is right is for a person to judge.
+
+**How it decides.** Any changed file, including a removed one, that matches `patterns`. All
+matches are reported together in one finding.
+
+| Option     | Type                        | Default                                                                                                                         |
+| ---------- | --------------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
+| `patterns` | glob patterns, at least one | CI workflows and actions under `.github`, `dependabot.yml`, `pr-buddy.json`, `CODEOWNERS`, Dockerfiles, Compose files, `.npmrc` |
+
+**Limitations.** The list is a starting point. Add your own infrastructure files, such as
+Terraform or Kubernetes manifests.
 
 ## Writing a rule
 

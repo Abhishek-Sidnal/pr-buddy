@@ -6,6 +6,7 @@ import type {
   RepositoryClient,
   RepositoryClientFactory,
   RepositoryTarget,
+  ReviewComment,
 } from "./repository-client.js";
 import { DEFAULT_RETRY, withRetry, type RetryOptions } from "./retry.js";
 
@@ -45,6 +46,7 @@ function createRepositoryClient(
   target: RepositoryTarget,
   appId: number,
   retry: RetryOptions,
+  getBotLogin: () => Promise<string>,
 ): RepositoryClient {
   const { owner, repo } = target;
   const call = <T>(operation: () => Promise<T>): Promise<T> => withRetry(operation, retry);
@@ -166,6 +168,51 @@ function createRepositoryClient(
         octokit.rest.issues.updateComment({ owner, repo, comment_id: commentId, body }),
       );
     },
+
+    async listOwnReviewComments(pullRequestNumber) {
+      const login = await getBotLogin();
+      const own: ReviewComment[] = [];
+      for (let page = 1; page <= MAX_COMMENT_PAGES; page += 1) {
+        const { data } = await call(() =>
+          octokit.rest.pulls.listReviewComments({
+            owner,
+            repo,
+            pull_number: pullRequestNumber,
+            per_page: PAGE_SIZE,
+            page,
+          }),
+        );
+        for (const comment of data) {
+          if (comment.user.login === login) {
+            own.push({ id: comment.id, body: comment.body });
+          }
+        }
+        if (data.length < PAGE_SIZE) {
+          break;
+        }
+      }
+      return own;
+    },
+
+    async createReviewWithComments(pullRequestNumber, commitId, comments) {
+      await call(() =>
+        octokit.rest.pulls.createReview({
+          owner,
+          repo,
+          pull_number: pullRequestNumber,
+          commit_id: commitId,
+          event: "COMMENT",
+          // RIGHT is the file after the change, the only side a finding points at.
+          comments: comments.map((comment) => ({ ...comment, side: "RIGHT" })),
+        }),
+      );
+    },
+
+    async deleteReviewComment(commentId) {
+      await call(() =>
+        octokit.rest.pulls.deleteReviewComment({ owner, repo, comment_id: commentId }),
+      );
+    },
   };
 }
 
@@ -195,6 +242,31 @@ export function createRepositoryClientFactory(
     return octokit;
   }
 
+  // Review comments do not say which app wrote them, only which user. An app acts as the user
+  // "<slug>[bot]", so its slug is looked up once, authenticated as the app itself.
+  let botLogin: Promise<string> | undefined;
+  function getBotLogin(): Promise<string> {
+    botLogin ??= withRetry(async () => {
+      const appOctokit = new Octokit({
+        authStrategy: createAppAuth,
+        auth: { appId, privateKey },
+        userAgent: "pr-buddy",
+        log: SILENT_LOG,
+        ...(options.fetch === undefined ? {} : { request: { fetch: options.fetch } }),
+      });
+      const { data } = await appOctokit.rest.apps.getAuthenticated();
+      if (data === null) {
+        throw new Error("GitHub did not describe the app.");
+      }
+      return `${data.slug ?? data.name}[bot]`;
+    }, retry).catch((error: unknown) => {
+      // A failed lookup is not remembered, so the next review tries again.
+      botLogin = undefined;
+      throw error;
+    });
+    return botLogin;
+  }
+
   return (target) =>
-    createRepositoryClient(octokitFor(target.installationId), target, appId, retry);
+    createRepositoryClient(octokitFor(target.installationId), target, appId, retry, getBotLogin);
 }

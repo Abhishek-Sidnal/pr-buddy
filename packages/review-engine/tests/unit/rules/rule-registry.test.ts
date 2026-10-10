@@ -85,7 +85,11 @@ describe("built-in rules", () => {
     expect(registry.list().map((rule) => rule.id)).toEqual([
       "pr-description",
       "max-changed-files",
+      "max-changed-lines",
       "missing-test-changes",
+      "debug-statements",
+      "credential-files",
+      "sensitive-file-changes",
     ]);
   });
 

@@ -3,6 +3,7 @@ import { z } from "zod";
 import {
   ConfigurationError,
   createBuiltinRegistry,
+  builtinRules,
   createReviewEngine,
   defineRule,
   InvalidContextError,
@@ -50,7 +51,11 @@ describe("createReviewEngine", () => {
     expect(createReviewEngine().rules).toEqual([
       expect.objectContaining({ id: "pr-description", enabled: true, severity: "low" }),
       expect.objectContaining({ id: "max-changed-files", enabled: true, severity: "medium" }),
+      expect.objectContaining({ id: "max-changed-lines", enabled: true, severity: "medium" }),
       expect.objectContaining({ id: "missing-test-changes", enabled: true, severity: "low" }),
+      expect.objectContaining({ id: "debug-statements", enabled: true, severity: "low" }),
+      expect.objectContaining({ id: "credential-files", enabled: true, severity: "high" }),
+      expect.objectContaining({ id: "sensitive-file-changes", enabled: true, severity: "medium" }),
     ]);
   });
 
@@ -94,11 +99,8 @@ describe("review", () => {
       total: 0,
       bySeverity: { low: 0, medium: 0, high: 0, critical: 0 },
     });
-    expect(result.rules.map((rule) => rule.status)).toEqual([
-      "completed",
-      "completed",
-      "completed",
-    ]);
+    expect(result.rules.map((rule) => rule.status)).toEqual(builtinRules.map(() => "completed"));
+    expect(result.suppressedFindingCount).toBe(0);
   });
 
   it("identifies the commit that was reviewed", async () => {
@@ -515,6 +517,6 @@ describe("custom rules", () => {
         filePath: "config/production.env",
       }),
     ]);
-    expect(result.rules).toHaveLength(4);
+    expect(result.rules).toHaveLength(builtinRules.length + 1);
   });
 });

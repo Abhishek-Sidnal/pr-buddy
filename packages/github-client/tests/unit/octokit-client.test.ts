@@ -502,3 +502,100 @@ describe("comments", () => {
     });
   });
 });
+
+describe("line comments", () => {
+  const REVIEW_COMMENTS_PATH = "/repos/acme/widgets/pulls/7/comments";
+  const BOT_LOGIN = "pr-buddy-test-app[bot]";
+
+  function lineComment(id: number, login: string, body = "A comment"): Record<string, unknown> {
+    return { id, body, path: "src/a.ts", line: 3, user: { login, type: "Bot" } };
+  }
+
+  beforeEach(() => {
+    api.on("GET /app", { body: { id: APP_ID, slug: "pr-buddy-test-app", name: "PR Buddy Test" } });
+  });
+
+  it("lists only the comments this app wrote", async () => {
+    api.on(`GET ${REVIEW_COMMENTS_PATH}`, {
+      body: [
+        lineComment(1, BOT_LOGIN, "Ours"),
+        lineComment(2, "octocat", "A person's"),
+        lineComment(3, "another-app[bot]", "Another app's"),
+      ],
+    });
+
+    await expect(clientFor().listOwnReviewComments(7)).resolves.toEqual([{ id: 1, body: "Ours" }]);
+  });
+
+  it("looks up the app's own login once, authenticated as the app", async () => {
+    api.on(`GET ${REVIEW_COMMENTS_PATH}`, { body: [] });
+
+    await clientFor().listOwnReviewComments(7);
+    await clientFor(2002).listOwnReviewComments(7);
+
+    const lookups = api.requestsTo("GET /app");
+    expect(lookups).toHaveLength(1);
+    expect(lookups[0]?.authorization).toMatch(/^bearer [\w-]+\.[\w-]+\.[\w-]+$/);
+  });
+
+  it("tries the lookup again after it failed", async () => {
+    api.on(
+      "GET /app",
+      { status: 404, body: { message: "Not Found" } },
+      {
+        body: { id: APP_ID, slug: "pr-buddy-test-app", name: "PR Buddy Test" },
+      },
+    );
+    api.on(`GET ${REVIEW_COMMENTS_PATH}`, { body: [lineComment(1, BOT_LOGIN)] });
+
+    await expect(clientFor().listOwnReviewComments(7)).rejects.toMatchObject({ status: 404 });
+    await expect(clientFor().listOwnReviewComments(7)).resolves.toHaveLength(1);
+  });
+
+  it("falls back to the app's name when it has no slug", async () => {
+    api.on("GET /app", { body: { id: APP_ID, name: "nameless" } });
+    api.on(`GET ${REVIEW_COMMENTS_PATH}`, { body: [lineComment(1, "nameless[bot]")] });
+
+    await expect(clientFor().listOwnReviewComments(7)).resolves.toHaveLength(1);
+  });
+
+  it("searches later pages of comments", async () => {
+    const filler = Array.from({ length: 100 }, (_unused, index) =>
+      lineComment(index + 1, "octocat"),
+    );
+    api.on(`GET ${REVIEW_COMMENTS_PATH}`, (request) => ({
+      body: request.query.get("page") === "1" ? filler : [lineComment(500, BOT_LOGIN)],
+    }));
+
+    await expect(clientFor().listOwnReviewComments(7)).resolves.toEqual([
+      { id: 500, body: "A comment" },
+    ]);
+  });
+
+  it("posts line comments as one review on the new side of the diff", async () => {
+    api.on("POST /repos/acme/widgets/pulls/7/reviews", { body: { id: 9 } });
+
+    await clientFor().createReviewWithComments(7, "b".repeat(40), [
+      { path: "src/a.ts", line: 3, body: "First" },
+      { path: "src/b.ts", line: 8, body: "Second" },
+    ]);
+
+    expect(api.requestsTo("POST /repos/acme/widgets/pulls/7/reviews")).toHaveLength(1);
+    expect(api.requestsTo("POST /repos/acme/widgets/pulls/7/reviews")[0]?.body).toEqual({
+      commit_id: "b".repeat(40),
+      event: "COMMENT",
+      comments: [
+        { path: "src/a.ts", line: 3, body: "First", side: "RIGHT" },
+        { path: "src/b.ts", line: 8, body: "Second", side: "RIGHT" },
+      ],
+    });
+  });
+
+  it("deletes a line comment by ID", async () => {
+    api.on("DELETE /repos/acme/widgets/pulls/comments/55", { status: 200, body: {} });
+
+    await clientFor().deleteReviewComment(55);
+
+    expect(api.requestsTo("DELETE /repos/acme/widgets/pulls/comments/55")).toHaveLength(1);
+  });
+});

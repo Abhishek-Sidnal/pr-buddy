@@ -22,6 +22,7 @@ describe("parsePatch", () => {
         newStart: 10,
         newLines: 5,
         addedLines: [11, 12],
+        addedLineTexts: ["TWO", "extra"],
         contextLines: [10, 13, 14],
         isWellFormed: true,
       },

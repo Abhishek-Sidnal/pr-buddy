@@ -1,10 +1,14 @@
 import { z } from "zod";
-import { resolveRules } from "../config/resolve-config.js";
+import {
+  resolveReportThresholds,
+  resolveRules,
+  type ReportThresholds,
+} from "../config/resolve-config.js";
 import { parseReviewContext } from "../context/parse-context.js";
 import { ConfigurationError } from "../errors.js";
 import { createLocationValidator } from "../findings/finding-location.js";
 import { dedupeFindings, sortFindings } from "../findings/finding-order.js";
-import type { Severity } from "../findings/severity.js";
+import { compareSeverity, type Severity } from "../findings/severity.js";
 import { DEFAULT_RULE_TIMEOUT_MS, MAX_RULE_TIMEOUT_MS } from "../limits.js";
 import { createBuiltinRegistry } from "../rules/builtin.js";
 import type { RuleRegistry } from "../rules/rule-registry.js";
@@ -32,6 +36,8 @@ export interface ConfiguredRule {
 }
 
 export interface ReviewEngine {
+  /** The least a finding must be to be reported. */
+  readonly thresholds: ReportThresholds;
   readonly rules: readonly ConfiguredRule[];
   /**
    * Reviews one pull request. `context` is untrusted and validated first.
@@ -57,9 +63,11 @@ function parseRuleTimeout(value: number | undefined): number {
  */
 export function createReviewEngine(options: ReviewEngineOptions = {}): ReviewEngine {
   const resolvedRules = resolveRules(options.registry ?? createBuiltinRegistry(), options.config);
+  const thresholds = resolveReportThresholds(options.config);
   const ruleTimeoutMs = parseRuleTimeout(options.ruleTimeoutMs);
 
   return {
+    thresholds,
     rules: resolvedRules.map(({ rule, enabled, severityOverride }) => ({
       id: rule.id,
       version: rule.version,
@@ -79,13 +87,21 @@ export function createReviewEngine(options: ReviewEngineOptions = {}): ReviewEng
         ),
       );
 
-      const findings = sortFindings(
+      const allFindings = sortFindings(
         dedupeFindings(outcomes.flatMap((outcome) => outcome.findings)),
+      );
+      // Thresholds hide findings; they do not stop rules from running, and the count of what
+      // was hidden is reported so a reader can tell that something was left out.
+      const findings = allFindings.filter(
+        (finding) =>
+          compareSeverity(finding.severity, thresholds.minSeverity) >= 0 &&
+          finding.confidence >= thresholds.minConfidence,
       );
       const { number, baseSha, headSha } = context.pullRequest;
       return {
         pullRequest: { number, baseSha, headSha },
         findings,
+        suppressedFindingCount: allFindings.length - findings.length,
         rules: outcomes.map((outcome) => outcome.execution),
         diagnostics: outcomes.flatMap((outcome) => outcome.diagnostics),
         summary: summarizeFindings(findings),

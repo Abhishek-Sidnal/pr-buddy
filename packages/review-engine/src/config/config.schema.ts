@@ -10,7 +10,16 @@ export const ruleSettingsSchema = z.strictObject({
   options: z.record(z.string(), z.unknown()).optional(),
 });
 
+export const reportSettingsSchema = z.strictObject({
+  /** Findings less severe than this are not reported. Defaults to "low": report everything. */
+  minSeverity: severitySchema.optional(),
+  /** Findings less certain than this, from 0 to 1, are not reported. Defaults to 0. */
+  minConfidence: z.number().min(0).max(1).optional(),
+});
+
 export const engineConfigSchema = z.strictObject({
+  /** Which findings are worth reporting at all. */
+  report: reportSettingsSchema.optional(),
   /** Settings keyed by rule ID. Rules that are not listed run with their defaults. */
   rules: z.record(z.string(), ruleSettingsSchema).optional(),
 });

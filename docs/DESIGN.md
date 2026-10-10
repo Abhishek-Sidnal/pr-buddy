@@ -240,3 +240,32 @@ Defined in `src/limits.ts`.
 Fixtures in `tests/fixtures/contexts/` are shaped like normalised GitHub pull request data and
 cover added, removed, renamed, mixed and empty diffs. Builders in `tests/helpers/` create small
 contexts for unit tests.
+
+## 11. Reading added lines
+
+`getAddedLines(patch)` and `addedLinesOf(file)` return the lines a change adds, each with its
+1-based line number on the new side and its text. They read well-formed hunks only (section
+5.3), so every line they return passes location validation.
+
+A rule that reads added lines must not copy their text into a finding. A finding says what was
+found and where; the text is already visible in the diff at that location, and findings are stored
+and published while source code is not.
+
+## 12. Reporting thresholds
+
+```json
+{ "report": { "minSeverity": "medium", "minConfidence": 0.7 } }
+```
+
+| Field           | Default | Meaning                                          |
+| --------------- | ------- | ------------------------------------------------ |
+| `minSeverity`   | `"low"` | Findings less severe than this are not reported  |
+| `minConfidence` | `0`     | Findings less certain than this are not reported |
+
+Thresholds are applied after rules have run and after severities from `rules` have been resolved.
+Both are inclusive. They change what is reported, not what runs: every `RuleExecution` still
+counts what its rule found.
+
+`ReviewResult.findings` holds the findings that met the thresholds, `summary` describes those, and
+`suppressedFindingCount` says how many were left out. Integrations should show that number, so
+that a reader can tell a filtered review from a clean one.

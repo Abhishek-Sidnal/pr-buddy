@@ -40,6 +40,19 @@ export interface FileListLimits {
   readonly maxTotalPatchLength: number;
 }
 
+/** A comment on a line of a pull request. */
+export interface ReviewComment {
+  readonly id: number;
+  readonly body: string;
+}
+
+/** A comment to place on a line of the file as it is after the change. */
+export interface NewLineComment {
+  readonly path: string;
+  readonly line: number;
+  readonly body: string;
+}
+
 export type FileLookup =
   | { readonly status: "found"; readonly text: string }
   | { readonly status: "missing" }
@@ -65,6 +78,15 @@ export interface RepositoryClient {
   findOwnComment(pullRequestNumber: number, marker: string): Promise<number | undefined>;
   createComment(pullRequestNumber: number, body: string): Promise<void>;
   updateComment(commentId: number, body: string): Promise<void>;
+  /** Lists the comments this app has placed on lines of the pull request. */
+  listOwnReviewComments(pullRequestNumber: number): Promise<ReviewComment[]>;
+  /** Posts line comments as one review, so that they send one notification. */
+  createReviewWithComments(
+    pullRequestNumber: number,
+    commitId: string,
+    comments: readonly NewLineComment[],
+  ): Promise<void>;
+  deleteReviewComment(commentId: number): Promise<void>;
 }
 
 export type RepositoryClientFactory = (target: RepositoryTarget) => RepositoryClient;

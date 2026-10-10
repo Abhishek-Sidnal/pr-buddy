@@ -37,8 +37,10 @@ export interface ReviewResult {
     readonly baseSha: string;
     readonly headSha: string;
   };
-  /** Validated findings, deduplicated and ordered by severity. */
+  /** Validated findings that meet the reporting thresholds, deduplicated and ordered by severity. */
   readonly findings: readonly ReviewFinding[];
+  /** Findings that were left out because they fell below the reporting thresholds. */
+  readonly suppressedFindingCount: number;
   /** One entry per registered rule, in registration order. */
   readonly rules: readonly RuleExecution[];
   readonly diagnostics: readonly Diagnostic[];

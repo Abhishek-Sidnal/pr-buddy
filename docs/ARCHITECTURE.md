@@ -80,15 +80,15 @@ packages/review-engine/src/
 └── utils/            Small pure helpers shared by the modules above
 ```
 
-| Module     | Responsibility                                        | May import from                                    |
-| ---------- | ----------------------------------------------------- | -------------------------------------------------- |
-| `utils`    | Generic helpers: globs, freezing, timeouts, text      | `limits`                                           |
-| `context`  | Define and validate review input                      | `utils`, `limits`, `errors`                        |
-| `diff`     | Turn a patch string into hunks and line numbers       | —                                                  |
-| `findings` | Define findings; validate their locations; order them | `context`, `diff`, `utils`, `limits`               |
-| `rules`    | Rule contract, registry, built-in rules               | `context`, `findings`, `utils`, `limits`, `errors` |
-| `config`   | Validate configuration and resolve it per rule        | `rules`, `findings`, `utils`, `errors`             |
-| `engine`   | Run the pipeline                                      | all of the above                                   |
+| Module     | Responsibility                                          | May import from                                    |
+| ---------- | ------------------------------------------------------- | -------------------------------------------------- |
+| `utils`    | Generic helpers: globs, freezing, timeouts, text        | `limits`                                           |
+| `context`  | Define and validate review input; added lines of a file | `diff`, `utils`, `limits`, `errors`                |
+| `diff`     | Turn a patch string into hunks and line numbers         | —                                                  |
+| `findings` | Define findings; validate their locations; order them   | `context`, `diff`, `utils`, `limits`               |
+| `rules`    | Rule contract, registry, built-in rules                 | `context`, `findings`, `utils`, `limits`, `errors` |
+| `config`   | Validate configuration and resolve it per rule          | `rules`, `findings`, `utils`, `errors`             |
+| `engine`   | Run the pipeline                                        | all of the above                                   |
 
 The pipeline: validate input → freeze it → run each rule in isolation with a time limit →
 validate each finding → verify each location against the diff → deduplicate and order.
@@ -101,7 +101,7 @@ packages/github-client/src/
 ├── webhook/          Signature verification; pull request event parsing
 ├── api/              RepositoryClient interface; its Octokit implementation; retry
 ├── mapping/          GitHub pull request data → review engine input
-└── output/           Summary rendering as safe Markdown; comment publishing
+└── output/           Summary and line comments as safe Markdown; publishing and reconciling
 ```
 
 `RepositoryClient` is the boundary. It lists the six GitHub operations PR Buddy needs. The API

@@ -199,3 +199,32 @@ secrets are never logged.
 
 A test against the real GitHub API needs a registered app and is a manual step described in
 [GITHUB_APP.md](GITHUB_APP.md).
+
+## 11. Comments on lines
+
+A finding that has a verified file and line is posted twice: in the summary comment, which lists
+every finding, and as a comment on its line.
+
+| Step | What happens                                                                            |
+| ---- | --------------------------------------------------------------------------------------- |
+| 1    | List the line comments this app has already left on the pull request                    |
+| 2    | Give each located finding a fingerprint: a hash of its rule, file, line and message     |
+| 3    | Delete the app's comments whose fingerprint matches no current finding, and any repeats |
+| 4    | Post the findings that have no comment yet, as one review, on the reviewed commit       |
+
+Each comment carries its fingerprint in a hidden marker. A finding that already has its comment
+is left alone, so reviewing again repeats nothing. A comment without the marker is never touched,
+and neither is a comment by anyone else: the app's own comments are recognised by their author,
+`<app slug>[bot]`, which is looked up once.
+
+| Situation                     | Outcome                                                            |
+| ----------------------------- | ------------------------------------------------------------------ |
+| A push moves a flagged line   | The old comment is deleted and a new one is posted at the new line |
+| The flagged code is removed   | The comment is deleted                                             |
+| More than 20 located findings | The first 20 get line comments; all appear in the summary          |
+| Posting line comments fails   | Logged as a warning. The review and its summary stand              |
+| The review is stale           | No line comments are posted, as with the summary                   |
+
+A new comment goes out in a single review, so one review sends one notification however many
+lines it comments on. No extra GitHub permission is needed: line comments use the pull request
+permission the app already has.

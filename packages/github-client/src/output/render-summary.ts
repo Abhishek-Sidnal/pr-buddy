@@ -87,6 +87,11 @@ function renderNotes(result: ReviewResult, notes: SummaryNotes): string[] {
       `- ${capitalize(plural(notes.unlistedFileCount, "file"))} beyond the first listed by GitHub ${notes.unlistedFileCount === 1 ? "was" : "were"} not reviewed.`,
     );
   }
+  if (result.suppressedFindingCount > 0) {
+    lines.push(
+      `- ${capitalize(plural(result.suppressedFindingCount, "finding"))} below this repository's reporting thresholds ${result.suppressedFindingCount === 1 ? "is" : "are"} not shown.`,
+    );
+  }
   if (notes.omittedPatchCount > 0) {
     lines.push(
       `- The ${notes.omittedPatchCount === 1 ? "diff of 1 file was" : `diffs of ${notes.omittedPatchCount} files were`} too large to load, so only ${notes.omittedPatchCount === 1 ? "its name was" : "their names were"} checked.`,

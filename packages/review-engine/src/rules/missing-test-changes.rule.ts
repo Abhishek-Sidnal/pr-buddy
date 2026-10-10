@@ -3,24 +3,12 @@ import { hasContentChanges } from "../context/changed-file.js";
 import { MAX_EVIDENCE_VALUE_LENGTH } from "../limits.js";
 import { createPathMatcher, globListSchema } from "../utils/glob.js";
 import { pluralize, summarizeList, truncate } from "../utils/text.js";
+import {
+  SCRIPT_FILE_PATTERNS,
+  TEST_FILE_PATTERNS,
+  UNTESTED_SOURCE_PATTERNS,
+} from "./file-patterns.js";
 import { defineRule } from "./rule.js";
-
-const SCRIPT_EXTENSIONS = "{js,jsx,mjs,cjs,ts,tsx,mts,cts}";
-
-export const DEFAULT_SOURCE_PATTERNS: readonly string[] = [`**/*.${SCRIPT_EXTENSIONS}`];
-
-export const DEFAULT_TEST_PATTERNS: readonly string[] = [
-  `**/*.{test,spec}.${SCRIPT_EXTENSIONS}`,
-  "**/__tests__/**",
-  "**/{test,tests,e2e}/**",
-];
-
-/** Source-like files that are not normally covered by their own tests. */
-export const DEFAULT_IGNORE_PATTERNS: readonly string[] = [
-  "**/*.d.{ts,mts,cts}",
-  `**/*.config.${SCRIPT_EXTENSIONS}`,
-  `**/*.stories.${SCRIPT_EXTENSIONS}`,
-];
 
 /** A missing test-file change is a hint, not proof, so the finding is reported below 1. */
 const SIGNAL_CONFIDENCE = 0.6;
@@ -28,11 +16,11 @@ const MAX_LISTED_FILES = 5;
 
 const optionsSchema = z.strictObject({
   /** Files whose changes are expected to come with test changes. */
-  sourcePatterns: globListSchema.min(1).default(() => [...DEFAULT_SOURCE_PATTERNS]),
+  sourcePatterns: globListSchema.min(1).default(() => [...SCRIPT_FILE_PATTERNS]),
   /** The repository's convention for where tests live. */
-  testPatterns: globListSchema.min(1).default(() => [...DEFAULT_TEST_PATTERNS]),
+  testPatterns: globListSchema.min(1).default(() => [...TEST_FILE_PATTERNS]),
   /** Source files that are exempt, such as type declarations and tool configuration. */
-  ignorePatterns: globListSchema.default(() => [...DEFAULT_IGNORE_PATTERNS]),
+  ignorePatterns: globListSchema.default(() => [...UNTESTED_SOURCE_PATTERNS]),
 });
 
 export const missingTestChangesRule = defineRule({

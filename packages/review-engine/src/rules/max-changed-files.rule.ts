@@ -1,23 +1,14 @@
 import { z } from "zod";
 import { MAX_FILES } from "../limits.js";
 import { createPathMatcher, globListSchema } from "../utils/glob.js";
+import { LOCKFILE_PATTERNS } from "./file-patterns.js";
 import { defineRule } from "./rule.js";
-
-/** Generated lockfiles say nothing about how hard a pull request is to review. */
-export const DEFAULT_EXCLUDED_FILES: readonly string[] = [
-  "**/package-lock.json",
-  "**/npm-shrinkwrap.json",
-  "**/yarn.lock",
-  "**/pnpm-lock.yaml",
-  "**/bun.lock",
-  "**/bun.lockb",
-];
 
 const optionsSchema = z.strictObject({
   /** Largest number of changed files that is not reported. */
   maxFiles: z.number().int().min(1).max(MAX_FILES).default(30),
   /** Glob patterns of files that do not count towards the limit. */
-  exclude: globListSchema.default(() => [...DEFAULT_EXCLUDED_FILES]),
+  exclude: globListSchema.default(() => [...LOCKFILE_PATTERNS]),
 });
 
 export const maxChangedFilesRule = defineRule({

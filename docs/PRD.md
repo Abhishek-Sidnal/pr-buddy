@@ -198,6 +198,41 @@ dashboard. This section covers storage. Design: [DESIGN-STORAGE.md](DESIGN-STORA
 Reading history over HTTP, sign-in, organisations and users, retention limits, a durable job
 queue, the dashboard.
 
+## 6C. Milestone 3, part 2 — rules, thresholds and inline comments
+
+Until now every rule looked at pull request metadata and file names. This part adds rules that
+read the changed lines, a way for a repository to hide low-priority findings, and comments placed
+on the lines they are about.
+
+### Functional requirements
+
+| ID    | Requirement                                                                                         |
+| ----- | --------------------------------------------------------------------------------------------------- |
+| FR-50 | Rule `max-changed-lines` flags a pull request that changes more lines than a configured maximum.    |
+| FR-51 | Rule `debug-statements` flags debugging calls on added lines and points at each line.               |
+| FR-52 | Rule `credential-files` flags files whose names say they usually hold credentials.                  |
+| FR-53 | Rule `sensitive-file-changes` flags changes to files that control builds, deployment or review.     |
+| FR-54 | A repository can set a minimum severity and a minimum confidence; findings below either are hidden. |
+| FR-55 | The comment says how many findings were hidden by thresholds.                                       |
+| FR-56 | A finding with a verified line is also posted as a comment on that line.                            |
+| FR-57 | Reviewing again does not repeat a line comment, and removes one whose finding is gone.              |
+| FR-58 | Rules can read the text of added lines.                                                             |
+
+### Non-functional requirements
+
+| ID     | Requirement                                                                                         |
+| ------ | --------------------------------------------------------------------------------------------------- |
+| NFR-50 | No rule copies source text into a finding. Evidence names what was found and where, not the line.   |
+| NFR-51 | A rule that matches text reports a confidence below 1, because text can sit in a string or comment. |
+| NFR-52 | The number of line comments per review is bounded.                                                  |
+| NFR-53 | A failure to post line comments does not fail a review whose summary is already posted.             |
+| NFR-54 | Line matching has bounded cost for any line, including very long ones.                              |
+
+### Out of scope for this part
+
+Scanning file contents for secrets (use a dedicated scanner), languages other than JavaScript and
+TypeScript for `debug-statements`, check runs, replying to or resolving comment threads.
+
 ## 7. Success metrics (from M2 onward)
 
 These cannot be measured until PR Buddy reviews real pull requests.

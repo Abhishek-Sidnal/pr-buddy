@@ -4,7 +4,8 @@ An open-source assistant that reviews GitHub pull requests. It reports a small n
 actionable findings, shows the evidence behind each one, and leaves the merge decision to people.
 
 > **Status: Milestone 3 in progress.** The review engine and the GitHub App are implemented and
-> verified against the real GitHub API. Review history is now stored in PostgreSQL. Reading that
+> verified against the real GitHub API. Seven rules run, findings on a line are posted on that line,
+> and review history is stored in PostgreSQL. Reading that
 > history, the dashboard and optional AI review are planned. See the [tracker](docs/TRACKER.md).
 
 ## What exists today
@@ -84,11 +85,15 @@ console.log(result.findings);
 
 ### Built-in rules
 
-| Rule                   | Reports                                                |
-| ---------------------- | ------------------------------------------------------ |
-| `pr-description`       | A missing or very short description                    |
-| `max-changed-files`    | More changed files than the configured maximum         |
-| `missing-test-changes` | Source files edited without any test file being edited |
+| Rule                     | Reports                                                  |
+| ------------------------ | -------------------------------------------------------- |
+| `pr-description`         | A missing or very short description                      |
+| `max-changed-files`      | More changed files than the configured maximum           |
+| `missing-test-changes`   | Source files edited without any test file being edited   |
+| `max-changed-lines`      | More added and removed lines than the configured maximum |
+| `debug-statements`       | `console.log`, `debugger` and similar on added lines     |
+| `credential-files`       | Files whose names say they usually hold credentials      |
+| `sensitive-file-changes` | Changes to CI workflows, Dockerfiles and similar         |
 
 Options, examples and limitations of each rule are in the [rule reference](docs/RULES.md). An
 example configuration is in [examples/prbuddy.config.json](examples/prbuddy.config.json).
@@ -158,8 +163,10 @@ More detail: [architecture](docs/ARCHITECTURE.md) · [engine design](docs/DESIGN
 - Review history is recorded but there is no way to read it over HTTP yet; query the database.
 - Reviews waiting in the queue are lost when the service restarts. Without a database, so is the
   memory of webhook deliveries.
-- The summary is a single comment: there are no inline comments and no check run.
-- The built-in rules look at pull request metadata and file names only. None inspects code.
+- There is no check run: PR Buddy comments but does not set a pass or fail status.
+- Only `debug-statements` reads the changed lines, and only for JavaScript and TypeScript. The
+  other rules look at pull request metadata and file names.
+- `credential-files` checks file names. It is not a secret scanner.
 - `missing-test-changes` is a heuristic. It cannot tell whether existing tests cover a change.
 - `pr-description` measures length, not quality.
 - Default patterns cover JavaScript and TypeScript projects only.
