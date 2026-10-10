@@ -25,12 +25,12 @@ accepted and are kept as history.
 
 ## Milestone 4 — hardening and `v0.1.0`
 
-| Part | Contents                                                                  | Status |
-| ---- | ------------------------------------------------------------------------- | ------ |
-| 1    | Deployment behind HTTPS: example stack, guide, start-up checks            | ✅     |
-| 2    | Data lifecycle: retention limit; losing dashboard access when GitHub does | ⬜     |
-| 3    | Supply chain: actions and base images pinned to digests                   | ⬜     |
-| 4    | Release `v0.1.0`: changelog, version, tag                                 | ⬜     |
+| Part | Contents                                                                    | Status |
+| ---- | --------------------------------------------------------------------------- | ------ |
+| 1    | Deployment behind HTTPS: example stack, guide, start-up checks              | ✅     |
+| 2    | Data lifecycle and recovery: pending reviews, retention, uninstall clean-up | ✅     |
+| 3    | Supply chain: actions and base images pinned to digests                     | ⬜     |
+| 4    | Release `v0.1.0`: changelog, version, tag                                   | ⬜     |
 
 ### Part 1 — deployment behind HTTPS
 
@@ -59,14 +59,16 @@ Guide: [DEPLOYMENT.md](DEPLOYMENT.md). Decisions D-063 to D-065.
 Design: [DESIGN-STORAGE.md](DESIGN-STORAGE.md) sections 10 to 12. Decisions D-066 to D-069. It
 also answers the external review of Milestone 3 (2026-10-10):
 
-| Review item                                   | Outcome                                                                                      |
-| --------------------------------------------- | -------------------------------------------------------------------------------------------- |
-| P1: queued reviews are lost on restart        | ✅ Requests are stored and recovered at start-up (D-066, D-067). At-least-once, one instance |
-| P1: no retention limit                        | ✅ 365 days by default, configurable, `0` keeps everything (D-068)                           |
-| P1: AI providers not all validated live       | Open. Only Bedrock with an API key has run live; the rest need the maintainer's keys         |
-| P2: tracker marks M3 done but backlog says M3 | ✅ Backlog relabelled; see the note above it                                                 |
-| P2: stale test counts                         | ✅ One "Latest verified check" section; older counts are labelled as history                 |
-| Reproduce the checks from a clean checkout    | Open; planned with the release in part 4                                                     |
+| Review item                                                  | Outcome                                                                                      |
+| ------------------------------------------------------------ | -------------------------------------------------------------------------------------------- |
+| P1: queued reviews are lost on restart                       | ✅ Requests are stored and recovered at start-up (D-066, D-067). At-least-once, one instance |
+| P1: no retention limit                                       | ✅ 365 days by default, configurable, `0` keeps everything (D-068)                           |
+| P1: AI providers not all validated live                      | Open. Only Bedrock with an API key has run live; the rest need the maintainer's keys         |
+| P2: tracker marks M3 done but backlog says M3                | ✅ Backlog relabelled; see the note above it                                                 |
+| Second review: M4 table still showed part 2 as not started   | ✅ Corrected. The edit that should have set it missed the line                               |
+| Second review: recovery after a kill during an active review | ✅ Staged live, with the retry limit; see the checks below                                   |
+| P2: stale test counts                                        | ✅ One "Latest verified check" section; older counts are labelled as history                 |
+| Reproduce the checks from a clean checkout                   | Open; planned with the release in part 4                                                     |
 
 | Task                                                            | Requirement   | Status |
 | --------------------------------------------------------------- | ------------- | ------ |
@@ -77,13 +79,14 @@ also answers the external review of Milestone 3 (2026-10-10):
 | Suspension and repository removal end access at once            | FR-86         | ✅     |
 | All of it optional without a database                           | NFR-85        | ✅     |
 
-| Check               | Result                                                                                                                                                                                |
-| ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Recovery, live      | Passed: a pending request for `pr-buddy-test#4` was written to the database, the API restarted, and the log showed it recovered and the review completed; the row was gone afterwards |
-| Migration `0005`    | Applied at start-up on the running database                                                                                                                                           |
-| Retention, live     | Ran at start-up and deleted nothing, as no review is older than a year. Deletion itself is covered by tests against PostgreSQL only                                                   |
-| Installation events | Covered by tests against PostgreSQL with signed requests. Not exercised live: it would mean uninstalling the app from the test repository                                             |
-| A crash mid-review  | Not staged. The test above restarts between request and review; a kill during a running review relies on the same row and was not tried                                               |
+| Check               | Result                                                                                                                                                                                                                                                                                                                                                      |
+| ------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Recovery, live      | Passed: a pending request for `pr-buddy-test#4` was written to the database, the API restarted, and the log showed it recovered and the review completed; the row was gone afterwards                                                                                                                                                                       |
+| Migration `0005`    | Applied at start-up on the running database                                                                                                                                                                                                                                                                                                                 |
+| Retention, live     | Ran at start-up and deleted nothing, as no review is older than a year. Deletion itself is covered by tests against PostgreSQL only                                                                                                                                                                                                                         |
+| Installation events | Covered by tests against PostgreSQL with signed requests. Not exercised live: it would mean uninstalling the app from the test repository                                                                                                                                                                                                                   |
+| A kill mid-review   | Passed on 2026-10-10: a review of `pr-buddy-test#4` was requested, its pending row confirmed, and the API process killed with SIGKILL while the review ran. After restart the log showed one review recovered and completed; the row was gone; the pull request still had exactly one summary comment, updated in place, and no line comments were repeated |
+| Retry limit, live   | Passed on 2026-10-10: a request for a pull request that does not exist failed with `404` at each of three starts (attempts 1, 2, 3) and was dropped at the fourth, which recovered nothing. The service stayed healthy throughout                                                                                                                           |
 
 ## Milestone 3, part 4 — the dashboard
 
@@ -349,3 +352,4 @@ the dashboard. Items that once carried "M3" here were optional extras; they are 
 | 2026-10-10 | Bedrock verified live: five suggestions on a test pull request; Milestone 3 complete                              |
 | 2026-10-10 | Milestone 4 started: example HTTPS deployment, deployment guide, start-up warnings, HSTS                          |
 | 2026-10-10 | Recovery of requested reviews after a restart, a retention limit, clean-up on uninstall; tracker reconciled       |
+| 2026-10-10 | Second external review: tracker row corrected; kill during a running review and the retry limit staged live       |
