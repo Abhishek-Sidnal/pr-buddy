@@ -210,6 +210,7 @@ describe("the project's migrations", () => {
         [fresh.schema],
       );
       expect(tables.rows.map((row) => row.table_name).sort()).toEqual([
+        "ai_reviews",
         "findings",
         "repositories",
         "reviews",

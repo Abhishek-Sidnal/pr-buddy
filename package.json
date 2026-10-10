@@ -10,6 +10,7 @@
   },
   "workspaces": [
     "packages/review-engine",
+    "packages/ai-reviewer",
     "packages/github-client",
     "apps/api"
   ],

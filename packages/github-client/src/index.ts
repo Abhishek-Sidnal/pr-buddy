@@ -38,7 +38,12 @@ export {
   type ReviewContextInput,
 } from "./mapping/to-review-context.js";
 
-export { renderReviewSummary, SUMMARY_MARKER, type SummaryNotes } from "./output/render-summary.js";
+export {
+  renderReviewSummary,
+  SUMMARY_MARKER,
+  type AiSummary,
+  type SummaryNotes,
+} from "./output/render-summary.js";
 export {
   publishReviewSummary,
   type PublishAction,

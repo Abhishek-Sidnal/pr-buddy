@@ -12,27 +12,30 @@ of actionable, evidence-backed findings. Humans keep the merge decision.
 - **Milestone 1**, the deterministic review engine, is done.
 - **Milestone 2**, the GitHub App, is done. It was verified against the real GitHub API on a
   private test repository on 2026-10-10; results are in the tracker.
-- **Milestone 3** has started. Its first part, PostgreSQL storage for review history and webhook
-  deliveries, is done. History is written but cannot be read over HTTP yet.
-- There is no dashboard, sign-in or AI integration yet.
+- **Milestone 3** is under way. Done: PostgreSQL storage for review history and webhook
+  deliveries, seven rules with reporting thresholds and line comments, and the AI reviewer.
+- The AI reviewer has **no real provider yet**, so nothing is sent to any model. It needs a
+  provider from the operator and `ai.enabled` from the repository.
+- History is written but cannot be read over HTTP. There is no dashboard or sign-in yet.
 - Live status: [TRACKER.md](TRACKER.md).
 
 ## Where things are
 
-| Path                                             | Contents                                                    |
-| ------------------------------------------------ | ----------------------------------------------------------- |
-| `packages/review-engine/src/index.ts`            | Public API of the engine                                    |
-| `packages/review-engine/src/rules/`              | Rule contract, registry, built-in rules                     |
-| `packages/review-engine/src/limits.ts`           | Every size and time limit of the engine                     |
-| `packages/github-client/src/api/`                | `RepositoryClient` interface and its Octokit implementation |
-| `packages/github-client/src/webhook/`            | Signature verification and event parsing                    |
-| `packages/github-client/src/output/`             | The summary comment: rendering and publishing               |
-| `apps/api/src/main.ts`                           | Entry point; the only place real clients are created        |
-| `apps/api/src/modules/github/webhook.router.ts`  | The webhook endpoint                                        |
-| `apps/api/src/modules/reviews/review.service.ts` | Fetch, review, publish                                      |
-| `apps/api/tests/helpers/fake-github.ts`          | The in-memory GitHub used by tests                          |
-| `examples/prbuddy.config.json`                   | Example configuration, loaded by a test                     |
-| `.env.example`                                   | The API's environment variables                             |
+| Path                                             | Contents                                                      |
+| ------------------------------------------------ | ------------------------------------------------------------- |
+| `packages/review-engine/src/index.ts`            | Public API of the engine                                      |
+| `packages/review-engine/src/rules/`              | Rule contract, registry, built-in rules                       |
+| `packages/review-engine/src/limits.ts`           | Every size and time limit of the engine                       |
+| `packages/ai-reviewer/src/`                      | Optional AI review: prompt, provider interface, output checks |
+| `packages/github-client/src/api/`                | `RepositoryClient` interface and its Octokit implementation   |
+| `packages/github-client/src/webhook/`            | Signature verification and event parsing                      |
+| `packages/github-client/src/output/`             | The summary comment: rendering and publishing                 |
+| `apps/api/src/main.ts`                           | Entry point; the only place real clients are created          |
+| `apps/api/src/modules/github/webhook.router.ts`  | The webhook endpoint                                          |
+| `apps/api/src/modules/reviews/review.service.ts` | Fetch, review, publish                                        |
+| `apps/api/tests/helpers/fake-github.ts`          | The in-memory GitHub used by tests                            |
+| `examples/prbuddy.config.json`                   | Example configuration, loaded by a test                       |
+| `.env.example`                                   | The API's environment variables                               |
 
 ## Documents
 
@@ -43,6 +46,7 @@ of actionable, evidence-backed findings. Humans keep the merge decision.
 | [DESIGN.md](DESIGN.md)                   | Review engine: data contracts, pipeline, limits                   |
 | [DESIGN-GITHUB.md](DESIGN-GITHUB.md)     | GitHub App: webhook, queue, review service, permissions           |
 | [DESIGN-STORAGE.md](DESIGN-STORAGE.md)   | Database schema, what is and is not stored, migrations            |
+| [DESIGN-AI.md](DESIGN-AI.md)             | AI reviewer: what is sent, how replies are checked, limits        |
 | [GITHUB_APP.md](GITHUB_APP.md)           | Registering the app and running the API                           |
 | [RULES.md](RULES.md)                     | Reference for each built-in review rule                           |
 | [SECURITY.md](SECURITY.md)               | Threat model and controls                                         |

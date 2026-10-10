@@ -6,8 +6,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 PR Buddy is an open-source GitHub App that reviews pull requests with deterministic rules and
 keeps one summary comment on each pull request up to date. It never merges or changes code.
-Milestones 1 (review engine) and 2 (GitHub App) are built, and so is the first part of Milestone 3:
-PostgreSQL storage for review history. There is no dashboard, sign-in or AI review yet. Current
+Milestones 1 (review engine) and 2 (GitHub App) are built, and so are three parts of Milestone 3:
+PostgreSQL storage for review history, more rules with thresholds and line comments, and an
+optional AI reviewer that has no real provider yet. There is no dashboard or sign-in. Current
 status is in `docs/TRACKER.md`.
 
 ## Commands
@@ -31,7 +32,8 @@ docker compose run --rm dev npm test -w @pr-buddy/api -- tests/unit/review.servi
 docker compose run --rm dev npm test -w @pr-buddy/api -- tests/unit/review.service.test.ts -t "skips a draft"
 ```
 
-Workspace names: `@pr-buddy/review-engine`, `@pr-buddy/github-client`, `@pr-buddy/api`.
+Workspace names: `@pr-buddy/review-engine`, `@pr-buddy/ai-reviewer`, `@pr-buddy/github-client`,
+`@pr-buddy/api`.
 
 Run the API itself (needs `.env`, see `docs/GITHUB_APP.md`):
 
@@ -56,10 +58,11 @@ Things that will trip you up:
 
 ## Architecture
 
-Three workspaces with one-way dependencies:
+Four workspaces with one-way dependencies:
 
 ```
 apps/api ──► packages/github-client ──► packages/review-engine
+    └──────► packages/ai-reviewer ─────►┘
 ```
 
 - **`review-engine`** is pure. It takes a `ReviewContext` (pull request metadata plus changed
@@ -69,6 +72,10 @@ apps/api ──► packages/github-client ──► packages/review-engine
   and sort. Rules return drafts; the engine stamps `ruleId` and severity. ESLint forbids `fs`,
   network, `process`, `eval` and dynamic `import()` in `packages/review-engine/src`; do not
   suppress it.
+- **`ai-reviewer`** is optional and inert without a provider. It selects what may be sent, builds
+  the prompt, asks an `AiProvider` once with a time limit, and keeps only suggestions it can
+  verify against the files it sent. It never throws for a provider problem; it returns a status.
+  Tests use `createScriptedProvider`. No real provider exists yet.
 - **`github-client`** is the only package that knows GitHub: signature verification, event
   parsing, the `RepositoryClient` interface and its Octokit implementation, mapping GitHub files
   to engine input, and rendering and publishing the summary comment.
@@ -85,7 +92,7 @@ or updates the comment.
 
 ## Invariants
 
-These are design decisions with reasons recorded in `docs/BRAIN.md` (D-001 to D-022). Read the
+These are design decisions with reasons recorded in `docs/BRAIN.md` (D-001 to D-048). Read the
 relevant entry before changing one.
 
 - A webhook body is only a trigger. What gets reviewed is fetched from the API.
@@ -101,6 +108,13 @@ relevant entry before changing one.
   not (D-035). A rule that matches text or names reports a confidence below 1 (D-036).
 - Line comments are reconciled by fingerprint; only the app's own marked comments are ever
   deleted (D-039). They are best-effort: a failure there must not fail the review (D-040).
+- AI review needs both a provider from the operator and `ai.enabled` from the repository, read
+  at the base commit; any invalid configuration means it is off (D-042).
+- Model output is untrusted input. The model never sets confidence (fixed 0.5), rule ID or
+  evidence, cannot report `critical`, and a suggestion whose file or line was not sent is dropped
+  whole (D-043, D-044). Suggestions go in the summary only, never as line comments (D-045).
+- Never log or store prompt text, reply text, suggestion text or a provider's error message; the
+  error's name only (D-046, D-048). An AI failure must not fail a review.
 - Text a contributor can choose (file names, config keys) is published as inline code or escaped;
   see `github-client/src/output/markdown.ts`.
 - Never log pull request titles, bodies, file names, patches, tokens or secrets. Tests assert this
@@ -131,14 +145,14 @@ relevant entry before changing one.
 
 The maintainer wants design documents written before code and kept current. In the same change:
 
-| When you…                        | Update                                                                |
-| -------------------------------- | --------------------------------------------------------------------- |
-| Start or finish a task           | `docs/TRACKER.md`                                                     |
-| Make a design decision           | `docs/BRAIN.md` (next `D-0xx` entry)                                  |
-| Add a threat or a control        | `docs/SECURITY.md`                                                    |
-| Change a contract, limit or flow | `docs/DESIGN.md`, `docs/DESIGN-GITHUB.md` or `docs/DESIGN-STORAGE.md` |
-| Add or move a module             | `docs/ARCHITECTURE.md`                                                |
-| Change a rule                    | `docs/RULES.md`                                                       |
+| When you…                        | Update                                                    |
+| -------------------------------- | --------------------------------------------------------- |
+| Start or finish a task           | `docs/TRACKER.md`                                         |
+| Make a design decision           | `docs/BRAIN.md` (next `D-0xx` entry)                      |
+| Add a threat or a control        | `docs/SECURITY.md`                                        |
+| Change a contract, limit or flow | `docs/DESIGN.md`, `-GITHUB.md`, `-STORAGE.md` or `-AI.md` |
+| Add or move a module             | `docs/ARCHITECTURE.md`                                    |
+| Change a rule                    | `docs/RULES.md`                                           |
 
 `docs/CONTEXT.md` is the orientation page; `CONTRIBUTING.md` has the full coding rules.
 

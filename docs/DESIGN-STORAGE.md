@@ -28,7 +28,8 @@ only wants comments on pull requests needs nothing more than the three GitHub se
 
 ```
 repositories ──< reviews ──< findings
-                    └──────< rule_executions
+                    ├──────< rule_executions
+                    └─────── ai_reviews (at most one)
 
 webhook_deliveries
 schema_migrations
@@ -40,6 +41,7 @@ schema_migrations
 | `reviews`            | review attempt                      | `repository_id`, `pull_request_number`, `head_sha`, `status`, timings, counts |
 | `findings`           | finding of a completed review       | `review_id`, `rule_id`, `severity`, `confidence`, `message`, `evidence`       |
 | `rule_executions`    | rule in a completed review          | `review_id`, `rule_id`, `rule_version`, `status`                              |
+| `ai_reviews`         | review in which a model was asked   | `review_id`, `provider`, `model`, `status`, counts, token usage, duration     |
 | `webhook_deliveries` | delivery accepted in the last day   | `delivery_id`, `received_at`                                                  |
 | `schema_migrations`  | applied migration                   | `name`, `checksum`                                                            |
 
@@ -60,6 +62,11 @@ chain is what later lets a query be limited to the installations a signed-in use
 | Pull request number, base and head commit IDs                | Patches and file contents            |
 | Findings: rule, severity, message, evidence, file path, line | Rule error messages                  |
 | Counts, timings, the comment action taken                    | Tokens, secrets, webhook bodies      |
+| AI review: provider, model, status, counts, token usage      | The text of AI suggestions           |
+
+AI suggestions are published on the pull request and nowhere else: a model that has read the code
+may quote it (D-046). Their rows in `ai_reviews` say that suggestions were made, not what they
+said.
 
 Findings contain file paths, which come from the repository. Anyone who can read the database can
 therefore learn file names from the repositories PR Buddy reviewed.

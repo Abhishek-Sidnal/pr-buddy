@@ -17,6 +17,7 @@
     "test:coverage": "vitest run --coverage"
   },
   "dependencies": {
+    "@pr-buddy/ai-reviewer": "0.1.0",
     "@pr-buddy/github-client": "0.1.0",
     "@pr-buddy/review-engine": "0.1.0",
     "express": "^5.3.0",

@@ -132,6 +132,34 @@ async function insertDetails(
       ],
     );
   }
+
+  const { aiReview } = outcome;
+  if (aiReview !== undefined) {
+    await transaction.query(
+      `INSERT INTO ai_reviews (
+         review_id, provider, model, status, failure_reason, error_name, finding_count,
+         suppressed_finding_count, rejected_finding_count, sent_file_count, omitted_file_count,
+         input_tokens, output_tokens, duration_ms
+       )
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)`,
+      [
+        reviewId,
+        aiReview.provider,
+        aiReview.model,
+        aiReview.status,
+        aiReview.failureReason ?? null,
+        aiReview.errorName ?? null,
+        aiReview.findingCount,
+        aiReview.suppressedFindingCount,
+        aiReview.rejectedFindingCount,
+        aiReview.sentFileCount,
+        aiReview.omittedFileCount,
+        aiReview.inputTokens ?? null,
+        aiReview.outputTokens ?? null,
+        aiReview.durationMs,
+      ],
+    );
+  }
 }
 
 /**

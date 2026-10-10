@@ -7,7 +7,11 @@ import {
 } from "../../src/modules/github/delivery-store.js";
 import { createPostgresDeliveryStore } from "../../src/modules/github/postgres-delivery-store.js";
 import { createPostgresReviewStore } from "../../src/modules/reviews/postgres-review-store.js";
-import type { ReviewRecord, ReviewStore } from "../../src/modules/reviews/review-store.js";
+import type {
+  AiReviewRecord,
+  ReviewRecord,
+  ReviewStore,
+} from "../../src/modules/reviews/review-store.js";
 import { BASE_SHA, HEAD_SHA } from "../helpers/fake-github.js";
 import { createTestDatabase, type TestDatabase } from "../helpers/test-database.js";
 
@@ -241,6 +245,144 @@ describe("the PostgreSQL review store", () => {
     expect(await rows("SELECT suppressed_finding_count FROM reviews")).toEqual([
       { suppressed_finding_count: 3 },
     ]);
+  });
+
+  describe("with an AI review", () => {
+    const AI_REVIEW: AiReviewRecord = {
+      provider: "example",
+      model: "model-1",
+      status: "completed",
+      findingCount: 2,
+      suppressedFindingCount: 1,
+      rejectedFindingCount: 3,
+      sentFileCount: 4,
+      omittedFileCount: 5,
+      inputTokens: 1_200,
+      outputTokens: 80,
+      durationMs: 900,
+    };
+
+    async function saveWith(aiReview: AiReviewRecord): Promise<void> {
+      await store.save(
+        buildRecord({
+          outcome: {
+            status: "completed",
+            comment: "created",
+            skippedFileCount: 0,
+            omittedPatchCount: 0,
+            result: await realResult(),
+            aiReview,
+          },
+        }),
+      );
+    }
+
+    it("records its model, counts, token usage and duration", async () => {
+      await saveWith(AI_REVIEW);
+
+      expect(
+        await rows(
+          `SELECT provider, model, status, failure_reason, error_name, finding_count,
+                  suppressed_finding_count, rejected_finding_count, sent_file_count,
+                  omitted_file_count, input_tokens, output_tokens, duration_ms
+           FROM ai_reviews`,
+        ),
+      ).toEqual([
+        {
+          provider: "example",
+          model: "model-1",
+          status: "completed",
+          failure_reason: null,
+          error_name: null,
+          finding_count: 2,
+          suppressed_finding_count: 1,
+          rejected_finding_count: 3,
+          sent_file_count: 4,
+          omitted_file_count: 5,
+          // PostgreSQL returns bigint as text.
+          input_tokens: "1200",
+          output_tokens: "80",
+          duration_ms: 900,
+        },
+      ]);
+    });
+
+    it("has no column that could hold the text of a suggestion", async () => {
+      const columns = await rows<{ column_name: string; data_type: string }>(
+        `SELECT column_name, data_type FROM information_schema.columns
+         WHERE table_schema = current_schema() AND table_name = 'ai_reviews'
+           AND data_type = 'text'
+         ORDER BY column_name`,
+      );
+
+      expect(columns.map(({ column_name }) => column_name)).toEqual([
+        "error_name",
+        "failure_reason",
+        "model",
+        "provider",
+        "status",
+      ]);
+    });
+
+    it("records a failure by reason and error name, without token counts", async () => {
+      await saveWith({
+        provider: "example",
+        model: "model-1",
+        status: "failed",
+        failureReason: "provider-error",
+        errorName: "OverloadedError",
+        findingCount: 0,
+        suppressedFindingCount: 0,
+        rejectedFindingCount: 0,
+        sentFileCount: 1,
+        omittedFileCount: 0,
+        durationMs: 30,
+      });
+
+      expect(
+        await rows(
+          "SELECT status, failure_reason, error_name, input_tokens, output_tokens FROM ai_reviews",
+        ),
+      ).toEqual([
+        {
+          status: "failed",
+          failure_reason: "provider-error",
+          error_name: "OverloadedError",
+          input_tokens: null,
+          output_tokens: null,
+        },
+      ]);
+    });
+
+    it("writes no row when no model was asked", async () => {
+      await store.save(
+        buildRecord({
+          outcome: {
+            status: "completed",
+            comment: "none",
+            skippedFileCount: 0,
+            omittedPatchCount: 0,
+            result: await realResult(),
+          },
+        }),
+      );
+
+      expect(await rows("SELECT * FROM ai_reviews")).toEqual([]);
+    });
+
+    it("refuses a failure without a reason, and writes none of the review", async () => {
+      await expect(saveWith({ ...AI_REVIEW, status: "failed" })).rejects.toThrow();
+
+      expect(await rows("SELECT id FROM reviews")).toEqual([]);
+    });
+
+    it("removes the row with its review", async () => {
+      await saveWith(AI_REVIEW);
+
+      await test.database.query("DELETE FROM repositories");
+
+      expect(await rows("SELECT * FROM ai_reviews")).toEqual([]);
+    });
   });
 
   it("records a finding's location and suggestion", async () => {

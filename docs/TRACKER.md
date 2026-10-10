@@ -6,12 +6,41 @@ Legend: ✅ done · 🚧 in progress · ⬜ not started
 
 ## Milestones
 
-| Milestone | Deliverable                                         | Status                    |
-| --------- | --------------------------------------------------- | ------------------------- |
-| M1        | Deterministic review engine                         | ✅                        |
-| M2        | GitHub App integration                              | ✅                        |
-| M3        | Storage, rules and thresholds, AI review, dashboard | 🚧 storage and rules done |
-| M4        | Hardening and `v0.1.0`                              | ⬜                        |
+| Milestone | Deliverable                                         | Status                         |
+| --------- | --------------------------------------------------- | ------------------------------ |
+| M1        | Deterministic review engine                         | ✅                             |
+| M2        | GitHub App integration                              | ✅                             |
+| M3        | Storage, rules and thresholds, AI review, dashboard | 🚧 AI provider, dashboard left |
+| M4        | Hardening and `v0.1.0`                              | ⬜                             |
+
+## Milestone 3, part 3 — the AI reviewer
+
+Design: [DESIGN-AI.md](DESIGN-AI.md). Built without a real provider: the choice of service is open
+(D-041), so a running PR Buddy sends nothing anywhere until one is added.
+
+| Task                                                            | Requirement           | Status |
+| --------------------------------------------------------------- | --------------------- | ------ |
+| Requirements, design and decisions D-041 to D-048               | —                     | ✅     |
+| Package `@pr-buddy/ai-reviewer` with the `AiProvider` interface | FR-60, FR-67          | ✅     |
+| Repository switch `ai.enabled`, read at the base commit         | FR-61                 | ✅     |
+| File selection, budgets and the prompt                          | FR-62, NFR-60, NFR-63 | ✅     |
+| Reply parsing and verification against the files sent           | NFR-61, NFR-62        | ✅     |
+| One request with a time limit, no retry                         | NFR-64                | ✅     |
+| Suggestions in their own section of the comment                 | FR-63, FR-64, NFR-67  | ✅     |
+| Thresholds apply to suggestions                                 | FR-65                 | ✅     |
+| Failure never fails the review                                  | NFR-65                | ✅     |
+| `ai_reviews` table, without suggestion text                     | FR-66, NFR-66         | ✅     |
+| A real provider                                                 | FR-60                 | ⬜     |
+
+### Acceptance
+
+| Check                    | Result                                                                                                                                                              |
+| ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `npm run check`          | Passed: 1,033 tests (engine 474, AI reviewer 93, GitHub client 215, API 251)                                                                                        |
+| Canary tests             | Passed: prompt text, reply text and provider error messages reach neither the logs nor the stored record                                                            |
+| Migration `0003`         | Applied at start-up on the running database, in the read-only container                                                                                             |
+| Live run, no provider    | Passed: `pr-buddy-test#3` reopened and reviewed as before; no AI fields in the log, no row in `ai_reviews`, line comments not repeated                              |
+| Live run with a provider | Not possible yet: there is no provider. How well the instructions resist prompt injection against a real model is unmeasured; the output checks do not depend on it |
 
 ## Milestone 3, part 2 — rules, thresholds and line comments
 
@@ -64,11 +93,11 @@ Not exercised live: thresholds from a repository file, the 20-comment cap, a fai
 
 ### Next parts of Milestone 3
 
-| Part                 | Contents                                                          |
-| -------------------- | ----------------------------------------------------------------- |
-| Rules and thresholds | Done; see part 2 above                                            |
-| AI reviewer          | Provider interface and mock first; the real provider is undecided |
-| Dashboard            | Sign-in, reading history scoped by installation, the React app    |
+| Part                 | Contents                                                       |
+| -------------------- | -------------------------------------------------------------- |
+| Rules and thresholds | Done; see part 2 above                                         |
+| AI reviewer          | Done except for a real provider; see part 3 above              |
+| Dashboard            | Sign-in, reading history scoped by installation, the React app |
 
 ## Milestone 2 — GitHub App
 
@@ -166,19 +195,21 @@ Complete. Engine, three rules, 348 tests at 100% coverage. Details are in the ch
 
 ## Backlog
 
-| Item                                                                     | Milestone |
-| ------------------------------------------------------------------------ | --------- |
-| Read review history over HTTP, with sign-in and per-installation scoping | M3        |
-| Organisations and users                                                  | M3        |
-| Retention limit for stored reviews                                       | M3        |
-| Durable job queue so queued reviews survive a restart                    | M3        |
-| Check run with a pass or fail conclusion                                 | M3        |
-| AI reviewer behind a provider interface                                  | M3        |
-| Dashboard: overview, repositories, review details, settings              | M3        |
-| YAML repository configuration                                            | M3        |
-| Run third-party rules in a worker thread with a hard time limit          | M3        |
-| Pin GitHub Actions and base images to digests                            | M4        |
-| Release `v0.1.0`                                                         | M4        |
+| Item                                                                         | Milestone |
+| ---------------------------------------------------------------------------- | --------- |
+| Read review history over HTTP, with sign-in and per-installation scoping     | M3        |
+| Organisations and users                                                      | M3        |
+| Retention limit for stored reviews                                           | M3        |
+| Durable job queue so queued reviews survive a restart                        | M3        |
+| Check run with a pass or fail conclusion                                     | M3        |
+| A real AI provider: adapter, environment settings, disclosure                | M3        |
+| Line comments for AI suggestions, with a fingerprint that survives rewording | M3        |
+| Per-repository AI budget and usage report                                    | M3        |
+| Dashboard: overview, repositories, review details, settings                  | M3        |
+| YAML repository configuration                                                | M3        |
+| Run third-party rules in a worker thread with a hard time limit              | M3        |
+| Pin GitHub Actions and base images to digests                                | M4        |
+| Release `v0.1.0`                                                             | M4        |
 
 ## Change log
 
@@ -194,3 +225,4 @@ Complete. Engine, three rules, 348 tests at 100% coverage. Details are in the ch
 | 2026-10-10 | GitHub App registered and verified live on a test repository; Milestone 2 complete                                |
 | 2026-10-10 | Milestone 3 started: PostgreSQL storage for review history and webhook deliveries                                 |
 | 2026-10-10 | Four rules, reporting thresholds and reconciled line comments; verified live                                      |
+| 2026-10-10 | AI reviewer package, repository switch, comment section and storage; no real provider yet                         |

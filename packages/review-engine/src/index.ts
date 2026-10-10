@@ -21,7 +21,11 @@ export { maxChangedFilesRule } from "./rules/max-changed-files.rule.js";
 export { missingTestChangesRule } from "./rules/missing-test-changes.rule.js";
 export { maxChangedLinesRule } from "./rules/max-changed-lines.rule.js";
 export { debugStatementsRule } from "./rules/debug-statements.rule.js";
-export { credentialFilesRule } from "./rules/credential-files.rule.js";
+export {
+  CREDENTIAL_FILE_PATTERNS,
+  CREDENTIAL_TEMPLATE_PATTERNS,
+  credentialFilesRule,
+} from "./rules/credential-files.rule.js";
 export { sensitiveFileChangesRule } from "./rules/sensitive-file-changes.rule.js";
 
 export { parseReviewContext } from "./context/parse-context.js";
@@ -54,7 +58,22 @@ export {
 } from "./findings/finding.schema.js";
 export { compareSeverity, SEVERITIES, severitySchema, type Severity } from "./findings/severity.js";
 
-export { getAddedLines, parsePatch, type AddedLine, type PatchHunk } from "./diff/parse-patch.js";
+export {
+  getAddedLines,
+  getVisibleLines,
+  parsePatch,
+  type AddedLine,
+  type PatchHunk,
+  type VisibleLine,
+} from "./diff/parse-patch.js";
+export {
+  createLocationValidator,
+  type LocationCheck,
+  type LocationValidator,
+} from "./findings/finding-location.js";
+export { dedupeFindings, sortFindings } from "./findings/finding-order.js";
+export { createPathMatcher, type PathMatcher } from "./utils/glob.js";
+export { LOCKFILE_PATTERNS } from "./rules/file-patterns.js";
 export { addedLinesOf, hasContentChanges } from "./context/changed-file.js";
 export type { ReportThresholds } from "./config/resolve-config.js";
 
