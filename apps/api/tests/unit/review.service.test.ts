@@ -330,6 +330,34 @@ describe("unusual diffs", () => {
     expect(github.ownComments[0]?.body).not.toContain("etc/passwd");
   });
 
+  it("asks GitHub for no more than the review engine accepts", async () => {
+    await service.review(TRIGGER);
+
+    expect(github.fileListLimits).toEqual([
+      { maxFiles: 3_000, maxPatchLength: 1_000_000, maxTotalPatchLength: 10_000_000 },
+    ]);
+  });
+
+  it("reviews a file whose diff was too large to load, and says so", async () => {
+    makeReviewable();
+    github.files = [
+      {
+        path: "src/feature.ts",
+        status: "modified",
+        additions: 90_000,
+        deletions: 0,
+        patchOmitted: true,
+      },
+    ];
+
+    const outcome = await service.review(TRIGGER);
+
+    expect(outcome).toMatchObject({ status: "completed", findingCount: 2 });
+    expect(github.ownComments[0]?.body).toContain(
+      "The diff of 1 file was too large to load, so only its name was checked.",
+    );
+  });
+
   it("says when a pull request has more files than can be listed", async () => {
     makeReviewable();
     github.pullRequest = { ...github.pullRequest, changedFileCount: 3_500 };
@@ -411,6 +439,7 @@ describe("logging", () => {
           findingCount: 2,
           failedRuleCount: 0,
           skippedFileCount: 0,
+          omittedPatchCount: 0,
           comment: "created",
         },
       },

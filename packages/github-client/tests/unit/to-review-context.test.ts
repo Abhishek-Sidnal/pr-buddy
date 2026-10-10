@@ -1,6 +1,7 @@
 import {
   MAX_BODY_LENGTH,
   MAX_PATCH_LENGTH,
+  MAX_TOTAL_PATCH_LENGTH,
   MAX_TITLE_LENGTH,
   parseReviewContext,
 } from "@pr-buddy/review-engine";
@@ -45,6 +46,7 @@ describe("toReviewContext", () => {
         files: [{ path: "src/index.ts", status: "modified", additions: 2, deletions: 1, patch }],
       },
       skippedFileCount: 0,
+      omittedPatchCount: 0,
     });
   });
 
@@ -105,11 +107,57 @@ describe("toReviewContext", () => {
     expect(mapped.skippedFileCount).toBe(1);
   });
 
-  it("keeps a file whose patch is too large, without the patch", () => {
-    const [file] = map([buildFile({ patch: "+".repeat(MAX_PATCH_LENGTH + 1) })]).context.files;
+  it("keeps a file whose patch is too large, without the patch, and counts it", () => {
+    const mapped = map([buildFile({ patch: "+".repeat(MAX_PATCH_LENGTH + 1) })]);
 
-    expect(file?.path).toBe("src/index.ts");
-    expect(file).not.toHaveProperty("patch");
+    expect(mapped.context.files[0]?.path).toBe("src/index.ts");
+    expect(mapped.context.files[0]).not.toHaveProperty("patch");
+    expect(mapped.omittedPatchCount).toBe(1);
+    expect(mapped.skippedFileCount).toBe(0);
+  });
+
+  it("counts a patch that the client already left out", () => {
+    const mapped = map([buildFile({ patchOmitted: true })]);
+
+    expect(mapped.context.files).toHaveLength(1);
+    expect(mapped.omittedPatchCount).toBe(1);
+  });
+
+  it("does not count a file that never had a patch", () => {
+    expect(map([buildFile()]).omittedPatchCount).toBe(0);
+  });
+
+  it("stops keeping patches once the total budget is spent, but keeps every file", () => {
+    const fullPatch = "+".repeat(MAX_PATCH_LENGTH);
+    const patchesThatFit = MAX_TOTAL_PATCH_LENGTH / MAX_PATCH_LENGTH;
+    const files = Array.from({ length: patchesThatFit + 3 }, (_unused, index) =>
+      buildFile({ path: `src/big-${index}.ts`, patch: fullPatch }),
+    );
+
+    const mapped = map(files);
+
+    const kept = mapped.context.files.filter((file) => file.patch !== undefined);
+    expect(mapped.context.files).toHaveLength(patchesThatFit + 3);
+    expect(kept).toHaveLength(patchesThatFit);
+    expect(mapped.omittedPatchCount).toBe(3);
+    expect(() => parseReviewContext(mapped.context)).not.toThrow();
+  });
+
+  it("still keeps a small patch after a large one did not fit", () => {
+    const files = [
+      ...Array.from({ length: 9 }, (_unused, index) =>
+        buildFile({ path: `src/big-${index}.ts`, patch: "+".repeat(MAX_PATCH_LENGTH) }),
+      ),
+      buildFile({ path: "src/almost.ts", patch: "+".repeat(MAX_PATCH_LENGTH - 10) }),
+      buildFile({ path: "src/too-much.ts", patch: "+".repeat(100) }),
+      buildFile({ path: "src/small.ts", patch: "+tiny" }),
+    ];
+
+    const mapped = map(files);
+
+    expect(mapped.context.files.at(-2)).not.toHaveProperty("patch");
+    expect(mapped.context.files.at(-1)).toMatchObject({ path: "src/small.ts", patch: "+tiny" });
+    expect(mapped.omittedPatchCount).toBe(1);
   });
 
   it("keeps binary files, which have no patch", () => {

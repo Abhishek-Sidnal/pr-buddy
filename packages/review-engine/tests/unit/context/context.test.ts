@@ -8,6 +8,7 @@ import {
   MAX_BODY_LENGTH,
   MAX_FILES,
   MAX_PATCH_LENGTH,
+  MAX_TOTAL_PATCH_LENGTH,
   MAX_PATH_LENGTH,
 } from "../../../src/limits.js";
 import { buildContext, buildFile, buildFiles, buildPullRequest } from "../../helpers/builders.js";
@@ -182,6 +183,20 @@ describe("parseReviewContext", () => {
 
     expect(issuesOf(buildContext({ files }))).toEqual([
       "files.1.path: must be unique within the pull request",
+    ]);
+  });
+
+  it("accepts patches up to the total size limit and rejects more", () => {
+    const patchOf = (length: number): string => "+".repeat(length);
+    const fullPatches = MAX_TOTAL_PATCH_LENGTH / MAX_PATCH_LENGTH;
+    const atLimit = Array.from({ length: fullPatches }, (_unused, index) =>
+      buildFile({ path: `src/big-${index}.ts`, patch: patchOf(MAX_PATCH_LENGTH) }),
+    );
+    const overLimit = [...atLimit, buildFile({ path: "src/one-more.ts", patch: patchOf(1) })];
+
+    expect(() => parseReviewContext(buildContext({ files: atLimit }))).not.toThrow();
+    expect(issuesOf(buildContext({ files: overLimit }))).toEqual([
+      `files: patches must not total more than ${MAX_TOTAL_PATCH_LENGTH} characters`,
     ]);
   });
 

@@ -1,7 +1,7 @@
 import { generateKeyPairSync } from "node:crypto";
 import { beforeEach, describe, expect, it } from "vitest";
 import { createRepositoryClientFactory } from "../../src/api/octokit-client.js";
-import type { RepositoryClient } from "../../src/api/repository-client.js";
+import type { FileListLimits, RepositoryClient } from "../../src/api/repository-client.js";
 
 const APP_ID = 4242;
 const OTHER_APP_ID = 9999;
@@ -22,9 +22,13 @@ interface RecordedRequest {
   readonly body: unknown;
 }
 
-type Reply =
-  | { status?: number; body: unknown }
-  | ((request: RecordedRequest) => { status?: number; body: unknown });
+interface ReplyContent {
+  status?: number;
+  headers?: Record<string, string>;
+  body: unknown;
+}
+
+type Reply = ReplyContent | ((request: RecordedRequest) => ReplyContent);
 
 /** Stands in for the GitHub REST API: replies from a table of routes and records every request. */
 class FakeGitHubApi {
@@ -80,8 +84,13 @@ class FakeGitHubApi {
     if (reply === undefined) {
       return Promise.resolve(Response.json({ message: "Not Found" }, { status: 404 }));
     }
-    const { status = 200, body } = typeof reply === "function" ? reply(request) : reply;
-    return Promise.resolve(Response.json(body, { status }));
+    const content = typeof reply === "function" ? reply(request) : reply;
+    return Promise.resolve(
+      Response.json(content.body, {
+        status: content.status ?? 200,
+        headers: content.headers ?? {},
+      }),
+    );
   };
 }
 
@@ -89,6 +98,11 @@ const PULL_PATH = "/repos/acme/widgets/pulls/7";
 const FILES_PATH = "/repos/acme/widgets/pulls/7/files";
 const COMMENTS_PATH = "/repos/acme/widgets/issues/7/comments";
 const CONTENT_PATH = "/repos/acme/widgets/contents/.github%2Fpr-buddy.json";
+
+/** File-listing limits that only cap the number of files, unless a test narrows the others. */
+function limits(maxFiles: number, overrides: Partial<FileListLimits> = {}): FileListLimits {
+  return { maxFiles, maxPatchLength: 1_000_000, maxTotalPatchLength: 10_000_000, ...overrides };
+}
 
 let api: FakeGitHubApi;
 let sleeps: number[];
@@ -108,6 +122,7 @@ beforeEach(() => {
     retry: {
       attempts: 3,
       baseDelayMs: 10,
+      maxRateLimitDelayMs: 5_000,
       sleep: (delayMs) => {
         sleeps.push(delayMs);
         return Promise.resolve();
@@ -222,6 +237,40 @@ describe("getPullRequest", () => {
     expect(sleeps).toEqual([10, 20]);
   });
 
+  it("waits for a rate limit to lift, as long as GitHub asks, and then succeeds", async () => {
+    api.on(
+      `GET ${PULL_PATH}`,
+      { status: 429, headers: { "retry-after": "2" }, body: { message: "Too many requests" } },
+      { body: pullRequestBody() },
+    );
+
+    await expect(clientFor().getPullRequest(7)).resolves.toMatchObject({ number: 7 });
+    expect(sleeps).toEqual([2_000]);
+  });
+
+  it("recognises a secondary rate limit sent as 403", async () => {
+    api.on(
+      `GET ${PULL_PATH}`,
+      { status: 403, headers: { "retry-after": "1" }, body: { message: "Secondary rate limit" } },
+      { body: pullRequestBody() },
+    );
+
+    await expect(clientFor().getPullRequest(7)).resolves.toMatchObject({ number: 7 });
+    expect(sleeps).toEqual([1_000]);
+  });
+
+  it("fails without waiting when the rate limit lasts longer than it may wait", async () => {
+    api.on(`GET ${PULL_PATH}`, {
+      status: 429,
+      headers: { "retry-after": "3600" },
+      body: { message: "Too many requests" },
+    });
+
+    await expect(clientFor().getPullRequest(7)).rejects.toMatchObject({ status: 429 });
+    expect(api.requestsTo(`GET ${PULL_PATH}`)).toHaveLength(1);
+    expect(sleeps).toEqual([]);
+  });
+
   it.each([403, 404, 422])("does not retry HTTP %i", async (status) => {
     api.on(`GET ${PULL_PATH}`, { status, body: { message: "No" } });
 
@@ -247,7 +296,7 @@ describe("listPullRequestFiles", () => {
       ],
     });
 
-    await expect(clientFor().listPullRequestFiles(7, 100)).resolves.toEqual([
+    await expect(clientFor().listPullRequestFiles(7, limits(100))).resolves.toEqual([
       {
         path: "src/new.ts",
         previousPath: "src/old.ts",
@@ -268,7 +317,7 @@ describe("listPullRequestFiles", () => {
           : [fileBody(100), fileBody(101)],
     }));
 
-    const files = await clientFor().listPullRequestFiles(7, 3_000);
+    const files = await clientFor().listPullRequestFiles(7, limits(3_000));
 
     expect(files).toHaveLength(102);
     expect(api.requestsTo(`GET ${FILES_PATH}`).map((request) => request.query.get("page"))).toEqual(
@@ -281,16 +330,54 @@ describe("listPullRequestFiles", () => {
       body: Array.from({ length: 100 }, (_unused, index) => fileBody(index)),
     });
 
-    const files = await clientFor().listPullRequestFiles(7, 150);
+    const files = await clientFor().listPullRequestFiles(7, limits(150));
 
     expect(files).toHaveLength(150);
     expect(api.requestsTo(`GET ${FILES_PATH}`)).toHaveLength(2);
   });
 
+  it("does not keep a patch longer than the per-file limit, and says so", async () => {
+    api.on(`GET ${FILES_PATH}`, {
+      body: [
+        { ...fileBody(0), patch: "+".repeat(51) },
+        { ...fileBody(1), patch: "+".repeat(50) },
+      ],
+    });
+
+    const files = await clientFor().listPullRequestFiles(7, limits(100, { maxPatchLength: 50 }));
+
+    expect(files[0]).toMatchObject({ path: "src/file-0.ts", patchOmitted: true });
+    expect(files[0]).not.toHaveProperty("patch");
+    expect(files[1]).toMatchObject({ patch: "+".repeat(50) });
+    expect(files[1]).not.toHaveProperty("patchOmitted");
+  });
+
+  it("stops keeping patches once the total budget is spent, across pages", async () => {
+    api.on(`GET ${FILES_PATH}`, (request) => ({
+      body:
+        request.query.get("page") === "1"
+          ? Array.from({ length: 100 }, (_unused, index) => ({
+              ...fileBody(index),
+              patch: "+".repeat(10),
+            }))
+          : [{ ...fileBody(100), patch: "+".repeat(10) }, fileBody(101)],
+    }));
+
+    const files = await clientFor().listPullRequestFiles(
+      7,
+      limits(3_000, { maxTotalPatchLength: 255 }),
+    );
+
+    expect(files).toHaveLength(102);
+    expect(files.filter((file) => file.patch !== undefined)).toHaveLength(25);
+    expect(files.filter((file) => file.patchOmitted === true)).toHaveLength(76);
+    expect(files.at(-1)).not.toHaveProperty("patchOmitted");
+  });
+
   it("returns an empty list for an empty diff", async () => {
     api.on(`GET ${FILES_PATH}`, { body: [] });
 
-    await expect(clientFor().listPullRequestFiles(7, 100)).resolves.toEqual([]);
+    await expect(clientFor().listPullRequestFiles(7, limits(100))).resolves.toEqual([]);
   });
 });
 

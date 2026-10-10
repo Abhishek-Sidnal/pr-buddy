@@ -360,11 +360,59 @@ describe("reviewing through the webhook", () => {
       message: "Review failed",
       fields: {
         reviewKey: "2002#7",
+        rateLimited: false,
         errorName: "Error",
         errorMessage: "Resource not accessible by integration",
         status: 403,
       },
     });
+  });
+
+  it("logs a review abandoned because of a rate limit under its own message", async () => {
+    github.beforeCall = (method) => {
+      if (method === "listPullRequestFiles") {
+        throw httpError(429, "API rate limit exceeded");
+      }
+    };
+
+    await deliver(pullRequestEvent());
+    await reviewQueue.onIdle();
+
+    expect(logger.entries.at(-1)).toMatchObject({
+      level: "error",
+      message: "Review abandoned: GitHub rate limit",
+      fields: { reviewKey: "2002#7", rateLimited: true, status: 429 },
+    });
+  });
+
+  it("lets a delivery whose review failed be redelivered", async () => {
+    const deliveryId = "33333333-3333-4333-8333-333333333333";
+    let gitHubIsDown = true;
+    github.beforeCall = (method) => {
+      if (gitHubIsDown && method === "getPullRequest") {
+        throw httpError(503);
+      }
+    };
+
+    const first = await deliver(pullRequestEvent(), { deliveryId });
+    await reviewQueue.onIdle();
+    gitHubIsDown = false;
+    const redelivered = await deliver(pullRequestEvent(), { deliveryId });
+    await reviewQueue.onIdle();
+
+    expect(first.body).toEqual({ status: "queued" });
+    expect(redelivered.body).toEqual({ status: "queued" });
+    expect(github.ownComments).toHaveLength(1);
+  });
+
+  it("still treats a delivery whose review succeeded as a duplicate", async () => {
+    const deliveryId = "44444444-4444-4444-8444-444444444444";
+
+    await deliver(pullRequestEvent(), { deliveryId });
+    await reviewQueue.onIdle();
+    const again = await deliver(pullRequestEvent(), { deliveryId });
+
+    expect(again.body).toEqual({ status: "duplicate" });
   });
 });
 

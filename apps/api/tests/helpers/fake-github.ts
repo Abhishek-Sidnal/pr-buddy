@@ -1,4 +1,5 @@
 import type {
+  FileListLimits,
   FileLookup,
   PullRequestFile,
   PullRequestSnapshot,
@@ -44,6 +45,8 @@ export class FakeGitHub {
   /** Result of reading the configuration file; `refs` records the commits it was read at. */
   configuration: FileLookup = { status: "missing" };
   readonly configurationRefs: string[] = [];
+  /** The limits each file listing was asked to respect. */
+  readonly fileListLimits: FileListLimits[] = [];
 
   comments: FakeComment[] = [];
   /** Every client method called, in order. */
@@ -69,9 +72,10 @@ export class FakeGitHub {
       await this.#enter("getPullRequest");
       return this.pullRequest;
     },
-    listPullRequestFiles: async (_number, limit) => {
+    listPullRequestFiles: async (_number, limits) => {
       await this.#enter("listPullRequestFiles");
-      return this.files.slice(0, limit);
+      this.fileListLimits.push(limits);
+      return this.files.slice(0, limits.maxFiles);
     },
     getFileText: async (_path, ref) => {
       await this.#enter("getFileText");

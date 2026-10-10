@@ -8,6 +8,7 @@ export {
 } from "./webhook/pull-request-event.js";
 
 export type {
+  FileListLimits,
   FileLookup,
   PullRequestFile,
   PullRequestSnapshot,
@@ -20,9 +21,16 @@ export {
   type GitHubAppCredentials,
   type OctokitClientOptions,
 } from "./api/octokit-client.js";
-export { DEFAULT_RETRY, isTransientHttpError, withRetry, type RetryOptions } from "./api/retry.js";
+export {
+  DEFAULT_RETRY,
+  isRateLimitError,
+  isTransientHttpError,
+  withRetry,
+  type RetryOptions,
+} from "./api/retry.js";
 
 export {
+  REVIEW_FILE_LIMITS,
   toReviewContext,
   type MappedPullRequest,
   type ReviewContextInput,

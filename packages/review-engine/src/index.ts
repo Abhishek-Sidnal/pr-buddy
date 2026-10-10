@@ -51,7 +51,13 @@ export { compareSeverity, SEVERITIES, severitySchema, type Severity } from "./fi
 
 export { parsePatch, type PatchHunk } from "./diff/parse-patch.js";
 
-export { MAX_BODY_LENGTH, MAX_FILES, MAX_PATCH_LENGTH, MAX_TITLE_LENGTH } from "./limits.js";
+export {
+  MAX_BODY_LENGTH,
+  MAX_FILES,
+  MAX_PATCH_LENGTH,
+  MAX_TITLE_LENGTH,
+  MAX_TOTAL_PATCH_LENGTH,
+} from "./limits.js";
 
 export {
   ConfigurationError,

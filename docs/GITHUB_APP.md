@@ -44,6 +44,10 @@ docker compose run --rm dev node -e "console.log(require('node:crypto').randomBy
 
 Leave every other permission at **No access**.
 
+If reviews later fail with `403` while reading the configuration file, the single-file permission
+is not behaving as documented. Tell the maintainers, and as a workaround grant **Contents:
+Read-only** instead. Be aware that this lets the app read all code in the repository.
+
 4. Under **Subscribe to events**, tick **Pull request** only.
 5. Create the app. Note the **App ID** shown at the top of its page.
 6. Under **Private keys**, choose **Generate a private key**. A `.pem` file is downloaded. Treat

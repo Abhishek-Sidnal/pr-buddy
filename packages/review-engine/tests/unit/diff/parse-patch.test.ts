@@ -23,6 +23,7 @@ describe("parsePatch", () => {
         newLines: 5,
         addedLines: [11, 12],
         contextLines: [10, 13, 14],
+        isWellFormed: true,
       },
     ]);
   });
@@ -67,10 +68,44 @@ describe("parsePatch", () => {
     expect(lines("@@ -0,0 +1,2 @@\n+a\n+b\n")).toEqual([1, 2]);
   });
 
-  it("ignores lines beyond the size a hunk declares", () => {
-    expect(lines("@@ -1,1 +1,1 @@\n-a\n+b\n+not declared\n also not declared\n-nor this")).toEqual([
-      1,
-    ]);
+  it.each([
+    ["an added line", "+not declared"],
+    ["a context line", " not declared"],
+    ["a removed line", "-not declared"],
+    ["a blank line", "\n+after the blank"],
+  ])("does not trust a hunk that has %s beyond its declared size", (_name, extra) => {
+    const patch = `@@ -1,1 +1,1 @@\n-a\n+b\n${extra}`;
+
+    expect(parsePatch(patch)).toMatchObject([{ isWellFormed: false }]);
+    expect(lines(patch)).toEqual([]);
+  });
+
+  it.each([
+    ["missing new-side lines", "@@ -1,3 +1,3 @@\n a\n b"],
+    ["missing old-side lines", "@@ -1,2 +1,1 @@\n a"],
+    ["only its header", "@@ -4,2 +4,2 @@"],
+  ])("does not trust a hunk that is cut short, with %s", (_name, patch) => {
+    expect(parsePatch(patch)).toMatchObject([{ isWellFormed: false }]);
+    expect(lines(patch)).toEqual([]);
+  });
+
+  it("does not let a trailing newline complete a hunk that was cut short", () => {
+    // The hunk declares three lines and has two. The final newline must not become the third.
+    const patch = "@@ -1,3 +1,3 @@\n a\n b\n";
+
+    expect(parsePatch(patch)).toMatchObject([{ contextLines: [1, 2], isWellFormed: false }]);
+    expect(lines(patch)).toEqual([]);
+  });
+
+  it("keeps the lines of well-formed hunks when another hunk is malformed", () => {
+    const patch = "@@ -1,1 +1,1 @@\n-a\n+b\n@@ -10,3 +10,3 @@\n cut short\n@@ -20 +20 @@\n-x\n+y";
+
+    expect(parsePatch(patch).map((hunk) => hunk.isWellFormed)).toEqual([true, false, true]);
+    expect(lines(patch)).toEqual([1, 20]);
+  });
+
+  it("ignores lines that are not part of a diff after a complete hunk", () => {
+    expect(lines("@@ -1 +1 @@\n-a\n+b\ndiff --git a/next b/next")).toEqual([1]);
   });
 
   it("ignores text before the first hunk", () => {

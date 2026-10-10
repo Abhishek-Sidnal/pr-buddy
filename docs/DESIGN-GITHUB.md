@@ -83,20 +83,40 @@ An in-process queue with three guarantees:
 A queued review is lost if the process stops. That is acceptable in Milestone 2 because any later
 event on the pull request triggers a fresh review, and a delivery can be redelivered by hand.
 
+When a review fails, its delivery ID is forgotten. GitHub's "Redeliver" reuses the delivery ID, so
+this is what allows a failed review to be run again instead of being dropped as a duplicate.
+
 ## 5. Review service
 
-| Situation                                   | Outcome                                              |
-| ------------------------------------------- | ---------------------------------------------------- |
-| Pull request is closed or merged            | Skipped                                              |
-| Pull request is a draft                     | Skipped; reviewed when marked ready                  |
-| Head commit changed while the review ran    | Result discarded; the newer event has its own review |
-| No findings and no earlier PR Buddy comment | Nothing is posted                                    |
-| No findings but an earlier comment exists   | The comment is updated to say so                     |
-| Findings                                    | The comment is created or updated                    |
-| Repository configuration is invalid         | Defaults are used and the comment says why           |
-| A file cannot be represented safely         | The file is skipped and the comment says how many    |
-| GitHub returns a server error               | The call is retried up to three times with back-off  |
-| GitHub returns a client error               | The review fails and is logged; nothing is posted    |
+| Situation                                                 | Outcome                                                                                                                           |
+| --------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
+| Pull request is closed or merged                          | Skipped                                                                                                                           |
+| Pull request is a draft                                   | Skipped; reviewed when marked ready                                                                                               |
+| Head commit changed while the review ran                  | Result discarded; the newer event has its own review. See "Stale results" below                                                   |
+| No findings and no earlier PR Buddy comment               | Nothing is posted                                                                                                                 |
+| No findings but an earlier comment exists                 | The comment is updated to say so                                                                                                  |
+| Findings                                                  | The comment is created or updated                                                                                                 |
+| Repository configuration is invalid                       | Defaults are used and the comment says why                                                                                        |
+| A file cannot be represented safely                       | The file is skipped and the comment says how many                                                                                 |
+| GitHub returns a server error                             | The call is retried up to three times with back-off                                                                               |
+| GitHub returns a rate limit (429, or a 403 marked as one) | The call waits as long as GitHub asks, up to 60 seconds, and is retried up to three times. A longer wait fails the review at once |
+| GitHub returns another client error                       | The review fails and is logged; nothing is posted                                                                                 |
+| A review fails                                            | Logged, with a separate message for rate limits; its delivery can be redelivered                                                  |
+| A diff is too large to load                               | The file is reviewed by name only and the comment says how many                                                                   |
+
+### Stale results
+
+Three things keep a review of an old commit off the pull request:
+
+1. Reviews of one pull request run one at a time, so two can never publish out of order.
+2. The pull request is fetched again immediately before publishing. If the head commit moved, or
+   the pull request was closed, the result is thrown away.
+3. Every push triggers its own review, which replaces the comment.
+
+This narrows the window; it does not close it. A push can arrive after the check in step 2 and
+before the comment call completes, and GitHub has no way to make a comment conditional on the
+head commit. In that case the old result is visible until the review from step 3 finishes, which
+is normally a few seconds. The comment always names the commit it describes.
 
 ### Repository configuration
 
@@ -117,15 +137,16 @@ that pull request. The file has the format in [DESIGN.md](DESIGN.md) section 4, 
 
 ## 6. Mapping GitHub data to the engine
 
-| GitHub                                | Review context                             |
-| ------------------------------------- | ------------------------------------------ |
-| `filename`                            | `path`                                     |
-| `status` `changed`                    | `modified`                                 |
-| `status` `unchanged`                  | file skipped                               |
-| `renamed` without a previous name     | `modified`                                 |
-| `patch` longer than the engine allows | patch dropped; the file is kept without it |
-| a path the engine rejects             | file skipped and counted                   |
-| title or body beyond the limit        | truncated                                  |
+| GitHub                                        | Review context                                                               |
+| --------------------------------------------- | ---------------------------------------------------------------------------- |
+| `filename`                                    | `path`                                                                       |
+| `status` `changed`                            | `modified`                                                                   |
+| `status` `unchanged`                          | file skipped                                                                 |
+| `renamed` without a previous name             | `modified`                                                                   |
+| `patch` longer than the engine allows         | patch dropped; the file is kept without it                                   |
+| patches beyond 10 million characters in total | further patches dropped, during retrieval and again when mapping; files kept |
+| a path the engine rejects                     | file skipped and counted                                                     |
+| title or body beyond the limit                | truncated                                                                    |
 
 ## 7. Configuration of the API
 
@@ -154,6 +175,14 @@ process with a message that names the variable and never prints its value.
 
 Subscribed event: **Pull request**. PR Buddy does not request access to repository contents,
 issues, checks or workflows.
+
+**Not yet verified against GitHub.** "Single file" is a real GitHub App permission: GitHub's REST
+documentation lists `single_file` among an app's permissions and `single_file_paths` on an
+installation. What has not been tested is that reading the file at a given commit through the
+Contents API succeeds with that permission alone. The live test in [GITHUB_APP.md](GITHUB_APP.md)
+settles it. If it fails, the fallback is **Contents: read**, which lets the app read all code in
+the repository; that wider access would then have to be stated plainly to people installing it.
+See D-028 in [BRAIN.md](BRAIN.md).
 
 ## 9. Logging
 
