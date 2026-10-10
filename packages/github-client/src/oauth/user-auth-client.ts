@@ -22,6 +22,20 @@ export interface GitHubUser {
 export interface UserAccess {
   readonly user: GitHubUser;
   readonly installationIds: readonly number[];
+  /** The same installations, with whose they are and whether the person owns them. */
+  readonly installations: readonly AccessibleInstallation[];
+}
+
+/** An installation of the app that the person can access. */
+export interface AccessibleInstallation {
+  readonly id: number;
+  /** The login of the person or organisation the app is installed on; empty if unknown. */
+  readonly account: string;
+  /**
+   * True when the person owns the account: it is their own, or they are an owner of the
+   * organisation. Only a clear yes from GitHub makes it true.
+   */
+  readonly isOwner: boolean;
 }
 
 export type SignInFailure = "code-rejected" | "github-unavailable" | "invalid-response";
@@ -69,8 +83,25 @@ const userSchema = z.object({
   login: z.string().min(1).max(100),
 });
 const installationsSchema = z.object({
-  installations: z.array(z.object({ id: z.number().int().positive() })),
+  installations: z.array(
+    z.object({
+      id: z.number().int().positive(),
+      // Absent or unusual for an account GitHub does not describe; then nobody owns it.
+      account: z
+        .object({
+          id: z.number().int().positive(),
+          login: z.string().regex(/^[A-Za-z0-9-]{1,100}$/),
+          type: z.string().max(40).optional(),
+        })
+        .nullish()
+        .catch(undefined),
+    }),
+  ),
 });
+const membershipSchema = z.object({ role: z.string(), state: z.string() });
+
+/** Organisations whose membership is looked up for one sign-in. Beyond it, nobody is an owner. */
+const MAX_MEMBERSHIP_LOOKUPS = 50;
 
 export function createUserAuthClient(options: UserAuthClientOptions): UserAuthClient {
   const { clientId, clientSecret } = options;
@@ -149,19 +180,52 @@ export function createUserAuthClient(options: UserAuthClientOptions): UserAuthCl
     );
   }
 
-  async function listInstallationIds(token: string): Promise<number[]> {
-    const ids: number[] = [];
+  /**
+   * Whether the person is an owner of an organisation. GitHub answers with their role; an
+   * error, a refusal or any role but "admin" means no. Deciding where an organisation's code is
+   * sent is never granted on a guess.
+   */
+  async function isOrganizationOwner(organization: string, token: string): Promise<boolean> {
+    try {
+      const membership = parse(
+        membershipSchema,
+        await apiGet(`/user/memberships/orgs/${encodeURIComponent(organization)}`, token),
+      );
+      return membership.role === "admin" && membership.state === "active";
+    } catch {
+      return false;
+    }
+  }
+
+  async function listInstallations(
+    token: string,
+    userId: number,
+  ): Promise<AccessibleInstallation[]> {
+    const found = new Map<number, AccessibleInstallation>();
+    let lookups = 0;
     for (let page = 1; page <= MAX_INSTALLATION_PAGES; page += 1) {
       const { installations } = parse(
         installationsSchema,
         await apiGet(`/user/installations?per_page=${PAGE_SIZE}&page=${page}`, token),
       );
-      ids.push(...installations.map((installation) => installation.id));
+      for (const { id, account } of installations) {
+        if (found.has(id)) {
+          continue;
+        }
+        let isOwner = false;
+        if (account?.type === "User") {
+          isOwner = account.id === userId;
+        } else if (account?.type === "Organization" && lookups < MAX_MEMBERSHIP_LOOKUPS) {
+          lookups += 1;
+          isOwner = await isOrganizationOwner(account.login, token);
+        }
+        found.set(id, { id, account: account?.login ?? "", isOwner });
+      }
       if (installations.length < PAGE_SIZE) {
         break;
       }
     }
-    return [...new Set(ids)];
+    return [...found.values()];
   }
 
   return {
@@ -176,8 +240,12 @@ export function createUserAuthClient(options: UserAuthClientOptions): UserAuthCl
     async signIn(code, redirectUri) {
       const token = await exchangeCode(code, redirectUri);
       const user = parse(userSchema, await apiGet("/user", token));
-      const installationIds = await listInstallationIds(token);
-      return { user: { id: user.id, login: user.login }, installationIds };
+      const installations = await listInstallations(token, user.id);
+      return {
+        user: { id: user.id, login: user.login },
+        installationIds: installations.map((installation) => installation.id),
+        installations,
+      };
     },
   };
 }

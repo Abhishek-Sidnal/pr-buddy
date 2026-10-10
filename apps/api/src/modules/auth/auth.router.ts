@@ -135,6 +135,7 @@ export function createAuthRouter(dependencies: AuthDependencies): Router {
       userId: access.user.id,
       login: access.user.login,
       installationIds: access.installationIds,
+      installations: access.installations,
     });
     response.append(
       "Set-Cookie",

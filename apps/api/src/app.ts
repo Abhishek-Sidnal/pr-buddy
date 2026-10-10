@@ -2,6 +2,8 @@ import express, { type ErrorRequestHandler, type Express, type RequestHandler } 
 import { rateLimit } from "express-rate-limit";
 import type { UserAuthClient } from "@pr-buddy/github-client";
 import { describeError, type Logger } from "./logger.js";
+import type { AiKeyStore } from "./modules/ai-keys/ai-key-store.js";
+import { createAiKeyRouter } from "./modules/ai-keys/ai-key.router.js";
 import { createAuthRouter, createRequireSession } from "./modules/auth/auth.router.js";
 import type { SessionStore } from "./modules/auth/session-store.js";
 import {
@@ -13,6 +15,7 @@ import { createHistoryRouter } from "./modules/history/history.router.js";
 import { createWebRouter, setDashboardHeaders } from "./modules/web/web.router.js";
 
 const ONE_MINUTE_MS = 60_000;
+const BAD_REQUEST = 400;
 const PAYLOAD_TOO_LARGE = 413;
 const SERVICE_UNAVAILABLE = 503;
 
@@ -39,6 +42,12 @@ export interface DashboardDependencies {
   readonly authRateLimit: number;
   /** Read requests allowed per minute from one client address. */
   readonly apiRateLimit: number;
+  /** Lets owners store their installation's AI key. Without it those routes do not exist. */
+  readonly aiKeys?: {
+    readonly aiKeyStore: AiKeyStore;
+    /** Replaces the global `fetch` for the request that checks a key; used by tests. */
+    readonly fetch?: typeof fetch;
+  };
 }
 
 const setSecurityHeaders: RequestHandler = (_request, response, next) => {
@@ -60,13 +69,14 @@ const notFound: RequestHandler = (_request, response) => {
   response.status(404).json({ error: "not_found" });
 };
 
-function isPayloadTooLarge(error: unknown): boolean {
+function hasStatus(error: unknown, status: number): boolean {
   return (
-    typeof error === "object" &&
-    error !== null &&
-    "status" in error &&
-    error.status === PAYLOAD_TOO_LARGE
+    typeof error === "object" && error !== null && "status" in error && error.status === status
   );
+}
+
+function isPayloadTooLarge(error: unknown): boolean {
+  return hasStatus(error, PAYLOAD_TOO_LARGE);
 }
 
 /** Turns any error into a fixed JSON response. Details go to the log, never to the client. */
@@ -78,6 +88,11 @@ function createErrorHandler(logger: Logger): ErrorRequestHandler {
     }
     if (isPayloadTooLarge(error)) {
       response.status(PAYLOAD_TOO_LARGE).json({ error: "payload_too_large" });
+      return;
+    }
+    // A body that is not the JSON it claims to be is the sender's mistake, not a fault here.
+    if (hasStatus(error, BAD_REQUEST)) {
+      response.status(BAD_REQUEST).json({ error: "bad_request" });
       return;
     }
     logger.error(describeError(error), "Request failed");
@@ -143,6 +158,15 @@ export function createApp(dependencies: AppDependencies): Express {
       perMinute(dashboard.apiRateLimit),
       createRequireSession(dashboard.sessionStore, dashboard.publicUrl),
       createHistoryRouter(dashboard.historyStore),
+      ...(dashboard.aiKeys === undefined
+        ? []
+        : [
+            createAiKeyRouter({
+              ...dashboard.aiKeys,
+              logger: dependencies.logger,
+              publicUrl: dashboard.publicUrl,
+            }),
+          ]),
       notFound,
     );
     app.use(setDashboardHeaders, createWebRouter(dashboard.webRoot));
