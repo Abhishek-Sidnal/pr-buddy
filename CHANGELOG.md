@@ -6,7 +6,11 @@ change behaviour or configuration; such changes are listed under "Upgrade notes"
 
 ## [Unreleased]
 
-Nothing yet.
+### Changed
+
+- Dependabot no longer proposes a new major version of PostgreSQL for the Compose files: such an
+  upgrade needs a dump and a restore. Upgrade guidance belongs in the deployment guide when the
+  project moves to a new major.
 
 ## [0.1.0] — 2026-10-10
 

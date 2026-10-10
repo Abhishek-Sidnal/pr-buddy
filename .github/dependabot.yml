@@ -32,3 +32,9 @@ updates:
       - /deploy
     schedule:
       interval: weekly
+    ignore:
+      # A new major version of PostgreSQL cannot open an older data directory. Moving to one is
+      # a planned migration with a dump and a restore, not a digest bump. Minor and patch
+      # releases, and new digests of the same version, still arrive here.
+      - dependency-name: postgres
+        update-types: ["version-update:semver-major"]
