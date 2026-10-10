@@ -1,0 +1,12 @@
+# Terminates HTTPS and passes everything to the API, which serves the webhook endpoint, sign-in,
+# the read API and the dashboard. Caddy redirects HTTP to HTTPS and renews certificates itself.
+{$SITE_ADDRESS} {
+	encode zstd gzip
+
+	# GitHub sends webhook bodies of up to 25 MB; the API itself accepts 1 MB and answers 413.
+	request_body {
+		max_size 2MB
+	}
+
+	reverse_proxy api:3000
+}

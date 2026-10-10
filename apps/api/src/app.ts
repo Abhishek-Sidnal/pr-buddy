@@ -49,6 +49,13 @@ const setSecurityHeaders: RequestHandler = (_request, response, next) => {
   next();
 };
 
+const ONE_YEAR_SECONDS = 365 * 24 * 60 * 60;
+
+const setStrictTransportSecurity: RequestHandler = (_request, response, next) => {
+  response.set("Strict-Transport-Security", `max-age=${ONE_YEAR_SECONDS}`);
+  next();
+};
+
 const notFound: RequestHandler = (_request, response) => {
   response.status(404).json({ error: "not_found" });
 };
@@ -84,6 +91,11 @@ export function createApp(dependencies: AppDependencies): Express {
   app.disable("x-powered-by");
   app.set("trust proxy", dependencies.trustProxy);
   app.use(setSecurityHeaders);
+  // The service speaks plain HTTP to a proxy; over a public HTTPS address, browsers are told to
+  // stay on HTTPS. Never for http://localhost, where it would lock a developer out.
+  if (dependencies.dashboard?.publicUrl.startsWith("https://") === true) {
+    app.use(setStrictTransportSecurity);
+  }
 
   // Liveness: the process is up.
   app.get("/healthz", (_request, response) => {

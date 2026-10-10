@@ -6,12 +6,43 @@ Legend: ✅ done · 🚧 in progress · ⬜ not started
 
 ## Milestones
 
-| Milestone | Deliverable                                         | Status |
-| --------- | --------------------------------------------------- | ------ |
-| M1        | Deterministic review engine                         | ✅     |
-| M2        | GitHub App integration                              | ✅     |
-| M3        | Storage, rules and thresholds, AI review, dashboard | ✅     |
-| M4        | Hardening and `v0.1.0`                              | ⬜     |
+| Milestone | Deliverable                                         | Status              |
+| --------- | --------------------------------------------------- | ------------------- |
+| M1        | Deterministic review engine                         | ✅                  |
+| M2        | GitHub App integration                              | ✅                  |
+| M3        | Storage, rules and thresholds, AI review, dashboard | ✅                  |
+| M4        | Hardening and `v0.1.0`                              | 🚧 part 1 of 4 done |
+
+## Milestone 4 — hardening and `v0.1.0`
+
+| Part | Contents                                                                  | Status |
+| ---- | ------------------------------------------------------------------------- | ------ |
+| 1    | Deployment behind HTTPS: example stack, guide, start-up checks            | ✅     |
+| 2    | Data lifecycle: retention limit; losing dashboard access when GitHub does | ⬜     |
+| 3    | Supply chain: actions and base images pinned to digests                   | ⬜     |
+| 4    | Release `v0.1.0`: changelog, version, tag                                 | ⬜     |
+
+### Part 1 — deployment behind HTTPS
+
+Guide: [DEPLOYMENT.md](DEPLOYMENT.md). Decisions D-063 to D-065.
+
+| Task                                                        | Requirement   | Status |
+| ----------------------------------------------------------- | ------------- | ------ |
+| Example stack: Caddy, API, PostgreSQL                       | FR-80, NFR-81 | ✅     |
+| No default database password                                | NFR-82        | ✅     |
+| Deployment guide: configure, start, check, upgrade, back up | FR-81         | ✅     |
+| Start-up warnings for risky combinations of settings        | FR-82         | ✅     |
+| `Strict-Transport-Security` over an HTTPS address           | NFR-80        | ✅     |
+
+| Check                          | Result                                                                                                                                                                                             |
+| ------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Example stack on `localhost`   | Passed over HTTPS with Caddy's local certificate: health and readiness `200`; HTTP redirected; HSTS and the Content-Security-Policy present; only the proxy published a port                       |
+| Cookies and sign-in redirect   | Passed: the state cookie is `__Host-`, `Secure`, `HttpOnly`, `SameSite=Lax`; the redirect to GitHub carries the HTTPS callback address                                                             |
+| Webhook endpoint through proxy | Passed: unsigned request `401`; a 3 MB body refused with `413`                                                                                                                                     |
+| Rate limit behind the proxy    | Passed: 33 sign-in requests with a different forged `X-Forwarded-For` each still hit the limit of 30                                                                                               |
+| Fresh database                 | Passed: all four migrations applied on first start                                                                                                                                                 |
+| Backup and restore commands    | Passed: a dump of the development database restored into a scratch database with the same row counts                                                                                               |
+| Not done                       | A real domain with a public certificate; sign-in completed over HTTPS (needs the HTTPS callback URL added to the app); a webhook delivered by GitHub to the stack; an upgrade between two releases |
 
 ## Milestone 3, part 4 — the dashboard
 
@@ -271,3 +302,4 @@ Complete. Engine, three rules, 348 tests at 100% coverage. Details are in the ch
 | 2026-10-10 | Dashboard sign-in verified against real GitHub                                                                    |
 | 2026-10-10 | AI providers: Bedrock (with own request signing), Anthropic, OpenAI, Azure AI Foundry, OpenAI-compatible          |
 | 2026-10-10 | Bedrock verified live: five suggestions on a test pull request; Milestone 3 complete                              |
+| 2026-10-10 | Milestone 4 started: example HTTPS deployment, deployment guide, start-up warnings, HSTS                          |

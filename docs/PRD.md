@@ -310,6 +310,34 @@ sign in and read it. Design: [DESIGN-DASHBOARD.md](DESIGN-DASHBOARD.md).
 Editing settings in the dashboard, roles within an installation, charts, exporting data, e-mail or
 other notifications, retention limits, signing in without GitHub.
 
+## 6F. Milestone 4 — hardening and `v0.1.0`
+
+The features are in place. This milestone makes the service something a stranger can deploy,
+keep running and trust, and ends with the first release. It is delivered in parts:
+
+| Part | Contents                                                                        |
+| ---- | ------------------------------------------------------------------------------- |
+| 1    | Deployment behind HTTPS: an example stack, a deployment guide, start-up checks  |
+| 2    | Data lifecycle: a retention limit, and losing dashboard access when GitHub does |
+| 3    | Supply chain: actions and base images pinned to digests                         |
+| 4    | Release `v0.1.0`: changelog, version, tag                                       |
+
+### Part 1 — deployment behind HTTPS
+
+Until now the service has only run on `http://localhost`. Guide: [DEPLOYMENT.md](DEPLOYMENT.md).
+
+| ID     | Requirement                                                                                          |
+| ------ | ---------------------------------------------------------------------------------------------------- |
+| FR-80  | The repository contains an example stack that serves the API and dashboard over HTTPS.               |
+| FR-81  | A guide covers what to set, how to start, upgrade, back up and check the service.                    |
+| FR-82  | The service warns at start-up about settings that are valid but unsafe together.                     |
+| NFR-80 | Over HTTPS, browsers are told to keep using HTTPS (`Strict-Transport-Security`).                     |
+| NFR-81 | In the example stack only the proxy is reachable from outside; the API and database publish no port. |
+| NFR-82 | The example stack has no default database password: it refuses to start without one.                 |
+| NFR-83 | Behind one proxy, rate limits apply to the visitor's address, not the proxy's.                       |
+
+Out of scope: Kubernetes manifests, managed-database set-up, high availability, metrics.
+
 ## 7. Success metrics (from M2 onward)
 
 These cannot be measured until PR Buddy reviews real pull requests.

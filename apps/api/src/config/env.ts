@@ -256,3 +256,26 @@ export function loadConfig(environment: Readonly<Record<string, string | undefin
       : { database: { url: values.DATABASE_URL, poolSize: values.DATABASE_POOL_SIZE } }),
   };
 }
+
+/**
+ * Settings that are each valid but risky together. They do not stop the service: it cannot see
+ * the network in front of it, so it says what it suspects and lets the operator decide.
+ */
+export function findConfigurationWarnings(config: AppConfig): string[] {
+  const warnings: string[] = [];
+  const isPublicHttps = config.dashboard?.publicUrl.startsWith("https://") === true;
+
+  if (isPublicHttps && config.trustProxy === 0) {
+    warnings.push(
+      "PUBLIC_URL is HTTPS but TRUST_PROXY is 0. Behind a proxy, every visitor then shares one " +
+        "rate limit. Set TRUST_PROXY to the number of proxies in front of the service.",
+    );
+  }
+  if (config.database !== undefined && /[?&]sslmode=disable\b/.test(config.database.url)) {
+    warnings.push(
+      "DATABASE_URL turns encryption off. That is safe only on a private network such as a " +
+        "Compose network.",
+    );
+  }
+  return warnings;
+}

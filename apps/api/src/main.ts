@@ -2,7 +2,12 @@ import { fileURLToPath } from "node:url";
 import { createAiReviewer, createProvider, type AiReviewer } from "@pr-buddy/ai-reviewer";
 import { createRepositoryClientFactory, createUserAuthClient } from "@pr-buddy/github-client";
 import { createApp, type DashboardDependencies } from "./app.js";
-import { EnvironmentError, loadConfig, type AppConfig } from "./config/env.js";
+import {
+  EnvironmentError,
+  findConfigurationWarnings,
+  loadConfig,
+  type AppConfig,
+} from "./config/env.js";
 import { createDatabase, isReachable, type Database } from "./database/database.js";
 import { migrate } from "./database/migrate.js";
 import { createLogger, describeError, type Logger } from "./logger.js";
@@ -74,6 +79,9 @@ async function openStorage(config: AppConfig, logger: Logger): Promise<Storage> 
 
 const config = loadConfigOrExit();
 const logger = createLogger(config.logLevel);
+for (const warning of findConfigurationWarnings(config)) {
+  logger.warn({}, warning);
+}
 
 let storage: Storage;
 try {
