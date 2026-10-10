@@ -116,6 +116,53 @@ in a Docker volume instead of the working folder.
 **Why.** They are vanishingly rare in real repositories and common in attacks. The integration
 decides whether to skip such a file or the whole review.
 
+### D-017 — GitHub knowledge lives in one package, behind an interface
+
+**Decision.** `@pr-buddy/github-client` owns signatures, event formats, API calls and Markdown.
+The API depends on its `RepositoryClient` interface, never on Octokit.
+**Why.** Every review flow can be tested with an in-memory fake, and a second platform later
+means a second client, not a rewrite.
+
+### D-018 — Milestone 2 has no database
+
+**Decision.** The GitHub App is stateless. PostgreSQL is deferred to the milestone that needs
+review history, which is the dashboard.
+**Why.** The Milestone 2 goal is one correct review per pull request with no duplicates. That is
+met without storage: the summary is one comment updated in place, the head commit is re-checked
+before publishing, and reviews of one pull request run one at a time. A database would add a
+service, migrations and failure modes while proving nothing more about review quality.
+**Cost.** Delivery memory and queued reviews are lost on restart; see the known limits in
+[SECURITY.md](SECURITY.md).
+**Answers.** Open question Q2: an in-process queue is enough for now.
+
+### D-019 — The webhook payload is only a trigger
+
+**Decision.** The review service fetches the pull request itself and ignores the title, body and
+commits in the webhook body.
+**Why.** It always reviews the current state, and a stale or reordered delivery cannot make it
+review old data.
+
+### D-020 — Repository configuration is JSON, read at the base commit
+
+**Decision.** `.github/pr-buddy.json`, fetched at the pull request's base SHA.
+**Why base.** A contributor must not be able to switch off checks for their own pull request.
+**Why JSON.** No YAML parser to add and audit. YAML can be added later behind the same schema.
+**Why that path.** A GitHub App can be granted read access to a single named file, so PR Buddy
+needs no access to repository contents.
+
+### D-021 — One summary comment, updated in place; no comment for a clean pull request
+
+**Decision.** PR Buddy keeps a single comment per pull request. It posts nothing when there are
+no findings, unless an earlier comment needs to be corrected.
+**Why.** Low noise is the product promise, and updating in place makes publishing idempotent.
+**Rejected for now.** Check runs (another permission) and inline review comments (no built-in
+rule produces a line yet).
+
+### D-022 — Draft pull requests are not reviewed
+
+**Decision.** A draft is skipped and reviewed when it is marked ready.
+**Why.** A draft says the author is not asking for review yet.
+
 ## 3. Glossary
 
 | Term       | Meaning                                                                                 |
@@ -133,8 +180,8 @@ decides whether to skip such a file or the whole review.
 
 | #   | Question                                                                               | Needed by                    |
 | --- | -------------------------------------------------------------------------------------- | ---------------------------- |
-| Q1  | Prisma or Drizzle for database access?                                                 | M2                           |
-| Q2  | Is a job queue needed at launch, or is an in-process job abstraction enough?           | M2                           |
+| Q1  | Prisma or Drizzle for database access?                                                 | M3, with the dashboard       |
+| Q2  | Answered by D-018: an in-process queue is enough until reviews must survive a restart  | —                            |
 | Q3  | Should findings also be allowed on removed lines (the old side)?                       | M2                           |
 | Q4  | Which static-analysis and secret-scanning tools to integrate rather than re-implement? | M3                           |
 | Q5  | Should third-party rules run in a worker thread with a hard time limit?                | When third-party rules exist |

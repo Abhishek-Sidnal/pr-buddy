@@ -73,24 +73,38 @@ with a hard kill is a later option.
 - Never log pull request contents at info level; patches can contain secrets.
 - Treat a security-relevant ESLint suppression as a change that needs review.
 
-## 6. Requirements for later milestones
+## 6. Threats and controls in Milestone 2 — GitHub App
 
-Recorded now so the design does not paint itself into a corner.
+| #   | Threat                                                                   | Control                                                                                                                                           | Where                                                   |
+| --- | ------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------- |
+| G1  | Forged webhook                                                           | `X-Hub-Signature-256` is verified as HMAC-SHA256 over the raw body with a constant-time comparison, before the body is parsed; failures get `401` | `github-client/webhook/verify-signature.ts`             |
+| G2  | Replayed or repeated delivery                                            | Delivery IDs are remembered for 24 hours; a repeat is acknowledged and not processed                                                              | `api/modules/github/delivery-store.ts`                  |
+| G3  | Webhook body used as a source of truth                                   | The payload only triggers a review; the pull request is fetched from the API                                                                      | `api/modules/reviews/review.service.ts`                 |
+| G4  | Oversized or flooding requests                                           | 1 MB body limit, per-address rate limit, bounded queue with `503` beyond it                                                                       | `api/app.ts`, `api/modules/reviews/review-queue.ts`     |
+| G5  | Excess privilege                                                         | Three permissions only: metadata, pull requests, and one named file                                                                               | [DESIGN-GITHUB.md](DESIGN-GITHUB.md) section 8          |
+| G6  | Long-lived credentials                                                   | Short-lived installation tokens issued per installation; no personal tokens                                                                       | `github-client/api/octokit-client.ts`                   |
+| G7  | A contributor weakens checks on their own pull request                   | Configuration is read at the base commit, never from the pull request's commits                                                                   | `api/modules/reviews/review.service.ts`                 |
+| G8  | A review of an old commit overwrites a newer one                         | One review at a time per pull request; the head commit is compared again before publishing                                                        | `review-queue.ts`, `review.service.ts`                  |
+| G9  | Contributor-chosen text injects mentions, links or HTML into the comment | Evidence is rendered as code; messages are escaped; `@` is neutralised                                                                            | `github-client/output/render-summary.ts`                |
+| G10 | Someone copies the comment marker to hijack or block updates             | Only a comment written by this app is treated as PR Buddy's                                                                                       | `github-client/output/publish-summary.ts`               |
+| G11 | Contributor code is executed                                             | Nothing is checked out, installed or run; only API data is read                                                                                   | whole design                                            |
+| G12 | Secrets leak through logs or errors                                      | Start-up errors name variables, never values; logs exclude pull request content and redact credentials; HTTP errors are generic                   | `api/config/env.ts`, `api/logger.ts`, `api/middleware/` |
+| G13 | Internal details leak in HTTP responses                                  | Fixed response bodies; no stack traces; `X-Powered-By` removed                                                                                    | `api/app.ts`                                            |
+| G14 | The container is compromised                                             | Runs as an unprivileged user, read-only file system, all capabilities dropped                                                                     | `docker/api.Dockerfile`, `compose.yaml`                 |
 
-### Milestone 2 — GitHub App
+### Known limits in Milestone 2
 
-| Requirement                | Detail                                                                                                                                                                                                       |
-| -------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Webhook authentication     | Verify the `X-Hub-Signature-256` HMAC over the raw request body with a constant-time comparison; reject on failure                                                                                           |
-| Idempotency                | Store delivery IDs; a repeated delivery does not create a second review                                                                                                                                      |
-| Least privilege            | Request only the permissions enabled features need; document each one                                                                                                                                        |
-| Installation-scoped tokens | Use short-lived installation tokens, never a personal token                                                                                                                                                  |
-| Stale results              | Record the head commit SHA; a review of an old commit must not overwrite a newer one                                                                                                                         |
-| Request limits             | Body size limit, rate limiting, safe error responses                                                                                                                                                         |
-| Repository configuration   | Read it from the base branch, never from the pull request's own commits, so a contributor cannot switch off checks for their own change. Parse with a safe YAML loader and validate with the engine's schema |
-| No checkout execution      | Never run a contributor's code, install its dependencies or run its scripts                                                                                                                                  |
-| Secrets                    | Environment variables locally; a secret store in production                                                                                                                                                  |
-| Tenant isolation           | Every query is scoped to the organization and installation                                                                                                                                                   |
+- **Delivery memory and the queue live in the process.** After a restart a redelivered event is
+  processed again. That is safe, because publishing updates one comment in place, but it costs a
+  review. A database removes this limit; see D-018 in [BRAIN.md](BRAIN.md).
+- **Rate limiting is per process and per client address.** Behind several instances or a proxy,
+  set `TRUST_PROXY` correctly and rate-limit at the proxy as well.
+- **Secrets come from environment variables.** A production deployment should inject them from a
+  secret store.
+- **There is no multi-tenant data yet.** Each review uses a token scoped to the installation that
+  sent the event, and nothing is stored, so there is no cross-tenant data to protect.
+
+## 7. Requirements for later milestones
 
 ### Milestone 3 — AI review
 
@@ -102,7 +116,7 @@ Recorded now so the design does not paint itself into a corner.
 | Disclosure        | Document which provider receives code and how it handles it                                           |
 | Budgets           | Token, cost and time limits per review                                                                |
 
-## 7. What PR Buddy does not claim
+## 8. What PR Buddy does not claim
 
 PR Buddy holds no security certification. It is not a replacement for dedicated secret scanning,
 static analysis or dependency scanning, and its findings are advice for a human reviewer.

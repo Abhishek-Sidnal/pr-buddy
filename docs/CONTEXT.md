@@ -9,32 +9,38 @@ of actionable, evidence-backed findings. Humans keep the merge decision.
 
 ## Current state
 
-- **Milestone 1** — the deterministic review engine — is the only code in the repository.
-- There is no GitHub App, API, database, dashboard or AI integration yet.
+- **Milestone 1**, the deterministic review engine, is done.
+- **Milestone 2**, the GitHub App, is implemented and tested against an in-memory GitHub. It has
+  not yet been run against the real GitHub API; that needs a registered app.
+- There is no database, dashboard or AI integration yet.
 - Live status: [TRACKER.md](TRACKER.md).
 
 ## Where things are
 
-| Path                                   | Contents                                          |
-| -------------------------------------- | ------------------------------------------------- |
-| `packages/review-engine/src/index.ts`  | Public API of the engine                          |
-| `packages/review-engine/src/engine/`   | The review pipeline                               |
-| `packages/review-engine/src/rules/`    | Rule contract, registry, built-in rules           |
-| `packages/review-engine/src/context/`  | Input schema and path safety                      |
-| `packages/review-engine/src/findings/` | Finding schema, location validation, ordering     |
-| `packages/review-engine/src/config/`   | Configuration schema and resolution               |
-| `packages/review-engine/src/diff/`     | Patch parser                                      |
-| `packages/review-engine/src/limits.ts` | Every size and time limit                         |
-| `packages/review-engine/tests/`        | Unit tests, integration tests, fixtures, builders |
-| `examples/prbuddy.config.json`         | Example configuration, loaded by a test           |
+| Path                                             | Contents                                                    |
+| ------------------------------------------------ | ----------------------------------------------------------- |
+| `packages/review-engine/src/index.ts`            | Public API of the engine                                    |
+| `packages/review-engine/src/rules/`              | Rule contract, registry, built-in rules                     |
+| `packages/review-engine/src/limits.ts`           | Every size and time limit of the engine                     |
+| `packages/github-client/src/api/`                | `RepositoryClient` interface and its Octokit implementation |
+| `packages/github-client/src/webhook/`            | Signature verification and event parsing                    |
+| `packages/github-client/src/output/`             | The summary comment: rendering and publishing               |
+| `apps/api/src/main.ts`                           | Entry point; the only place real clients are created        |
+| `apps/api/src/modules/github/webhook.router.ts`  | The webhook endpoint                                        |
+| `apps/api/src/modules/reviews/review.service.ts` | Fetch, review, publish                                      |
+| `apps/api/tests/helpers/fake-github.ts`          | The in-memory GitHub used by tests                          |
+| `examples/prbuddy.config.json`                   | Example configuration, loaded by a test                     |
+| `.env.example`                                   | The API's environment variables                             |
 
 ## Documents
 
 | Document                                 | Read it for                                                       |
 | ---------------------------------------- | ----------------------------------------------------------------- |
 | [PRD.md](PRD.md)                         | What is being built and why; requirements and acceptance criteria |
-| [ARCHITECTURE.md](ARCHITECTURE.md)       | Module boundaries and the rules for dependencies                  |
-| [DESIGN.md](DESIGN.md)                   | Data contracts, pipeline details, limits                          |
+| [ARCHITECTURE.md](ARCHITECTURE.md)       | Packages, modules and the rules for dependencies                  |
+| [DESIGN.md](DESIGN.md)                   | Review engine: data contracts, pipeline, limits                   |
+| [DESIGN-GITHUB.md](DESIGN-GITHUB.md)     | GitHub App: webhook, queue, review service, permissions           |
+| [GITHUB_APP.md](GITHUB_APP.md)           | Registering the app and running the API                           |
 | [RULES.md](RULES.md)                     | Reference for each built-in review rule                           |
 | [SECURITY.md](SECURITY.md)               | Threat model and controls                                         |
 | [BRAIN.md](BRAIN.md)                     | Decisions and their reasons, glossary, open questions             |
@@ -55,13 +61,16 @@ docker compose run --rm dev npm run check
 
 | Script                  | Does                                                       |
 | ----------------------- | ---------------------------------------------------------- |
-| `npm run check`         | Format check, lint, type-check, tests with coverage, build |
+| `npm run check`         | Format check, build, lint, type-check, tests with coverage |
+| `npm run build`         | Compile every package, in dependency order                 |
 | `npm test`              | Tests once                                                 |
 | `npm run test:coverage` | Tests with a coverage report                               |
 | `npm run lint`          | ESLint                                                     |
 | `npm run typecheck`     | TypeScript without emitting                                |
 | `npm run format`        | Prettier, writing changes                                  |
-| `npm run build`         | Compile to `dist/`                                         |
+
+Packages import each other's compiled output. After changing `review-engine` or `github-client`,
+run `npm run build` before linting or testing a package that depends on it.
 
 With Node.js 22.12 or newer installed locally, the same scripts work without the
 `docker compose run --rm dev` prefix.
@@ -70,14 +79,18 @@ With Node.js 22.12 or newer installed locally, the same scripts work without the
 
 1. The engine does no I/O: no file system, network, process or environment access in
    `packages/review-engine/src`.
-2. Nothing from a reviewed repository is ever executed or evaluated.
-3. Input and configuration are `unknown` at the public API and parsed with Zod.
+2. Nothing from a reviewed repository is ever executed, checked out or installed.
+3. Anything crossing a boundary is `unknown` until a Zod schema has parsed it.
 4. Types come from schemas (`z.infer`); do not write a second definition.
 5. A finding's file and line are verified against the diff or removed. Never invent one.
 6. A finding does not claim more than its evidence supports.
-7. Sizes and timeouts are constants in `limits.ts`.
-8. Every rule has positive, negative and edge-case tests.
-9. Do not build ahead of the current milestone.
+7. Verify a webhook's signature before parsing its body, and treat the body as a trigger only.
+8. Only `github-client` imports Octokit. The API uses the `RepositoryClient` interface.
+9. Never log pull request titles, descriptions, file names, patches, tokens or secrets.
+10. Text a contributor can choose is rendered as code or escaped before it is published.
+11. Sizes, timeouts and limits are named constants.
+12. Every rule has positive, negative and edge-case tests.
+13. Do not build ahead of the current milestone.
 
 ## Conventions
 
@@ -85,7 +98,8 @@ With Node.js 22.12 or newer installed locally, the same scripts work without the
 - File names are kebab-case; rules are `<rule-id>.rule.ts`; schemas are `<name>.schema.ts`.
 - Rule IDs are kebab-case and never reused for different behaviour.
 - Named exports only.
-- Tests are in `tests/unit/<module>/<file>.test.ts`, mirroring `src/`.
+- Tests are in `tests/unit/` and `tests/integration/`; shared test code is in `tests/helpers/`.
+- Modules receive their dependencies as arguments; only `main.ts` creates real ones.
 
 ## When you finish a change
 
@@ -93,3 +107,4 @@ With Node.js 22.12 or newer installed locally, the same scripts work without the
 2. [TRACKER.md](TRACKER.md) reflects the new status.
 3. A new decision is recorded in [BRAIN.md](BRAIN.md).
 4. A changed rule is updated in [RULES.md](RULES.md) and its `version` is bumped.
+5. A new threat or control is recorded in [SECURITY.md](SECURITY.md).

@@ -6,99 +6,102 @@ Legend: ✅ done · 🚧 in progress · ⬜ not started
 
 ## Milestones
 
-| Milestone | Deliverable                  | Status |
-| --------- | ---------------------------- | ------ |
-| M1        | Deterministic review engine  | ✅     |
-| M2        | GitHub App integration       | ⬜     |
-| M3        | AI review, policy, dashboard | ⬜     |
-| M4        | Hardening and `v0.1.0`       | ⬜     |
+| Milestone | Deliverable                  | Status                                   |
+| --------- | ---------------------------- | ---------------------------------------- |
+| M1        | Deterministic review engine  | ✅                                       |
+| M2        | GitHub App integration       | 🚧 built and tested; live test remaining |
+| M3        | AI review, policy, dashboard | ⬜                                       |
+| M4        | Hardening and `v0.1.0`       | ⬜                                       |
 
-## Milestone 1 — review engine
+## Milestone 2 — GitHub App
 
 ### Documentation
 
-| Task                                                                  | Status |
-| --------------------------------------------------------------------- | ------ |
-| PRD, architecture, design, security, brain, context, tracker          | ✅     |
-| Rule reference                                                        | ✅     |
-| README, contributing guide, security policy, code of conduct, license | ✅     |
+| Task                                                              | Status |
+| ----------------------------------------------------------------- | ------ |
+| Requirements in the PRD, GitHub App design, setup guide           | ✅     |
+| Security: threats and controls for the webhook, API and container | ✅     |
+| Decisions D-017 to D-022                                          | ✅     |
 
-### Project setup
+### GitHub client (`packages/github-client`)
 
-| Task                                                        | Status |
-| ----------------------------------------------------------- | ------ |
-| npm workspaces, strict TypeScript, ESLint, Prettier, Vitest | ✅     |
-| Docker development environment                              | ✅     |
-| CI workflow, Dependabot, issue and PR templates             | ✅     |
+| Task                                                       | Requirement   | Status |
+| ---------------------------------------------------------- | ------------- | ------ |
+| Webhook signature verification                             | FR-20         | ✅     |
+| Pull request event parsing                                 | FR-22         | ✅     |
+| `RepositoryClient` interface and Octokit implementation    | FR-24, NFR-26 | ✅     |
+| Installation-scoped authentication                         | FR-24, NFR-22 | ✅     |
+| Bounded retry of transient errors                          | FR-30         | ✅     |
+| Mapping GitHub files to review engine input                | FR-24         | ✅     |
+| Summary rendering that neutralises contributor-chosen text | FR-25, NFR-25 | ✅     |
+| Publishing one comment, updated in place                   | FR-25, FR-26  | ✅     |
 
-The CI workflow has been written but has not run: the repository is not on GitHub yet.
+### API (`apps/api`)
 
-### Engine
-
-| Task                                 | Requirement  | Status |
-| ------------------------------------ | ------------ | ------ |
-| Limits and error classes             | NFR-7        | ✅     |
-| Review context schema and safe paths | FR-1, FR-10  | ✅     |
-| Finding schema and severity          | FR-1, FR-7   | ✅     |
-| Patch parser                         | FR-11        | ✅     |
-| Finding location validation          | FR-11        | ✅     |
-| Rule contract and registry           | FR-2, FR-6   | ✅     |
-| Configuration schema and resolution  | FR-8, FR-9   | ✅     |
-| Engine pipeline with rule isolation  | FR-12, NFR-6 | ✅     |
-| Glob matcher with bounded cost       | NFR-7        | ✅     |
-| Rule `pr-description`                | FR-3         | ✅     |
-| Rule `max-changed-files`             | FR-4         | ✅     |
-| Rule `missing-test-changes`          | FR-5         | ✅     |
-
-### Tests
-
-| Task                                                   | Status |
-| ------------------------------------------------------ | ------ |
-| Unit tests for every module                            | ✅     |
-| Positive, negative and edge-case tests for every rule  | ✅     |
-| Malformed-input tests for context and configuration    | ✅     |
-| Fixtures: added, removed, renamed, mixed, empty        | ✅     |
-| Integration tests, including the example configuration | ✅     |
+| Task                                                            | Requirement    | Status |
+| --------------------------------------------------------------- | -------------- | ------ |
+| Environment configuration validated at start-up                 | NFR-23         | ✅     |
+| Structured logging with redaction                               | NFR-23, NFR-24 | ✅     |
+| Webhook endpoint: size limit, rate limit, signature, validation | FR-20, NFR-21  | ✅     |
+| Delivery deduplication                                          | FR-21          | ✅     |
+| Review queue: one per pull request, coalescing, bounded         | NFR-20, NFR-21 | ✅     |
+| Review service: skip drafts and closed, stale check, publish    | FR-23, FR-27   | ✅     |
+| Repository configuration from the base commit                   | FR-28, FR-29   | ✅     |
+| Graceful shutdown                                               | —              | ✅     |
+| Production image: unprivileged, read-only                       | —              | ✅     |
 
 ### Acceptance
 
 Last run on 2026-10-10 with `docker compose run --rm dev npm run check` (Node.js 24).
 
-| Check      | Result                                            |
-| ---------- | ------------------------------------------------- |
-| Formatting | Passed                                            |
-| Lint       | Passed                                            |
-| Type-check | Passed                                            |
-| Tests      | Passed: 348 tests in 11 files                     |
-| Coverage   | 100% of statements, branches, functions and lines |
-| Build      | Passed                                            |
-| Audit      | `npm audit`: no known vulnerabilities             |
+| Check                               | Result                                                                                                                         |
+| ----------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
+| Formatting, build, lint, type-check | Passed                                                                                                                         |
+| Tests                               | Passed: 605 tests (engine 348, GitHub client 136, API 121)                                                                     |
+| Coverage, statements                | Engine 100%, GitHub client 100%, API 98.7%                                                                                     |
+| Audit                               | `npm audit`: no known vulnerabilities                                                                                          |
+| Container smoke test                | Passed: health, `401` unsigned, `401` wrong secret, `202` signed, duplicate detected, unprivileged user, read-only file system |
+| Real GitHub API                     | **Not run.** Needs a registered GitHub App                                                                                     |
 
-### Open items before publishing
+### Remaining for Milestone 2
+
+| Item                                                                                   | Owner      |
+| -------------------------------------------------------------------------------------- | ---------- |
+| Register a GitHub App and install it on a test repository ([guide](GITHUB_APP.md))     | Maintainer |
+| Open a test pull request; confirm one comment appears and is updated, never duplicated | Maintainer |
+| Fix anything the live test reveals                                                     | —          |
+
+## Milestone 1 — review engine
+
+Complete. Engine, three rules, 348 tests at 100% coverage. Details are in the change log and in
+[DESIGN.md](DESIGN.md).
+
+## Open items before going public
 
 | Item                                                              | Owner      |
 | ----------------------------------------------------------------- | ---------- |
-| Make the first commit and push to GitHub, then confirm CI passes  | Maintainer |
+| Review the four open Dependabot pull requests                     | Maintainer |
 | Enable private vulnerability reporting in the repository settings | Maintainer |
 | Add a contact method for code of conduct reports to the profile   | Maintainer |
 | Decide the copyright holder named in `LICENSE`                    | Maintainer |
+| Switch the repository from private to public                      | Maintainer |
 
 ## Backlog
 
-| Item                                                                    | Milestone |
-| ----------------------------------------------------------------------- | --------- |
-| `packages/github-client`: map GitHub API data to `ReviewContext`        | M2        |
-| Webhook receiver with signature verification and delivery deduplication | M2        |
-| Database schema and migrations                                          | M2        |
-| Publish summary and inline comments; stale-review protection            | M2        |
-| Safe loading of a repository configuration file from the base branch    | M2        |
-| Rules: debug code, risky configuration changes, change size by lines    | M2        |
-| AI reviewer behind a provider interface                                 | M3        |
-| Severity and confidence thresholds                                      | M3        |
-| Dashboard: overview, repositories, review details, settings             | M3        |
-| Run third-party rules in a worker thread with a hard time limit         | M3        |
-| Pin GitHub Actions to commit SHAs                                       | M4        |
-| Release `v0.1.0`                                                        | M4        |
+| Item                                                                 | Milestone |
+| -------------------------------------------------------------------- | --------- |
+| PostgreSQL: durable delivery memory, review history, organisations   | M3        |
+| Durable job queue so queued reviews survive a restart                | M3        |
+| Inline review comments, once a rule reports lines                    | M3        |
+| Check run with a pass or fail conclusion                             | M3        |
+| Rules: debug code, risky configuration changes, change size by lines | M3        |
+| AI reviewer behind a provider interface                              | M3        |
+| Severity and confidence thresholds                                   | M3        |
+| Dashboard: overview, repositories, review details, settings          | M3        |
+| YAML repository configuration                                        | M3        |
+| Run third-party rules in a worker thread with a hard time limit      | M3        |
+| Pin GitHub Actions and base images to digests                        | M4        |
+| Release `v0.1.0`                                                     | M4        |
 
 ## Change log
 
@@ -107,4 +110,5 @@ Last run on 2026-10-10 with `docker compose run --rm dev npm run check` (Node.js
 | 2026-10-10 | Project documentation written; Milestone 1 started                                   |
 | 2026-10-10 | Review engine, three rules, tests and tooling implemented                            |
 | 2026-10-10 | Replaced picomatch with an own glob matcher after measuring a denial-of-service risk |
-| 2026-10-10 | Milestone 1 acceptance checks passed                                                 |
+| 2026-10-10 | Milestone 1 acceptance checks passed; repository published privately on GitHub       |
+| 2026-10-10 | Milestone 2: GitHub client package, API service, production image, CI image build    |
