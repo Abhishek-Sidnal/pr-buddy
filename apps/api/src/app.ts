@@ -8,12 +8,15 @@ import {
 
 const ONE_MINUTE_MS = 60_000;
 const PAYLOAD_TOO_LARGE = 413;
+const SERVICE_UNAVAILABLE = 503;
 
 export interface AppDependencies extends WebhookRouterDependencies {
   /** Number of reverse proxies in front of the service; 0 when it is reached directly. */
   readonly trustProxy: number;
   /** Webhook requests allowed per minute from one client address. */
   readonly webhookRateLimit: number;
+  /** Reports whether the service's dependencies are reachable. Must not throw. Defaults to yes. */
+  readonly isReady?: () => Promise<boolean>;
 }
 
 const setSecurityHeaders: RequestHandler = (_request, response, next) => {
@@ -60,8 +63,17 @@ export function createApp(dependencies: AppDependencies): Express {
   app.set("trust proxy", dependencies.trustProxy);
   app.use(setSecurityHeaders);
 
+  // Liveness: the process is up.
   app.get("/healthz", (_request, response) => {
     response.status(200).json({ status: "ok" });
+  });
+
+  // Readiness: the process can do its work, which includes reaching the database if there is one.
+  app.get("/readyz", async (_request, response) => {
+    const ready = await (dependencies.isReady?.() ?? Promise.resolve(true));
+    response
+      .status(ready ? 200 : SERVICE_UNAVAILABLE)
+      .json({ status: ready ? "ready" : "unavailable" });
   });
 
   app.use(

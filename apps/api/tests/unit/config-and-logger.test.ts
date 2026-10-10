@@ -83,6 +83,47 @@ describe("loadConfig", () => {
     );
   });
 
+  it("runs without a database when none is configured", () => {
+    expect(loadConfig(environment())).not.toHaveProperty("database");
+  });
+
+  it.each([
+    "postgres://user:pw@db.internal:5432/prbuddy",
+    "postgresql://user:pw@localhost/prbuddy?sslmode=require",
+  ])("reads the database settings from %s", (url) => {
+    expect(loadConfig(environment({ DATABASE_URL: url })).database).toEqual({ url, poolSize: 5 });
+  });
+
+  it("reads the database pool size", () => {
+    const config = loadConfig(
+      environment({ DATABASE_URL: "postgres://u:p@h/d", DATABASE_POOL_SIZE: "20" }),
+    );
+
+    expect(config.database?.poolSize).toBe(20);
+  });
+
+  it.each([
+    ["another database", "mysql://user:pw@host/db"],
+    ["a web address", "https://example.com/db"],
+    ["text that is not a URL", "localhost prbuddy"],
+    ["a URL without a host", "postgres:///prbuddy"],
+    ["an empty value", ""],
+  ])("rejects a database URL that is %s", (_name, url) => {
+    expect(issuesOf({ DATABASE_URL: url })).toEqual([
+      "DATABASE_URL: must be a postgres:// or postgresql:// URL",
+    ]);
+  });
+
+  it("never includes the database password in an error", () => {
+    const issues = issuesOf({ DATABASE_URL: "mysql://admin:PASSWORD-CANARY@host/db" });
+
+    expect(issues.join()).not.toContain("PASSWORD-CANARY");
+  });
+
+  it("rejects a pool size of zero", () => {
+    expect(issuesOf({ DATABASE_POOL_SIZE: "0" })[0]).toMatch(/^DATABASE_POOL_SIZE: /);
+  });
+
   it("ignores unrelated environment variables", () => {
     expect(() => loadConfig(environment({ PATH: "/usr/bin", HOME: "/home/node" }))).not.toThrow();
   });
@@ -235,6 +276,19 @@ describe("describeError", () => {
       errorMessage: "Not Found",
       status: 404,
     });
+  });
+
+  it("keeps a short error code, as database and network errors have", () => {
+    const error = Object.assign(new Error("duplicate key"), { code: "23505" });
+
+    expect(describeError(error)).toEqual({
+      errorName: "Error",
+      errorMessage: "duplicate key",
+      errorCode: "23505",
+    });
+    expect(describeError(Object.assign(new Error("x"), { code: 5 }))).not.toHaveProperty(
+      "errorCode",
+    );
   });
 
   it("drops a status that is not a number", () => {

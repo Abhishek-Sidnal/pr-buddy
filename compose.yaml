@@ -14,8 +14,32 @@ services:
       - .:/workspace
       # Dependencies live in a volume: Linux binaries stay out of the host folder.
       - node_modules:/workspace/node_modules
+    environment:
+      # Storage tests run against this server, each test file in a schema of its own.
+      TEST_DATABASE_URL: postgres://prbuddy:prbuddy@postgres:5432/prbuddy
+    depends_on:
+      postgres:
+        condition: service_healthy
     cap_drop:
       - ALL
+    security_opt:
+      - no-new-privileges:true
+
+  # Local development database. The password is not a secret: the port is not published, and
+  # nothing but the containers in this file can reach it. Never reuse it anywhere else.
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_USER: prbuddy
+      POSTGRES_PASSWORD: prbuddy
+      POSTGRES_DB: prbuddy
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready --username prbuddy --dbname prbuddy"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
     security_opt:
       - no-new-privileges:true
 
@@ -28,6 +52,11 @@ services:
     env_file:
       - path: .env
         required: false
+    environment:
+      DATABASE_URL: postgres://prbuddy:prbuddy@postgres:5432/prbuddy
+    depends_on:
+      postgres:
+        condition: service_healthy
     ports:
       # Reachable from this machine only. Put a reverse proxy in front for anything else.
       - "127.0.0.1:3000:3000"
@@ -40,3 +69,4 @@ services:
 
 volumes:
   node_modules:
+  postgres_data:

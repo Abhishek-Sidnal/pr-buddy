@@ -29,6 +29,7 @@ COPY --from=build /app/packages/github-client/package.json packages/github-clien
 COPY --from=build /app/packages/github-client/dist packages/github-client/dist
 COPY --from=build /app/apps/api/package.json apps/api/
 COPY --from=build /app/apps/api/dist apps/api/dist
+COPY --from=build /app/apps/api/migrations apps/api/migrations
 
 # The service needs no write access and no privileges.
 USER node

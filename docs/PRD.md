@@ -165,6 +165,39 @@ configuration, organisations and user accounts, hosted deployment.
   updated when the pull request changes. This needs a registered GitHub App; see
   [GITHUB_APP.md](GITHUB_APP.md).
 
+## 6B. Milestone 3, part 1 — storage
+
+Milestone 3 is delivered in parts: storage, then rules and thresholds, the AI reviewer, and the
+dashboard. This section covers storage. Design: [DESIGN-STORAGE.md](DESIGN-STORAGE.md).
+
+### Functional requirements
+
+| ID    | Requirement                                                                              |
+| ----- | ---------------------------------------------------------------------------------------- |
+| FR-40 | Every review attempt is recorded: completed, skipped or failed.                          |
+| FR-41 | A completed review's findings and the version of each rule that ran are recorded.        |
+| FR-42 | Webhook deliveries are remembered in the database, across restarts and across instances. |
+| FR-43 | The database schema is created and upgraded automatically when the service starts.       |
+| FR-44 | The service runs without a database, as before, when none is configured.                 |
+| FR-45 | A readiness endpoint reports whether the database can be reached.                        |
+
+### Non-functional requirements
+
+| ID     | Requirement                                                                       |
+| ------ | --------------------------------------------------------------------------------- |
+| NFR-40 | Pull request titles, descriptions, patches and file contents are never stored.    |
+| NFR-41 | Every statement is parameterised; no SQL is built from input.                     |
+| NFR-42 | Every review is tied to an installation, so reads can later be limited by tenant. |
+| NFR-43 | A review and its findings are written atomically.                                 |
+| NFR-44 | A storage failure never loses or blocks the comment on a pull request.            |
+| NFR-45 | The database password never appears in logs or errors.                            |
+| NFR-46 | Storage is tested against a real PostgreSQL.                                      |
+
+### Out of scope for this part
+
+Reading history over HTTP, sign-in, organisations and users, retention limits, a durable job
+queue, the dashboard.
+
 ## 7. Success metrics (from M2 onward)
 
 These cannot be measured until PR Buddy reviews real pull requests.

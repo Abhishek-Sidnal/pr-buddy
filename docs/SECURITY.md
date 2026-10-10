@@ -109,6 +109,29 @@ with a hard kill is a later option.
 - **There is no multi-tenant data yet.** Each review uses a token scoped to the installation that
   sent the event, and nothing is stored, so there is no cross-tenant data to protect.
 
+## 6A. Threats and controls in Milestone 3 — storage
+
+| #   | Threat                                                              | Control                                                                                                                                                       | Where                                           |
+| --- | ------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------- |
+| S1  | SQL injection through repository names, rule output or delivery IDs | Every statement is parameterised; no SQL text is built from input. The only identifier placed in SQL, a test schema name, is checked against a strict pattern | `api/database/`, `api/modules/**/postgres-*.ts` |
+| S2  | The database password leaks                                         | It is read from `DATABASE_URL` only, never logged; start-up errors name the variable; connection errors are logged by name and code, not message              | `api/config/env.ts`, `api/logger.ts`            |
+| S3  | Stored source code becomes a liability                              | Titles, descriptions, patches, file contents and error messages are never stored                                                                              | `api/modules/reviews/postgres-review-store.ts`  |
+| S4  | One tenant reads another's history                                  | There is no read endpoint yet. Every review is tied to an installation so that reads can be scoped when they are added                                        | [DESIGN-STORAGE.md](DESIGN-STORAGE.md)          |
+| S5  | A half-written review misleads later readers                        | A review, its rule executions and findings are written in one transaction                                                                                     | `postgres-review-store.ts`                      |
+| S6  | Two instances both accept one delivery                              | Claiming is a single atomic statement that returns a row only to the first claimant                                                                           | `postgres-delivery-store.ts`                    |
+| S7  | A storage outage takes reviews down                                 | Saving happens after publishing and its failure is logged, not raised. Readiness reports the outage                                                           | `review.service.ts`, `app.ts`                   |
+| S8  | Instances starting together corrupt the schema                      | Migrations run in one transaction under an advisory lock                                                                                                      | `api/database/migrate.ts`                       |
+| S9  | An edited migration silently diverges from the database             | Checksums of applied migrations are verified at start-up                                                                                                      | `api/database/migrate.ts`                       |
+
+### Known limits
+
+- **File paths are stored** inside findings. Protect the database as you would the repositories.
+- **No retention limit.** Reviews are kept until deleted.
+- **Encryption in transit depends on the connection string.** Use `sslmode=require` or stronger
+  for a database that is not on the same private network.
+- **The development database password is in `compose.yaml`.** It is for local development only
+  and the port is not published.
+
 ## 7. Requirements for later milestones
 
 ### Milestone 3 — AI review

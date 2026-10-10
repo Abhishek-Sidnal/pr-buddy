@@ -6,8 +6,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 PR Buddy is an open-source GitHub App that reviews pull requests with deterministic rules and
 keeps one summary comment on each pull request up to date. It never merges or changes code.
-Milestones 1 (review engine) and 2 (GitHub App) are built; there is no database, dashboard or AI
-review yet. Current status is in `docs/TRACKER.md`.
+Milestones 1 (review engine) and 2 (GitHub App) are built, and so is the first part of Milestone 3:
+PostgreSQL storage for review history. There is no dashboard, sign-in or AI review yet. Current
+status is in `docs/TRACKER.md`.
 
 ## Commands
 
@@ -46,6 +47,8 @@ Things that will trip you up:
 - **Shell quoting.** From PowerShell, inner double quotes in `sh -c "..."` are stripped. Use Git
   Bash with `MSYS_NO_PATHCONV=1 docker compose run --rm dev sh -c '...'` for anything with pipes
   or quotes.
+- **The `dev` container starts PostgreSQL too.** Storage tests need a real server and read
+  `TEST_DATABASE_URL`, which `compose.yaml` sets. Each test file works in its own schema.
 - **`node_modules` is a Docker volume**, not a host folder (the repo sits in OneDrive). Install
   dependencies only through the container, with `-w <workspace>`.
 - **TypeScript stays below 6.1** until typescript-eslint supports newer versions.
@@ -101,6 +104,12 @@ relevant entry before changing one.
 - Globs use the project's own matcher (`review-engine/src/utils/glob.ts`), not a library: a
   regex-based one hung for 26 seconds on a hostile pattern (D-011). Keep matching free of regular
   expressions and recursion.
+- The database stores identifiers, findings, counts and timings. Never store pull request titles,
+  descriptions, patches, file contents or error messages (D-031).
+- SQL is hand-written and always parameterised; there is no ORM (D-029). Schema changes are new
+  files in `apps/api/migrations`; an applied migration is never edited.
+- The service must keep working without `DATABASE_URL` (D-030), and a storage failure must never
+  fail a review whose comment is already posted (D-034).
 - Sizes and timeouts are named constants (`review-engine/src/limits.ts`), not literals.
 - No empty scaffolding: a folder is created when its milestone starts.
 
@@ -118,14 +127,14 @@ relevant entry before changing one.
 
 The maintainer wants design documents written before code and kept current. In the same change:
 
-| When you…                        | Update                                      |
-| -------------------------------- | ------------------------------------------- |
-| Start or finish a task           | `docs/TRACKER.md`                           |
-| Make a design decision           | `docs/BRAIN.md` (next `D-0xx` entry)        |
-| Add a threat or a control        | `docs/SECURITY.md`                          |
-| Change a contract, limit or flow | `docs/DESIGN.md` or `docs/DESIGN-GITHUB.md` |
-| Add or move a module             | `docs/ARCHITECTURE.md`                      |
-| Change a rule                    | `docs/RULES.md`                             |
+| When you…                        | Update                                                                |
+| -------------------------------- | --------------------------------------------------------------------- |
+| Start or finish a task           | `docs/TRACKER.md`                                                     |
+| Make a design decision           | `docs/BRAIN.md` (next `D-0xx` entry)                                  |
+| Add a threat or a control        | `docs/SECURITY.md`                                                    |
+| Change a contract, limit or flow | `docs/DESIGN.md`, `docs/DESIGN-GITHUB.md` or `docs/DESIGN-STORAGE.md` |
+| Add or move a module             | `docs/ARCHITECTURE.md`                                                |
+| Change a rule                    | `docs/RULES.md`                                                       |
 
 `docs/CONTEXT.md` is the orientation page; `CONTRIBUTING.md` has the full coding rules.
 
