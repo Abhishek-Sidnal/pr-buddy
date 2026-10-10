@@ -165,8 +165,8 @@ More detail: [architecture](docs/ARCHITECTURE.md) · [engine design](docs/DESIGN
   redelivery have only been exercised in automated tests.
 - The dashboard is read-only and shows what is stored: no pull request titles, authors, diffs or
   AI suggestion text, and no way to re-run a review or edit rules from it.
-- Sign-in with GitHub is covered by tests against a fake GitHub; it has not been run against the
-  real one yet.
+- Sign-in with GitHub was verified live once, on a local run over `http://localhost`. It has not
+  been tried behind HTTPS or a reverse proxy.
 - Dashboard access is read at sign-in. Losing access on GitHub takes effect when the session
   ends, at most eight hours later.
 - Reviews waiting in the queue are lost when the service restarts. Without a database, so is the

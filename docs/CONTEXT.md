@@ -18,8 +18,8 @@ of actionable, evidence-backed findings. Humans keep the merge decision.
   provider from the operator and `ai.enabled` from the repository.
 - The **dashboard** is built: sign-in with GitHub, a read-only API limited to the installations
   a person can access, and a React app (`apps/web`) in the Graphite / Signal Lime design. It is
-  off unless the database and three settings are present. Sign-in has not yet been run against
-  real GitHub.
+  off unless the database and three settings are present. Sign-in was verified against real
+  GitHub on 2026-10-10, on a local run.
 - Live status: [TRACKER.md](TRACKER.md).
 
 ## Where things are
