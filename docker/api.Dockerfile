@@ -7,6 +7,7 @@ WORKDIR /app
 # Manifests first, so the dependency layer is reused until they change.
 COPY package.json package-lock.json ./
 COPY packages/review-engine/package.json packages/review-engine/
+COPY packages/ai-reviewer/package.json packages/ai-reviewer/
 COPY packages/github-client/package.json packages/github-client/
 COPY apps/api/package.json apps/api/
 RUN npm ci
@@ -25,6 +26,8 @@ COPY --from=build /app/package.json ./
 COPY --from=build /app/node_modules node_modules
 COPY --from=build /app/packages/review-engine/package.json packages/review-engine/
 COPY --from=build /app/packages/review-engine/dist packages/review-engine/dist
+COPY --from=build /app/packages/ai-reviewer/package.json packages/ai-reviewer/
+COPY --from=build /app/packages/ai-reviewer/dist packages/ai-reviewer/dist
 COPY --from=build /app/packages/github-client/package.json packages/github-client/
 COPY --from=build /app/packages/github-client/dist packages/github-client/dist
 COPY --from=build /app/apps/api/package.json apps/api/

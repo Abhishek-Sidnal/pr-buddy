@@ -304,6 +304,71 @@ line.
 per review, and a failure to post them is logged without failing the review.
 **Why.** The summary is already on the pull request by then (same reasoning as D-034).
 
+### D-041 — The AI reviewer is a separate package behind a provider interface; no provider ships yet
+
+**Decision.** `@pr-buddy/ai-reviewer` holds the prompt, the output checks and an `AiProvider`
+interface. The service is given a reviewer in `main.ts` or runs without one. No real provider is
+included.
+**Why.** Which company receives a user's private code, and who pays for it, is the operator's
+decision and is still open. Everything that makes the feature safe is independent of that choice;
+an adapter is small.
+**Cost.** The feature cannot run against a real model until a provider is added, so resistance to
+prompt injection is not yet measured.
+
+### D-042 — AI review needs two switches and is off by default
+
+**Decision.** The operator must supply a provider and the repository must set `ai.enabled`, read
+at the base commit.
+**Why.** It sends code to a third party. Neither the operator nor a repository owner should have
+that happen without asking for it, and a contributor must not be able to switch it on.
+
+### D-043 — Pull request content is data; model output is untrusted input
+
+**Decision.** Content goes into the prompt as one JSON document, apart from fixed instructions.
+The reply is length-checked, parsed and validated entry by entry, and each suggestion's file and
+line are checked against the files that were sent. A suggestion with an unverifiable location is
+dropped whole.
+**Why.** No prompt reliably stops injection, so what the model returns is constrained instead.
+Rules lose only the location (D-008) because their logic is trusted; a model that cites a line
+that does not exist is likely wrong about the rest too.
+
+### D-044 — The model does not set its own confidence or reach `critical`
+
+**Decision.** Every AI suggestion has confidence 0.5 and a severity of at most `high`.
+**Why.** A finding never claims more than its evidence shows (D-010, D-036). A model's self-reported
+certainty is not evidence. The fixed value also gives repositories one dial:
+`report.minConfidence` above 0.5 hides all suggestions.
+
+### D-045 — AI suggestions appear in the summary only
+
+**Decision.** They are not posted as line comments.
+**Why.** Line comments are reconciled by fingerprint (D-039), which includes the message. A model
+phrases the same point differently on each run, so every push would delete and repost them.
+**Revisit when.** There is a fingerprint for suggestions that survives rewording.
+
+### D-046 — The text of AI suggestions is not stored
+
+**Decision.** `ai_reviews` keeps provider, model, status, counts, tokens and duration. Messages
+are published on the pull request and nowhere else.
+**Why.** A model that has read the code may quote it, and the database holds no source (D-031,
+D-035).
+**Cost.** The dashboard will show that suggestions were made, not what they said.
+
+### D-047 — Send the least that a review needs
+
+**Decision.** Title, a bounded description, and the new-side lines visible in the diff of
+selected files. Credential-like files, lockfiles and removed files are never sent. A file that
+does not fit the budget is left out whole.
+**Why.** Less sent is less exposed and less paid for. A file cut in the middle invites
+suggestions about code the model could not see.
+
+### D-048 — AI review is best-effort: one request, no retry
+
+**Decision.** A time-out, provider error or unusable reply is recorded and noted in the comment;
+the rule findings are published regardless. The provider's error message is not logged.
+**Why.** The suggestions are optional (same reasoning as D-040). A retry doubles cost. Provider
+errors can echo the prompt.
+
 ## 3. Glossary
 
 | Term       | Meaning                                                                                 |

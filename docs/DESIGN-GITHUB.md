@@ -103,6 +103,8 @@ this is what allows a failed review to be run again instead of being dropped as 
 | GitHub returns another client error                       | The review fails and is logged; nothing is posted                                                                                 |
 | A review fails                                            | Logged, with a separate message for rate limits; its delivery can be redelivered                                                  |
 | A diff is too large to load                               | The file is reviewed by name only and the comment says how many                                                                   |
+| The repository enabled AI review and a provider exists    | A model is asked once, after the rules; its verified suggestions get their own section. See [DESIGN-AI.md](DESIGN-AI.md)          |
+| The AI review fails                                       | The rules' findings are published and the comment says the AI review could not be completed                                       |
 
 ### Stale results
 
@@ -124,6 +126,11 @@ PR Buddy reads `.github/pr-buddy.json` at the pull request's **base** commit. A 
 therefore cannot weaken the checks that apply to their own pull request by editing the file in
 that pull request. The file has the format in [DESIGN.md](DESIGN.md) section 4, is limited to
 64 KB, and is validated by the engine.
+
+One section is not the engine's: `"ai": { "enabled": true }` allows the repository's pull
+requests to be sent to the operator's AI provider. The service takes it out and validates it
+before the engine sees the rest. If any part of the file is invalid, defaults are used for all of
+it, and the default for AI review is off.
 
 ### The summary comment
 

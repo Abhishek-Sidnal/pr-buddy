@@ -1,8 +1,9 @@
 # PR Buddy — Architecture
 
 This document describes how the system is divided and which part may depend on which. Detailed
-behaviour is in [DESIGN.md](DESIGN.md) (review engine) and [DESIGN-GITHUB.md](DESIGN-GITHUB.md)
-(GitHub App).
+behaviour is in [DESIGN.md](DESIGN.md) (review engine), [DESIGN-GITHUB.md](DESIGN-GITHUB.md)
+(GitHub App), [DESIGN-STORAGE.md](DESIGN-STORAGE.md) (database) and [DESIGN-AI.md](DESIGN-AI.md)
+(AI reviewer).
 
 ## 1. System
 
@@ -22,11 +23,14 @@ Review service ── fetch pull request, files and configuration            app
 Review engine ── validate input → run rules → validate findings          packages/review-engine
         │
         ▼
+AI reviewer ── optional: prompt → provider → verify suggestions           packages/ai-reviewer
+        │              only with a provider and the repository's consent
+        ▼
 Summary comment ── rendered and published by the GitHub client           packages/github-client
 ```
 
-Planned and not in the repository: reading history over HTTP with sign-in, the dashboard, policy
-thresholds and an optional AI reviewer (all M3).
+Planned and not in the repository: reading history over HTTP with sign-in, the dashboard, and a
+real AI provider (all M3). The AI reviewer is built and inert until a provider is added.
 
 ## 2. Repository layout
 
@@ -36,6 +40,7 @@ pr-buddy/
 │   └── api/                  HTTP service: webhooks, queue, review orchestration
 ├── packages/
 │   ├── review-engine/        Deterministic review engine
+│   ├── ai-reviewer/          Optional AI review: prompt, provider interface, output checks
 │   └── github-client/        Everything that knows GitHub's formats and API
 ├── examples/                 Example configuration
 ├── docs/                     Product, architecture, design, security, tracker, decisions
@@ -55,11 +60,13 @@ pr-buddy/
 
 ```
 apps/api ──► packages/github-client ──► packages/review-engine
+    ├──────► packages/ai-reviewer ─────────────►┤
     └──────────────────────────────────────────►┘
 ```
 
-Dependencies point one way. The engine knows nothing about GitHub or HTTP; the GitHub client
-knows nothing about Express; only the API knows how they are combined.
+Dependencies point one way. The engine knows nothing about GitHub, HTTP or AI; the GitHub client
+knows nothing about Express; the AI reviewer knows nothing about GitHub; only the API knows how
+they are combined.
 
 Packages import each other's compiled output, so `npm run build` runs before lint, type-check and
 tests. The workspaces are listed in dependency order in the root `package.json`.
@@ -107,6 +114,23 @@ packages/github-client/src/
 `RepositoryClient` is the boundary. It lists the six GitHub operations PR Buddy needs. The API
 depends on that interface and never on Octokit.
 
+## 5A. AI reviewer modules
+
+```
+packages/ai-reviewer/src/
+├── index.ts              Public API
+├── limits.ts             Size, count and time limits
+├── provider.ts           AiProvider interface; checks on a provider's name and answer
+├── settings.ts           The `ai` section of a repository's configuration
+├── ai-reviewer.ts        Orchestration: select, ask once with a time limit, verify, filter
+├── scripted-provider.ts  A provider that answers from a script, for tests
+├── prompt/               File selection and budgets; the prompt
+└── output/               Reply parsing; suggestions → verified findings
+```
+
+`AiProvider` is the boundary: the reviewer never knows which service answers. No implementation
+that calls a real service exists yet.
+
 ## 6. API modules
 
 ```
@@ -151,7 +175,7 @@ These hold for every change. Several are enforced by ESLint or the compiler.
 | A custom rule           | Call `defineRule` in your own code and `register` it on a `RuleRegistry` passed to `createReviewEngine`                       |
 | Another storage backend | Implement the `DeliveryStore` and `ReviewStore` interfaces                                                                    |
 | Another platform        | Add a client package that produces a `ReviewContext` and publishes a `ReviewResult`                                           |
-| An AI reviewer (M3)     | Produce findings with the same schema and pass them through the same location validation                                      |
+| An AI provider          | Implement `AiProvider` and pass `createAiReviewer({ provider })` to the review service; see [DESIGN-AI.md](DESIGN-AI.md)      |
 
 ## 9. Technology choices
 

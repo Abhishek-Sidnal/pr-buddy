@@ -9,6 +9,8 @@ export interface PatchHunk {
   readonly addedLineTexts: readonly string[];
   /** New-side line numbers of unchanged (" ") lines. */
   readonly contextLines: readonly number[];
+  /** The text of each unchanged line, without its leading space, in the same order. */
+  readonly contextLineTexts: readonly string[];
   /**
    * True when the hunk holds exactly the lines its header declares. A hunk that is cut short or
    * has extra lines cannot be trusted, and its line numbers must not be used to verify anything.
@@ -27,6 +29,7 @@ interface HunkCursor {
   readonly addedLines: number[];
   readonly addedLineTexts: string[];
   readonly contextLines: number[];
+  readonly contextLineTexts: string[];
   nextNewLine: number;
   remainingOld: number;
   remainingNew: number;
@@ -46,6 +49,7 @@ function openHunk(header: RegExpExecArray): HunkCursor {
     addedLines: [],
     addedLineTexts: [],
     contextLines: [],
+    contextLineTexts: [],
     nextNewLine: newStart,
     remainingOld: oldLines,
     remainingNew: newLines,
@@ -62,6 +66,7 @@ function closeHunk(cursor: HunkCursor): PatchHunk {
     addedLines: cursor.addedLines,
     addedLineTexts: cursor.addedLineTexts,
     contextLines: cursor.contextLines,
+    contextLineTexts: cursor.contextLineTexts,
     isWellFormed: cursor.remainingOld === 0 && cursor.remainingNew === 0 && !cursor.hasExtraLines,
   };
 }
@@ -87,6 +92,7 @@ function consumeLine(cursor: HunkCursor, line: string): void {
     // Some tools strip the single space of an empty context line, leaving an empty string.
     if (cursor.remainingOld > 0 && cursor.remainingNew > 0) {
       cursor.contextLines.push(cursor.nextNewLine);
+      cursor.contextLineTexts.push(line.slice(1));
       cursor.nextNewLine += 1;
       cursor.remainingOld -= 1;
       cursor.remainingNew -= 1;
@@ -175,4 +181,33 @@ export function getAddedLines(patch: string): AddedLine[] {
     });
   }
   return added;
+}
+
+/** One line of a file after a change, as far as its patch shows it. */
+export interface VisibleLine {
+  /** 1-based line number in the file after the change. */
+  readonly line: number;
+  readonly text: string;
+  /** True for a line the change adds; false for an unchanged line shown for context. */
+  readonly isAdded: boolean;
+}
+
+/**
+ * Every new-side line a patch shows, added and unchanged, in file order. These are exactly the
+ * lines `getNewSideLines` accepts as locations, with their text.
+ */
+export function getVisibleLines(patch: string): VisibleLine[] {
+  const visible: VisibleLine[] = [];
+  for (const hunk of parsePatch(patch)) {
+    if (!hunk.isWellFormed) {
+      continue;
+    }
+    hunk.addedLines.forEach((line, index) => {
+      visible.push({ line, text: hunk.addedLineTexts[index] ?? "", isAdded: true });
+    });
+    hunk.contextLines.forEach((line, index) => {
+      visible.push({ line, text: hunk.contextLineTexts[index] ?? "", isAdded: false });
+    });
+  }
+  return visible.sort((a, b) => a.line - b.line);
 }

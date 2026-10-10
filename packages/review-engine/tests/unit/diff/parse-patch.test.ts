@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { getNewSideLines, parsePatch } from "../../../src/diff/parse-patch.js";
+import { getNewSideLines, getVisibleLines, parsePatch } from "../../../src/diff/parse-patch.js";
 
 const lines = (patch: string): number[] => [...getNewSideLines(patch)].sort((a, b) => a - b);
 
@@ -24,6 +24,7 @@ describe("parsePatch", () => {
         addedLines: [11, 12],
         addedLineTexts: ["TWO", "extra"],
         contextLines: [10, 13, 14],
+        contextLineTexts: ["one", "three", "four"],
         isWellFormed: true,
       },
     ]);
@@ -129,5 +130,41 @@ describe("parsePatch", () => {
     const patch = `@@ -0,0 +1,${count} @@\n${"+line\n".repeat(count)}`;
 
     expect(getNewSideLines(patch).size).toBe(count);
+  });
+});
+
+describe("getVisibleLines", () => {
+  it("returns added and unchanged lines in file order, without removed ones", () => {
+    const patch = ["@@ -10,3 +10,4 @@", " one", "-two", "+TWO", "+extra", " three"].join("\n");
+
+    expect(getVisibleLines(patch)).toEqual([
+      { line: 10, text: "one", isAdded: false },
+      { line: 11, text: "TWO", isAdded: true },
+      { line: 12, text: "extra", isAdded: true },
+      { line: 13, text: "three", isAdded: false },
+    ]);
+  });
+
+  it("keeps an empty context line whose leading space was stripped", () => {
+    expect(getVisibleLines(["@@ -1,2 +1,2 @@", "", "-a", "+b"].join("\n"))).toEqual([
+      { line: 1, text: "", isAdded: false },
+      { line: 2, text: "b", isAdded: true },
+    ]);
+  });
+
+  it("orders lines across hunks", () => {
+    const patch = ["@@ -0,0 +1 @@", "+first", "@@ -20,1 +20,2 @@", " kept", "+second"].join("\n");
+
+    expect(getVisibleLines(patch).map(({ line }) => line)).toEqual([1, 20, 21]);
+  });
+
+  it("ignores a hunk that does not match its header", () => {
+    const patch = ["@@ -1,1 +1,5 @@", "+only one", "@@ -8,0 +9 @@", "+fine"].join("\n");
+
+    expect(getVisibleLines(patch)).toEqual([{ line: 9, text: "fine", isAdded: true }]);
+  });
+
+  it("returns nothing for text that is not a patch", () => {
+    expect(getVisibleLines("not a patch")).toEqual([]);
   });
 });

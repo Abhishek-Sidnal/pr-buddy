@@ -137,17 +137,42 @@ with a hard kill is a later option.
 - **The development database password is in `compose.yaml`.** It is for local development only
   and the port is not published.
 
-## 7. Requirements for later milestones
+## 6B. Threats and controls in Milestone 3 — AI review
 
-### Milestone 3 — AI review
+Design: [DESIGN-AI.md](DESIGN-AI.md). No provider ships yet, so none of this runs until an
+operator adds one.
 
-| Requirement       | Detail                                                                                                |
-| ----------------- | ----------------------------------------------------------------------------------------------------- |
-| Prompt injection  | PR content is data. Instructions found in code, comments or descriptions are never followed           |
-| Output validation | Model output is parsed with the finding schema and passes the same location validation as rule output |
-| Data minimisation | Send only the diff context a review needs; never credentials or unrelated files                       |
-| Disclosure        | Document which provider receives code and how it handles it                                           |
-| Budgets           | Token, cost and time limits per review                                                                |
+| #   | Threat                                                          | Control                                                                                                                                 | Where                                           |
+| --- | --------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------- |
+| A1  | Code is sent to a third party nobody agreed to                  | Two switches, both off by default: the operator's provider and the repository's `ai.enabled`, read at the base commit                   | `api/modules/reviews/review.service.ts`         |
+| A2  | A pull request tells the model what to write (prompt injection) | Content is one JSON document apart from fixed instructions. The reply is constrained by A3 to A6 whatever the model was persuaded to do | `ai-reviewer/prompt/build-prompt.ts`            |
+| A3  | The model invents a file or a line                              | File and line are verified against the files that were sent; an unverifiable suggestion is dropped                                      | `ai-reviewer/output/to-findings.ts`             |
+| A4  | The reply is malformed, huge or not what was asked for          | Length limit, JSON parse, schema per entry, at most 10 suggestions                                                                      | `ai-reviewer/output/parse-response.ts`          |
+| A5  | The model overstates its certainty or raises an alarm           | Confidence fixed at 0.5; severity capped at `high`; rule ID and evidence set by PR Buddy                                                | `ai-reviewer/output/to-findings.ts`             |
+| A6  | Model text creates links, mentions, images or HTML in a comment | Every suggestion is published through `escapeMarkdown`; suggestions are labelled as unverified model output                             | `github-client/output/render-summary.ts`        |
+| A7  | Credentials are sent to the provider                            | Credential-like files and lockfiles are never selected; only lines visible in the diff are sent                                         | `ai-reviewer/prompt/select-files.ts`            |
+| A8  | A large pull request runs up cost or hangs a review             | Budgets for files, characters, line length, output tokens and time; one request, no retry                                               | `ai-reviewer/limits.ts`, `ai-reviewer.ts`       |
+| A9  | A provider outage or bad reply takes reviews down               | The reviewer returns a status and never throws; rule findings are published regardless                                                  | `ai-reviewer/ai-reviewer.ts`                    |
+| A10 | Prompt or reply text leaks through logs or the database         | Only status, counts, tokens, duration and the error's name are logged or stored; suggestion text is not stored                          | `review.service.ts`, `postgres-review-store.ts` |
+| A11 | A provider's name or model, once published, injects Markdown    | Both are checked against a strict pattern when the reviewer is created, and rendered as inline code                                     | `ai-reviewer/provider.ts`                       |
+
+### Known limits
+
+- **Prompt injection is bounded, not prevented.** A pull request can still persuade a model to
+  write a misleading suggestion about a real line. It is published as an unverified suggestion
+  with confidence 0.5, and it cannot carry a link, a mention or a location outside the diff.
+- **Not tested against a real model.** The controls above are covered by tests with scripted
+  replies. How well the instructions hold against a real model is unknown until a provider exists.
+- **A secret inside an ordinary source file is sent.** Files are excluded by name only; PR Buddy
+  is not a secret scanner.
+
+### Requirements for a provider
+
+| Requirement | Detail                                                                              |
+| ----------- | ----------------------------------------------------------------------------------- |
+| Disclosure  | Document which service receives code, and its retention and training terms          |
+| Credentials | The key comes from the environment, is redacted in logs and never appears in errors |
+| Limits      | Honour the request's abort signal and output-token limit                            |
 
 ## 8. What PR Buddy does not claim
 

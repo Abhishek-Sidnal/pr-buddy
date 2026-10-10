@@ -21,6 +21,20 @@ export interface SummaryNotes {
   readonly configurationIssues: readonly string[];
   /** Path of the configuration file, for the message about `configurationIssues`. */
   readonly configurationPath: string;
+  /** Present when an AI model was asked about this pull request. */
+  readonly ai?: AiSummary;
+}
+
+/** What an AI model contributed to a review. Its findings are shown apart from the rules'. */
+export interface AiSummary {
+  /** The service and model that were asked. Must not contain Markdown; shown as inline code. */
+  readonly model: string;
+  /** True when the model could not be reached or its reply could not be used. */
+  readonly isFailed: boolean;
+  /** Verified suggestions. Their text was written by the model and is rendered escaped. */
+  readonly findings: readonly ReviewFinding[];
+  /** Changed files that were not sent to the model. */
+  readonly omittedFileCount: number;
 }
 
 function plural(count: number, singular: string, pluralForm = `${singular}s`): string {
@@ -97,6 +111,15 @@ function renderNotes(result: ReviewResult, notes: SummaryNotes): string[] {
       `- The ${notes.omittedPatchCount === 1 ? "diff of 1 file was" : `diffs of ${notes.omittedPatchCount} files were`} too large to load, so only ${notes.omittedPatchCount === 1 ? "its name was" : "their names were"} checked.`,
     );
   }
+  if (notes.ai?.isFailed === true) {
+    // Why it failed is for operators: a provider's error can echo what it was sent.
+    lines.push("- The AI review could not be completed, so only the checks above ran.");
+  }
+  if (notes.ai !== undefined && !notes.ai.isFailed && notes.ai.omittedFileCount > 0) {
+    lines.push(
+      `- ${capitalize(plural(notes.ai.omittedFileCount, "file"))} ${notes.ai.omittedFileCount === 1 ? "was" : "were"} not sent to the AI model because of ${notes.ai.omittedFileCount === 1 ? "its" : "their"} type or size.`,
+    );
+  }
   if (notes.configurationIssues.length > 0) {
     lines.push(
       `- The configuration in ${inlineCode(notes.configurationPath)} is invalid, so default settings were used:`,
@@ -107,6 +130,44 @@ function renderNotes(result: ReviewResult, notes: SummaryNotes): string[] {
 }
 
 /**
+ * Adds findings to the comment until the length budget is used up, and says how many were left
+ * out. Returns what remains of the budget.
+ */
+function appendFindings(
+  sections: string[],
+  findings: readonly ReviewFinding[],
+  budget: number,
+  noun: string,
+): number {
+  let remaining = budget;
+  let shown = 0;
+  for (const finding of findings) {
+    const rendered = renderFinding(finding);
+    if (rendered.length > remaining) {
+      break;
+    }
+    sections.push(rendered);
+    remaining -= rendered.length;
+    shown += 1;
+  }
+  const hidden = findings.length - shown;
+  if (hidden > 0) {
+    sections.push(
+      `_${capitalize(plural(hidden, `more ${noun}`))} not shown to keep this comment readable._`,
+    );
+  }
+  return remaining;
+}
+
+function renderFooter(ai: AiSummary | undefined): string {
+  const scope =
+    ai === undefined || ai.isFailed
+      ? "Deterministic checks only."
+      : "Deterministic checks, with suggestions from an AI model shown separately.";
+  return `<sub>${scope} PR Buddy does not approve, block or merge pull requests.</sub>`;
+}
+
+/**
  * Renders a review as the Markdown body of PR Buddy's summary comment. Text that a contributor
  * can influence, such as file names, is rendered so that it cannot create mentions, links or
  * HTML.
@@ -114,22 +175,16 @@ function renderNotes(result: ReviewResult, notes: SummaryNotes): string[] {
 export function renderReviewSummary(result: ReviewResult, notes: SummaryNotes): string {
   const sections = [SUMMARY_MARKER, "## PR Buddy review", renderHeadline(result)];
 
-  let renderedLength = 0;
-  let shown = 0;
-  for (const finding of result.findings) {
-    const rendered = renderFinding(finding);
-    if (renderedLength + rendered.length > MAX_FINDINGS_LENGTH) {
-      break;
-    }
-    sections.push(rendered);
-    renderedLength += rendered.length;
-    shown += 1;
-  }
-  const hidden = result.findings.length - shown;
-  if (hidden > 0) {
+  // The rules' findings come first and are given the room first: they are the verified part.
+  const remaining = appendFindings(sections, result.findings, MAX_FINDINGS_LENGTH, "finding");
+
+  const { ai } = notes;
+  if (ai !== undefined && ai.findings.length > 0) {
     sections.push(
-      `_${capitalize(plural(hidden, "more finding"))} not shown to keep this comment readable._`,
+      "## AI suggestions",
+      `_${capitalize(plural(ai.findings.length, "suggestion"))} written by an AI model (${inlineCode(ai.model)}) from this pull request's diff. They are not verified and may be wrong: check each one before acting on it._`,
     );
+    appendFindings(sections, ai.findings, remaining, "suggestion");
   }
 
   const noteLines = renderNotes(result, notes);
@@ -137,9 +192,6 @@ export function renderReviewSummary(result: ReviewResult, notes: SummaryNotes): 
     sections.push(["#### Notes", "", ...noteLines].join("\n"));
   }
 
-  sections.push(
-    "---",
-    "<sub>Deterministic checks only. PR Buddy does not approve, block or merge pull requests.</sub>",
-  );
+  sections.push("---", renderFooter(ai));
   return sections.join("\n\n");
 }

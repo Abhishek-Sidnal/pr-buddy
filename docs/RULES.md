@@ -62,6 +62,22 @@ Both limits are inclusive. Rules still run; only reporting changes. The comment 
 findings were hidden, so a reader can tell that something was left out. A severity set for a rule
 in `rules` is applied before the threshold.
 
+### AI review
+
+```json
+{
+  "ai": { "enabled": true }
+}
+```
+
+Off by default. When it is on **and** the operator of the service has configured a model provider,
+the pull request's title, description and visible diff lines are sent to that provider, and its
+suggestions appear in their own section of the comment. They are reported under the ID
+`ai-review` with a fixed confidence of 0.5, so `report.minConfidence` above 0.5 hides them. What
+is sent, what never is, and how replies are checked: [DESIGN-AI.md](DESIGN-AI.md).
+
+No provider is included yet, so today this setting has no effect.
+
 ### Glob patterns
 
 Options that select files take glob patterns matched against the path from the repository root,

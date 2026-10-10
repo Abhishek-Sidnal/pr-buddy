@@ -1,0 +1,32 @@
+{
+  "name": "@pr-buddy/ai-reviewer",
+  "version": "0.1.0",
+  "description": "Optional AI review for PR Buddy: prompt building, output validation and a provider interface.",
+  "license": "MIT",
+  "type": "module",
+  "sideEffects": false,
+  "engines": {
+    "node": ">=22.12"
+  },
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "types": "./dist/index.d.ts",
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "typecheck": "tsc -p tsconfig.json",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage"
+  },
+  "dependencies": {
+    "@pr-buddy/review-engine": "0.1.0",
+    "zod": "^4.6.5"
+  }
+}
