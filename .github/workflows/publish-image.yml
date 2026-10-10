@@ -1,0 +1,69 @@
+name: Publish image
+
+# Builds the API image and pushes it to GitHub's container registry, so that a server can pull
+# it and need not build. It never runs for a pull request. See docs/BRAIN.md, D-082.
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]
+
+permissions:
+  contents: read
+
+# A newer commit on `main` may replace `edge` while an older build is still running; a release
+# tag is never cancelled.
+concurrency:
+  group: publish-image-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref == 'refs/heads/main' }}
+
+jobs:
+  publish:
+    name: Build and push the API image
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    # The only job in the repository that may write anything, and only packages.
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      # Values from the event reach the shell as environment variables, never as script text.
+      - name: Build
+        env:
+          REF: ${{ github.ref }}
+          REPOSITORY: ${{ github.repository }}
+          REVISION: ${{ github.sha }}
+        run: |
+          sh scripts/image-tags.sh "$REF" "$REPOSITORY" > image-names.txt
+          set --
+          while read -r name; do
+            set -- "$@" --tag "$name"
+          done < image-names.txt
+          docker build \
+            --file docker/api.Dockerfile \
+            --label "org.opencontainers.image.source=https://github.com/$REPOSITORY" \
+            --label "org.opencontainers.image.revision=$REVISION" \
+            "$@" .
+
+      - name: Push
+        env:
+          REGISTRY_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REGISTRY_USER: ${{ github.actor }}
+        run: |
+          printf '%s' "$REGISTRY_TOKEN" | docker login ghcr.io --username "$REGISTRY_USER" --password-stdin
+          while read -r name; do
+            docker push "$name"
+          done < image-names.txt
+          # The digest is what an operator should deploy: a tag can be moved, a digest cannot.
+          digest=$(docker inspect --format '{{index .RepoDigests 0}}' "$(head -n 1 image-names.txt)")
+          {
+            echo "### Published"
+            echo
+            sed 's/^/- `/; s/$/`/' image-names.txt
+            echo
+            echo "Deploy it by digest: \`$digest\`"
+          } >> "$GITHUB_STEP_SUMMARY"
+          docker logout ghcr.io

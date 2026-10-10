@@ -31,7 +31,27 @@ accepted and are kept as history.
 | Part | Contents                        | Status |
 | ---- | ------------------------------- | ------ |
 | 1    | An installation's own AI key    | ✅     |
+| 2    | A first public deployment       | 🟡     |
 | —    | Later parts are not planned yet | ⬜     |
+
+### Part 2 — a first public deployment
+
+Target: one small server (AWS Lightsail, 1 GB) with a domain, running the example stack from a
+published image. Decision D-082.
+
+| Task                                                            | Status |
+| --------------------------------------------------------------- | ------ |
+| CI publishes the API image; the stack can pull it and not build | 🟡     |
+| A server with Docker, swap and the stack running                | ⬜     |
+| The GitHub App's webhook and callback point at the domain       | ⬜     |
+| HTTPS sign-in, a review from a real webhook, backup and restore | ⬜     |
+| An upgrade from one published image to the next                 | ⬜     |
+
+| Check    | Result                                                                                                                                                                   |
+| -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Scripts  | Passed: `scripts/image-tags.test.sh`; `scripts/check-pins.sh` accepts the operator-named image and still refuses a tag given as a default                                |
+| Compose  | Passed with `docker compose config`: with the second file the API uses the named image and has no build; without it the stack builds as before; no image named, no start |
+| Not done | The publishing workflow has not run: it runs only for `main` and version tags, so its first run is the merge of this change                                              |
 
 ### Part 1 — an installation's own AI key
 

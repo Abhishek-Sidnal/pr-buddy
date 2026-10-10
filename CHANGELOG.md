@@ -16,6 +16,10 @@ change behaviour or configuration; such changes are listed under "Upgrade notes"
   it the feature does not exist. See `docs/DESIGN-AI-KEYS.md`.
 - An owner can test the stored key from the settings page at any time. The page says whether
   the provider accepts it, or the status the provider answered with.
+- The API image is published to GitHub's container registry: the version and `latest` for a
+  release, `edge` for `main`. With `deploy/compose.image.yaml` the example stack pulls an image
+  named in `PR_BUDDY_IMAGE` and does not build, which lets it run on a machine with 1 GB of
+  memory. Building on the machine still works and is unchanged.
 - Sign-in now records which installations a person owns: their own account, or an organisation
   where GitHub reports their role as `admin`.
 

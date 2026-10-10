@@ -1,0 +1,14 @@
+# Makes the example stack run a published API image instead of building one on this machine.
+# Use it together with compose.yaml:
+#
+#   docker compose -f deploy/compose.yaml -f deploy/compose.image.yaml --env-file deploy/.env pull api
+#   docker compose -f deploy/compose.yaml -f deploy/compose.image.yaml --env-file deploy/.env up -d
+#
+# Building needs about 2 GB of memory; running does not. Guide: docs/DEPLOYMENT.md, section 3.
+
+services:
+  api:
+    # Named by you in deploy/.env, best by digest: a tag can be moved to other content, a digest
+    # cannot. There is no default, so the stack never runs an image you did not choose.
+    image: ${PR_BUDDY_IMAGE:?set PR_BUDDY_IMAGE in deploy/.env}
+    build: !reset null
