@@ -457,30 +457,43 @@ Design: [DESIGN-OPERATIONS.md](DESIGN-OPERATIONS.md), sections 5 and 6.
 Out of scope: charts over time, exporting figures, alerts from the page (the watcher does
 that), changing an existing app.
 
-## 6I. Milestone 7 — runner mode (proposed)
+## 6I. Milestone 7 — runner mode
 
 A review that sees the whole repository, run where the code already is. Design:
-[DESIGN-RUNNER.md](DESIGN-RUNNER.md). Nothing here is built; the design has decisions still to
-be confirmed.
+[DESIGN-RUNNER.md](DESIGN-RUNNER.md). The design and its decisions were accepted on 2026-10-11.
+**Nothing is built**: the requirements below say what each phase must deliver, and a phase
+starts only when the one before it has passed its gate.
 
-| ID      | Requirement                                                                                      |
-| ------- | ------------------------------------------------------------------------------------------------ |
-| FR-112  | A repository can run PR Buddy as a GitHub Action, with the same rules and the same comment.      |
-| FR-113  | A repository is reviewed by the service or by the Action, never both, as its configuration says. |
-| FR-114  | In runner mode the model can read, search and list files of the checkout, and nothing else.      |
-| FR-115  | A small change gets one reviewer; a larger one gets specialists and a lead who checks them.      |
-| FR-116  | A re-review says which earlier findings are fixed, still open or withdrawn.                      |
-| FR-117  | A run reports its token use; with a configured price, an estimated cost.                         |
-| FR-118  | A run can send its record to a PR Buddy service, where it appears with history and usage.        |
-| NFR-107 | Nothing from a pull request is executed, and no code reaches the operator's service.             |
-| NFR-108 | Checks that cost nothing run before any request to a model.                                      |
-| NFR-109 | A finding is published only if code can verify that the reviewer read what it points at.         |
-| NFR-110 | A pull request from a fork never receives the AI key.                                            |
-| NFR-111 | A review is bounded in steps and tokens, and says so when it stopped early.                      |
-| NFR-112 | Runner mode works with every AI provider the service supports, and without any service.          |
+Hosted mode stays the default and stays as it is. Runner mode is an explicit opt-in, and an
+alternative to hosted mode, not an addition to it.
 
-Out of scope: running linters or tests, memory of past pull requests, review across
-repositories, approving or blocking a merge.
+| ID      | Phase | Requirement                                                                                                                    |
+| ------- | ----- | ------------------------------------------------------------------------------------------------------------------------------ |
+| FR-112  | 1     | A repository can run PR Buddy as a GitHub Action, with the same rules and one summary comment that is updated, not repeated.   |
+| FR-113  | 1     | A repository is reviewed by the service or by the Action, never both, as its configuration at the base commit says.            |
+| FR-119  | 1     | A run writes a job summary: what was found, which gate stopped it, what failed.                                                |
+| FR-120  | 1     | Drafts, closed or merged pull requests, a commit already reviewed and a small re-push are skipped before any cost.             |
+| FR-114  | 2     | The model can read, search and list files of the checkout, and nothing else.                                                   |
+| FR-117  | 2     | A run reports its token use.                                                                                                   |
+| FR-115  | 3     | A small change gets one reviewer; a larger one gets specialists and a lead who checks them.                                    |
+| FR-116  | 3     | A re-review says which earlier findings are fixed, still open or withdrawn, and does not repeat the open ones.                 |
+| FR-118  | 4     | Optionally, a run sends its record to a PR Buddy service, where it appears with history and usage.                             |
+| FR-121  | 5     | Optionally, verified AI findings are published as line comments. Off by default.                                               |
+| NFR-107 | all   | Nothing from a pull request is executed, and no code reaches the operator's service.                                           |
+| NFR-108 | 1     | Checks that cost nothing run before any request to a model.                                                                    |
+| NFR-113 | 1     | When the mode cannot be established the Action publishes nothing and asks no model.                                            |
+| NFR-114 | 1     | The Action works with no PR Buddy service, account or dashboard.                                                               |
+| NFR-115 | 1     | The Action asks for the least GitHub permissions that work, and its own dependencies are pinned.                               |
+| NFR-109 | 2     | A finding is published only if code can verify that the reviewer read what it points at.                                       |
+| NFR-110 | 2     | A pull request from a fork never receives the AI key, and `pull_request_target` is never used.                                 |
+| NFR-111 | 2     | A review is bounded in steps, tokens, tool output and time, and says so when it stopped early.                                 |
+| NFR-112 | 2     | Runner mode uses PR Buddy's own provider adapters, with no vendor agent toolkit.                                               |
+| NFR-116 | all   | Only comments with PR Buddy's marker, written by the workflow's identity, are ever changed.                                    |
+| NFR-117 | 4     | A report is accepted only with GitHub's identity token for that repository, and carries no code, titles or model conversation. |
+
+Out of scope: running linters or tests, suggested code changes, memory of past pull requests,
+review across repositories, a PR Buddy identity for runner comments, approving or blocking a
+merge. Notifications and a measure of findings acted on are later and optional (phase 6).
 
 ## 7. Success metrics (from M2 onward)
 

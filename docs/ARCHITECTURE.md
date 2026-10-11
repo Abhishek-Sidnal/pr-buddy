@@ -208,3 +208,11 @@ These hold for every change. Several are enforced by ESLint or the compiler.
 | Development environment | Docker Compose                                        | The same Node.js version for every contributor                   |
 
 The reasoning behind each decision is recorded in [BRAIN.md](BRAIN.md).
+
+## 10. Planned: runner mode
+
+Not built. [DESIGN-RUNNER.md](DESIGN-RUNNER.md) describes a GitHub Action that runs the same
+`review-engine` and publishes through `github-client`, in a repository's own CI. It would add one
+workspace for the Action and extend `ai-reviewer` with tool calling behind the existing provider
+adapters. The dependency directions above do not change, and `apps/api` gains only the rule
+that it skips a repository whose configuration selects runner mode.

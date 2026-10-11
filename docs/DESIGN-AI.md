@@ -4,6 +4,11 @@ How PR Buddy asks a language model for review suggestions, and how it keeps that
 bounded and clearly separate from its deterministic checks. Decisions are recorded in
 [BRAIN.md](BRAIN.md) (D-041 to D-048); threats and controls are in [SECURITY.md](SECURITY.md).
 
+> This document describes **hosted mode**: one request, from the diff, on the service. A second
+> way to run PR Buddy, in a repository's own CI with read-only tools over the checkout, is
+> designed in [DESIGN-RUNNER.md](DESIGN-RUNNER.md) and not built. It changes nothing here: hosted
+> mode keeps its single request, its summary-only suggestions and its limits.
+
 ## 1. What this part delivers
 
 - A package, `@pr-buddy/ai-reviewer`, that turns a validated pull request into a prompt, sends it

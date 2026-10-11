@@ -106,7 +106,7 @@ or updates the comment.
 
 ## Invariants
 
-These are design decisions with reasons recorded in `docs/BRAIN.md` (D-001 to D-104; D-096 onward are proposals for runner mode, see `docs/DESIGN-RUNNER.md`). Read the
+These are design decisions with reasons recorded in `docs/BRAIN.md` (D-001 to D-108; D-096 onward are for runner mode, which is designed in `docs/DESIGN-RUNNER.md` and not built). Read the
 relevant entry before changing one.
 
 - A webhook body is only a trigger. What gets reviewed is fetched from the API.

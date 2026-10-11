@@ -310,25 +310,32 @@ Design: [DESIGN-OPERATIONS.md](DESIGN-OPERATIONS.md).
 - **The owner role is a snapshot** from sign-in, for at most eight hours.
 - **The last four characters of a key are stored in clear**, to let an owner recognise it.
 
-## 6G. Threats and controls proposed for runner mode
+## 6G. Threats and controls designed for runner mode
 
-Design: [DESIGN-RUNNER.md](DESIGN-RUNNER.md). **Proposed, not built.** Runner mode moves the
+Design: [DESIGN-RUNNER.md](DESIGN-RUNNER.md). **Accepted on 2026-10-11; none of these controls
+exists yet.** Each is built, and tested against the threat beside it, in the phase that
+introduces it (DESIGN-RUNNER.md, section 18). Runner mode moves the
 review into the repository's CI, which removes some threats and adds others.
 
-| #   | Threat                                                             | Control                                                                                                             |
-| --- | ------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------- |
-| R1  | A pull request makes the run execute its code                      | Nothing from the pull request is installed, built or run; the Action's code comes from a pinned version of PR Buddy |
-| R2  | A fork's pull request obtains the AI key                           | The `pull_request_target` trigger is never used; without secrets the Action runs the rules only                     |
-| R3  | Text in the pull request or the repository steers the model        | It is passed as data; the model has read-only tools, no network and no shell; its output goes through the filter    |
-| R4  | The model reads outside the checkout, or a credential file         | Paths are resolved and confined; links that leave are refused; credential patterns are never read                   |
-| R5  | The model is given a pattern that hangs the run                    | `search` takes a literal string; every tool call is bounded                                                         |
-| R6  | A run spends without limit                                         | Gates before any model cost; a ceiling on steps and on tokens; early stop is stated in the comment                  |
-| R7  | The model invents a finding about code it never opened             | A finding must point at lines recorded as read in that run, or it is dropped                                        |
-| R8  | A pull request switches its own repository's mode or rules         | The configuration is read at the base commit, in the Action as in the service                                       |
-| R9  | A repository is reviewed twice, or a run claims another repository | The mode is one value per repository; a report is accepted only with GitHub's identity token for that repository    |
-| R10 | The Action deletes or edits someone else's comment                 | Only comments with PR Buddy's marker, written by the same identity, are touched                                     |
-| R11 | A report to the service carries code                               | The record has the same fields the service stores today, plus token counts; the service validates it                |
-| R12 | The AI key appears in a log, a comment or a tool result            | Tools cannot read the environment; the key is masked by GitHub and redacted by the runner's logger                  |
+| #   | Threat                                                                                 | Control                                                                                                                                                                            |
+| --- | -------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| R1  | A pull request makes the run execute its code                                          | Nothing from the pull request is installed, built or run; the Action's code comes from a pinned version of PR Buddy                                                                |
+| R2  | A fork's pull request obtains the AI key                                               | The `pull_request_target` trigger is never used; without secrets the Action runs the rules only                                                                                    |
+| R3  | Text in the pull request or the repository steers the model                            | It is passed as data; the model has read-only tools, no network and no shell; its output goes through the filter                                                                   |
+| R4  | The model reads outside the checkout, or a credential file                             | Paths are resolved and confined; links that leave are refused; credential patterns are never read                                                                                  |
+| R5  | The model is given a pattern that hangs the run                                        | `search` takes a literal string; every tool call is bounded                                                                                                                        |
+| R6  | A run spends without limit                                                             | Gates before any model cost; a ceiling on steps and on tokens; early stop is stated in the comment                                                                                 |
+| R7  | The model invents a finding about code it never opened                                 | A finding must point at lines recorded as read in that run, or it is dropped                                                                                                       |
+| R8  | A pull request switches its own repository's mode or rules                             | The configuration is read at the base commit, in the Action as in the service                                                                                                      |
+| R9  | A repository is reviewed twice, or a run claims another repository                     | The mode is one value per repository; a report is accepted only with GitHub's identity token for that repository                                                                   |
+| R10 | The Action deletes or edits someone else's comment                                     | Only comments with PR Buddy's marker, written by the same identity, are touched                                                                                                    |
+| R11 | A report to the service carries code                                                   | The record has the same fields the service stores today, plus token counts; the service validates it                                                                               |
+| R12 | The AI key appears in a log, a comment or a tool result                                | Tools cannot read the environment; the key is masked by GitHub and redacted by the runner's logger                                                                                 |
+| R13 | Both reviewers act on one pull request, or a broken configuration turns runner mode on | One value at the base commit; the service skips `runner`, the Action reviews only on a valid `runner`; an invalid file means hosted; an unknown mode means the Action does nothing |
+| R14 | A run never ends, or returns the repository piece by piece                             | Limits on bytes per read, total tool output, steps, tokens and wall-clock time; reaching one stops the review and is stated                                                        |
+| R15 | A re-run notifies people again, or the runner edits a comment that is not its own      | The marker names the reviewed commit; line comments carry a stable fingerprint; only comments with the marker and the workflow's identity are touched                              |
+| R16 | The Action itself is replaced by other code                                            | It is used at a pinned release or commit; its own third-party Actions and images are pinned (D-070)                                                                                |
+| R17 | A forged, replayed or cross-tenant report reaches the service                          | Phase 4 only: GitHub's identity token, verified for signature, issuer, audience and repository; accepted only for a known installation that turned reporting on                    |
 
 ## 8. What PR Buddy does not claim
 

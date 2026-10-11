@@ -788,7 +788,7 @@ right, and one sign-in by a real organisation owner would have found this before
 
 ### D-096 — Deep review runs in the repository's CI, not on the service
 
-**Status: proposed.**
+**Status: accepted on 2026-10-11. Not built.**
 **Decision.** A second way to run PR Buddy: a GitHub Action that reviews with the whole checkout
 in view. The hosted service keeps reviewing from the diff.
 **Why.** A reviewer that sees only the diff misses broken callers and existing helpers. Bringing
@@ -798,7 +798,7 @@ Bringing the reviewer to the code needs neither: the runner is GitHub's, and so 
 
 ### D-097 — The tool loop is PR Buddy's own, over each provider's API
 
-**Status: proposed.**
+**Status: accepted on 2026-10-11. Not built.**
 **Decision.** The runner implements three read-only tools and the loop that offers them to a
 model, using each provider's own tool-calling API. No vendor agent toolkit.
 **Why.** D-060 again: one small file per provider, and every provider PR Buddy supports can be
@@ -808,7 +808,7 @@ tools, some of which run commands.
 
 ### D-098 — The model searches with plain strings and reads within the checkout only
 
-**Status: proposed.**
+**Status: accepted on 2026-10-11. Not built.**
 **Decision.** `read_file`, `search` and `list_files`. Paths are resolved and confined to the
 checkout, credential files are refused, `search` takes a literal string, and every call is
 bounded in size and counted.
@@ -817,7 +817,7 @@ expression from the model is a way to hang the run (D-011); a path is a way out 
 
 ### D-099 — A finding must point at code that was actually read
 
-**Status: proposed.**
+**Status: accepted on 2026-10-11. Not built.**
 **Decision.** The runner records every file and line range a reviewer read. A finding whose
 location was never read in that run is dropped.
 **Why.** It turns "the model says it checked" into something code can verify, and removes the
@@ -825,14 +825,14 @@ most common kind of confident invention: a claim about a file nobody opened.
 
 ### D-100 — Runner mode comments; it does not approve or request changes
 
-**Status: proposed.**
+**Status: accepted on 2026-10-11. Not built.**
 **Decision.** The Action posts comments only. It never submits an approving or blocking review.
 **Why.** That is what PR Buddy is (PRD, section 1). A deeper review makes its findings more
 useful; it does not make an unverifiable model fit to gate a merge.
 
 ### D-101 — AI findings may be line comments in runner mode, on conditions
 
-**Status: proposed. It narrows D-045 for runner mode only.**
+**Status: accepted on 2026-10-11. Not built. It narrows D-045 for runner mode only.**
 **Decision.** Off by default. When a repository turns it on, an AI finding becomes a line
 comment only if it passed every check of the filter, including read evidence and, in the larger
 shape, the lead. Their number is capped, and each is labelled as AI.
@@ -841,17 +841,17 @@ while nothing had checked it. Here something has. In hosted mode nothing changes
 
 ### D-102 — Runner comments are posted with the workflow's token
 
-**Status: proposed.**
+**Status: accepted on 2026-10-11. Not built.**
 **Decision.** Comments appear as GitHub Actions. The Action updates and deletes only comments
 that carry PR Buddy's marker and were written by that same identity.
 **Why.** It needs no service and no extra credential, so runner mode works for someone who has
 never heard of a hosted PR Buddy.
-**Cost.** The comments do not carry PR Buddy's name and avatar. A service could later issue a
-short-lived token of the app for one repository.
+**Cost.** The comments do not carry PR Buddy's name and avatar. A PR Buddy identity for runner mode
+is not part of this work.
 
 ### D-103 — A runner proves which repository it is with GitHub's identity token
 
-**Status: proposed.**
+**Status: accepted on 2026-10-11. Not built.**
 **Decision.** To report to a PR Buddy service, a run obtains GitHub's signed identity token for
 that service. The service verifies the signature and takes the repository and the run from the
 token's claims.
@@ -860,12 +860,50 @@ claim to be another repository.
 
 ### D-104 — In runner mode the AI key is a secret of the repository
 
-**Status: proposed.**
+**Status: accepted on 2026-10-11. Not built.**
 **Decision.** The Action takes the key as an input, from a repository or organisation secret.
 The service never sends a stored key to a runner.
 **Why.** D-073 holds: no route returns a key. And the secret store of the place where the code
 runs is where its owner expects to manage it.
 **Cost.** An installation that uses both modes enters its key in two places.
+
+### D-105 — One reviewer per repository, enforced on both sides, and failing closed
+
+**Status: accepted on 2026-10-11. Not built.**
+**Decision.** The mode is one value, `review.mode`, read at the base commit and validated. The
+hosted service skips a repository that says `runner` and records why. The Action reviews only
+on an explicit, valid `runner`, and when it cannot establish the mode it runs no rules, asks no
+model and publishes nothing. An invalid file means hosted, never both and never runner. Neither
+side needs the other to be reachable.
+**Why.** Two reviewers on one pull request is noise and double cost. A check on one side only
+would fail open whenever that side was the one that was wrong.
+**Cost.** A repository whose configuration is broken cannot use runner mode until it is fixed.
+
+### D-106 — The standalone Action proves itself before anything is built around it
+
+**Status: accepted on 2026-10-11.**
+**Decision.** Phases, each behind a gate that includes a real repository. Reporting to a
+service and usage views in the dashboard are not started until the Action alone, through
+phase 3, has shown useful results. Notifications and outcome measures come after that.
+**Why.** A dashboard for findings nobody trusts is wasted work, and every earlier milestone
+that skipped a live check found its bug in production.
+
+### D-107 — "Generally available" is claimed only after the release checks were made
+
+**Status: accepted on 2026-10-11.**
+**Decision.** Before the Action is described as ready for others, the license, the way to
+report a vulnerability, the disclosure process and the installation instructions are checked,
+and the result is written down. DESIGN-RUNNER.md, section 19, holds what was found.
+**Why.** The first look found that the documented way to report a vulnerability does not work,
+because the repository has private reporting turned off.
+
+### D-108 — Suggested code changes are not part of runner mode yet
+
+**Status: accepted on 2026-10-11.**
+**Decision.** The runner publishes findings in words. It does not publish a change that can be
+committed with one click.
+**Why.** A suggestion is code written by a model and applied by a person in a hurry. It needs
+its own design: formatting, checking it against the diff, and publishing it exactly once.
 
 ## 3. Glossary
 
