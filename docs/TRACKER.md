@@ -20,6 +20,7 @@ The one current figure. Counts in the sections below are what was true when each
 accepted and are kept as history.
 
 | Date | Command | Result |
+| 2026-10-11 | `docker compose run --rm dev npm run check` | Passed: 1,926 tests (engine 474, AI reviewer 186, GitHub client 266, API 717, web 283) |
 | 2026-10-10 | `docker compose run --rm dev npm run check` | Passed: 1,812 tests (engine 474, AI reviewer 186, GitHub client 266, API 621, web 265) |
 | 2026-10-10 | `docker compose run --rm dev npm run check` | Passed: 1,732 tests (engine 474, AI reviewer 186, GitHub client 266, API 584, web 222). The clean-checkout check for `v0.2.0` passed on `a092c81` with 1,655 |
 | 2026-10-10 | `docker compose run --rm dev npm run check` | Passed: 1,655 tests (engine 474, AI reviewer 186, GitHub client 266, API 556, web 173) |
@@ -35,9 +36,9 @@ D-094. Threats O11 to O14.
 
 | Task                                                                                   | Requirement                      | Status |
 | -------------------------------------------------------------------------------------- | -------------------------------- | ------ |
-| The operator setting, `isOperator` in `GET /api/me`, and `GET /api/operator/overview`  | FR-109, FR-110, NFR-104, NFR-105 | ⬜     |
-| The operator's page                                                                    | FR-109, FR-110                   | ⬜     |
-| `register-app`: a GitHub App from a manifest, written to the environment file          | FR-111, NFR-106                  | ⬜     |
+| The operator setting, `isOperator` in `GET /api/me`, and `GET /api/operator/overview`  | FR-109, FR-110, NFR-104, NFR-105 | ✅     |
+| The operator's page                                                                    | FR-109, FR-110                   | ✅     |
+| `register-app`: a GitHub App from a manifest, written to the environment file          | FR-111, NFR-106                  | ✅     |
 | A development app registered with it, and a review through it on a developer's machine | FR-111                           | ⬜     |
 
 ### What 0.3.0 left unverified, and what has been seen since

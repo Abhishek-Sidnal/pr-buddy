@@ -53,6 +53,33 @@ Read-only** instead. Be aware that this lets the app read all code in the reposi
 6. Under **Private keys**, choose **Generate a private key**. A `.pem` file is downloaded. Treat
    it like a password: it lets its holder act as the app.
 
+### The short way: let a command register it
+
+Sections 2 and 3 can be done by one command, which sends GitHub a description of the app and
+writes the credentials GitHub returns into `.env`:
+
+```bash
+docker compose run --rm -p 127.0.0.1:3999:3999 dev sh -c \
+  'npm run build -w @pr-buddy/api && npm run register-app -w @pr-buddy/api -- \
+     --webhook-url https://smee.io/YOUR_CHANNEL --name pr-buddy-yourname --env-file /workspace/.env'
+```
+
+1. Open `http://localhost:3999/` and choose **Continue on GitHub**.
+2. Confirm on GitHub. You are sent back to a page that says the app is registered.
+3. Follow the steps on that page: enter the path `.github/pr-buddy.json` under the app's
+   **Single file** permission, then install the app.
+
+The command sets the three permissions and the pull request event, the callback and setup
+addresses for the dashboard, and keeps the app private unless you pass `--public`. An existing
+`.env` is kept beside the new one as `.env.before-register-app`. No secret is printed or shown
+in the browser. `--help` lists the options; `--contents` asks to read all code in place of the
+single file, which saves step 3 and grants more.
+
+**An app of your own for development.** A GitHub App sends its webhooks to one address. If the
+app you registered serves a public deployment, your own machine receives nothing. Register a
+second, private app this way, with your relay as its webhook address, and install it on a test
+repository. Do not install two PR Buddy apps on the same repository: each would comment.
+
 ## 3. Configure the API
 
 Copy `.env.example` to `.env` and fill in the three required values. `.env` is ignored by git.
@@ -166,6 +193,19 @@ into a way in for someone who has never used PR Buddy:
    Without the first two the page says that the operator has not published who they are, and
    the service warns at start-up. The page describes the software; it is not a privacy policy
    or terms in the legal sense. Where you need those, write them and link them here.
+
+**See how the service is doing.** List the GitHub user IDs of the people who run the
+deployment, and they get a **Service** page in the dashboard with use and failures across every
+installation:
+
+```
+OPERATOR_GITHUB_USER_IDS=<your GitHub user ID>
+```
+
+Your ID is the number `gh api user --jq .id` prints, or the `id` at
+`https://api.github.com/users/<your login>`. Several IDs are separated by commas. The page
+shows account names and counts, never a repository, a pull request or a finding. Everyone else
+finds nothing at its address. Without the setting it does not exist.
 
 Other people can install the app only when it is public: in the app's settings, **Advanced →
 Make public**. They never need the developer settings; those are for the person who runs the

@@ -6,6 +6,24 @@ change behaviour or configuration; such changes are listed under "Upgrade notes"
 
 ## [Unreleased]
 
+### Added
+
+- A **Service** page for the people who run a deployment, at `/operator`: installations and
+  repositories reviewed, reviews and AI reviews by outcome over 24 hours, 7 days and 30 days,
+  what is running and waiting, stored AI keys by provider, and one row per installation with
+  its account, activity, failures and AI provider. Set `OPERATOR_GITHUB_USER_IDS` to the GitHub
+  user IDs that may see it. It shows no repository name, pull request, finding or login, and
+  everyone else finds nothing at its address.
+- `register-app`, a command that registers a GitHub App from a manifest and writes its
+  credentials to an environment file: one click on GitHub in place of a dozen fields and five
+  secrets. Meant first for a private app of your own for development. See `docs/GITHUB_APP.md`,
+  section 2.
+- `GET /api/me` says whether the signed-in person is an operator.
+
+### Upgrade notes
+
+- Nothing changes until `OPERATOR_GITHUB_USER_IDS` is set.
+
 ## [0.3.0] — 2026-10-10
 
 A hosted PR Buddy that a stranger can start with and an operator can keep running: a first

@@ -106,7 +106,7 @@ or updates the comment.
 
 ## Invariants
 
-These are design decisions with reasons recorded in `docs/BRAIN.md` (D-001 to D-091). Read the
+These are design decisions with reasons recorded in `docs/BRAIN.md` (D-001 to D-094). Read the
 relevant entry before changing one.
 
 - A webhook body is only a trigger. What gets reviewed is fetched from the API.
@@ -146,6 +146,12 @@ relevant entry before changing one.
 - The privacy page's statements about the software are fixed text kept with the code; change
   them in the same change as the behaviour they describe. Statements about the operator come
   only from settings, and "not published" is said, never hidden (D-090, D-091).
+- The operator's view reads across installations on purpose. Its queries live in
+  `modules/operator`, reachable only through a router that checks the session's GitHub user ID
+  against `OPERATOR_GITHUB_USER_IDS` and answers `404` otherwise. It returns account names and
+  counts, never a repository name, pull request, finding, file path, login or key (D-092, D-093).
+- `cli/register-app.ts` is a second entry point. It never prints a secret, and the pages it
+  serves never contain one (D-094).
 - Every queued review carries its installation. The queue is shared fairly between
   installations and one installation's waiting reviews are capped (D-089).
 - Backups and alerts are scripts in `deploy/`, not part of the API. A backup never contains

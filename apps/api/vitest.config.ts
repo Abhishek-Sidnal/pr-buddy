@@ -8,8 +8,9 @@ export default defineConfig({
     coverage: {
       provider: "v8",
       include: ["src/**/*.ts"],
-      // The entry point only wires real dependencies together; the container smoke test covers it.
-      exclude: ["src/main.ts"],
+      // The entry points only wire real dependencies together: the container smoke test covers the
+      // service, and registering an app needs GitHub and a person.
+      exclude: ["src/main.ts", "src/cli/**"],
       reporter: ["text", "html"],
       thresholds: {
         statements: 95,

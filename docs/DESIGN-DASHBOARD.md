@@ -109,16 +109,17 @@ rejects a request whose `Origin` header is not the dashboard's own.
 `apps/web` is a React application built with Vite. The API serves its built files, so the
 dashboard and its API share one origin: no CORS, and the cookie never crosses sites (D-052).
 
-| Page         | Path                 | Shows                                                                            |
-| ------------ | -------------------- | -------------------------------------------------------------------------------- |
-| Sign-in      | any, when signed out | What GitHub will share, and one button                                           |
-| Overview     | `/`                  | Reviews, findings and failures in 30 days; recent reviews                        |
-| Repositories | `/repositories`      | Each visible repository and its latest review                                    |
-| Repository   | `/repositories/:id`  | That repository's reviews, with paging                                           |
-| Review       | `/reviews/:id`       | Outcome, counts by severity, findings list and detail, AI record                 |
-| History      | `/history`           | Every visible review, filtered by outcome through the address                    |
-| Settings     | `/settings`          | Theme, the session, where configuration lives, what is stored                    |
-| Privacy      | `/privacy`           | What the software does with data, and who runs this deployment. Open to everyone |
+| Page         | Path                 | Shows                                                                                                   |
+| ------------ | -------------------- | ------------------------------------------------------------------------------------------------------- |
+| Sign-in      | any, when signed out | What GitHub will share, and one button                                                                  |
+| Overview     | `/`                  | Reviews, findings and failures in 30 days; recent reviews                                               |
+| Repositories | `/repositories`      | Each visible repository and its latest review                                                           |
+| Repository   | `/repositories/:id`  | That repository's reviews, with paging                                                                  |
+| Review       | `/reviews/:id`       | Outcome, counts by severity, findings list and detail, AI record                                        |
+| History      | `/history`           | Every visible review, filtered by outcome through the address                                           |
+| Settings     | `/settings`          | Theme, the session, where configuration lives, what is stored                                           |
+| Privacy      | `/privacy`           | What the software does with data, and who runs this deployment. Open to everyone                        |
+| Service      | `/operator`          | Use and failures across every installation, for listed operators only (DESIGN-OPERATIONS.md, section 5) |
 
 - No secrets reach the browser. The application knows only what the read API returns.
 - Everything from the API is rendered as text by React. Nothing is inserted as HTML.

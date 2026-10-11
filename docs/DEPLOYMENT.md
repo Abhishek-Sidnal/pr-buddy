@@ -46,6 +46,7 @@ Fill in `deploy/.env`. It is ignored by git; keep it readable by you alone.
 | `REVIEW_QUEUE_LIMIT_PER_INSTALLATION`        | Optional. Reviews of one installation that may wait; 20 by default                                                                                               |
 | `OPERATOR_NAME`, `OPERATOR_CONTACT`          | Who runs this deployment and how to reach them, shown on the public `/privacy` page. Optional, but without them the page says you have not published who you are |
 | `OPERATOR_PRIVACY_URL`, `OPERATOR_TERMS_URL` | Optional. Links to your own privacy policy and terms                                                                                                             |
+| `OPERATOR_GITHUB_USER_IDS`                   | Optional. GitHub user IDs of the people who run the deployment; they get the dashboard's Service page ([GITHUB_APP.md](GITHUB_APP.md), section 7)                |
 
 For the dashboard, also set `GITHUB_CLIENT_ID`, `GITHUB_CLIENT_SECRET` and
 `PUBLIC_URL=https://<SITE_ADDRESS>`: all three, or none. For AI review, add the provider's

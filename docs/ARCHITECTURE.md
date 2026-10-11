@@ -141,6 +141,7 @@ that calls a real service exists yet.
 ```
 apps/api/src/
 ├── main.ts           Entry point: environment, wiring, listen, graceful shutdown
+├── cli/              `register-app`: a second entry point, which registers a GitHub App
 ├── app.ts            Express application: headers, rate limit, routes, error handling
 ├── logger.ts         Structured logging with redaction
 ├── config/           Environment variables, validated at start-up
@@ -151,11 +152,14 @@ apps/api/src/
     ├── auth/         Sign-in with GitHub; session store and cookie
     ├── ai-keys/      An installation's own AI key: encryption, store, routes
     ├── history/      Read API over stored reviews, limited to the session
+    ├── operator/     Figures across every installation, for the operator only
+    ├── app-registration/  The manifest, the two pages and the environment file of `register-app`
     └── web/          Serves the built dashboard with its security headers
 apps/api/migrations/  SQL files that create and upgrade the schema
 ```
 
-`main.ts` is the only file that reads the environment or creates real clients. Everything else
+`main.ts` is the only file of the service that reads the environment or creates real clients
+(`cli/register-app.ts` is a separate command, not part of the service). Everything else
 receives its dependencies as arguments, which is what makes it testable.
 
 ## 7. Architectural rules
