@@ -13,10 +13,11 @@ of actionable, evidence-backed findings. Humans keep the merge decision.
   the rules in a repository's own CI (RUNNER.md). It asks no AI model yet; the later phases of
   DESIGN-RUNNER.md are not built.
 - **Milestone 6** added the operator's Service page and a command that registers a GitHub App.
+  The latest release is `v0.4.0`.
 - **Milestone 1**, the deterministic review engine, is done.
 - **Milestone 2**, the GitHub App, is done. It was verified against the real GitHub API on a
   private test repository on 2026-10-10; results are in the tracker.
-- **Milestone 5**, a hosted service, is done and `v0.3.0` is released. An installation
+- **Milestone 5**, a hosted service, is done and released. An installation
   can store its own AI key; CI publishes the API image, so the example stack runs on a small
   server; a first page lets a new person install the app; a public page says what is stored
   and who runs the service; the review queue is shared fairly between installations; and the

@@ -6,6 +6,11 @@ change behaviour or configuration; such changes are listed under "Upgrade notes"
 
 ## [Unreleased]
 
+## [0.4.0] — 2026-10-11
+
+PR Buddy can run as a GitHub Action in a repository's own CI, the people who run a
+deployment get a page about it, and an owner of an organisation is recognised as one.
+
 ### Added
 
 - **Runner mode, phase 1: PR Buddy as a GitHub Action.** A repository can run PR Buddy's rules
@@ -46,6 +51,37 @@ change behaviour or configuration; such changes are listed under "Upgrade notes"
 - **Add the organisation permission "Members: Read-only" to your GitHub App** (its settings,
   Permissions and events). Each organisation that installed the app must then approve it;
   until it does, nobody there is treated as an owner. Personal accounts are not affected.
+
+### Verified, and not
+
+Verified on real repositories and the public deployment:
+
+- **The Action, phase 1,** on a private test repository, pinned to a commit: a pull request with
+  a finding, a clean one, a draft, a closed one, the same commit run twice, a re-push that fixed
+  the finding, and a base branch in hosted mode. Each run took 34 to 39 seconds.
+- **One reviewer per repository:** the service, running this version, skipped a runner-mode
+  repository on a development machine and on the public deployment after its upgrade.
+- **The owner check for an organisation:** failed at first with `403`, then passed once the app
+  had the Members permission and the organisation approved it.
+- **Suspending the app** ended the sessions that could see it and touched nothing else.
+- **`register-app`** registered a private app at the third attempt; a review then ran through
+  that app on a developer's machine.
+- **Alerts** reached a person by email, and a scheduled backup ran overnight.
+
+Reported by the maintainer and not observed: the Service page, opened as the listed operator.
+
+Not verified:
+
+- A pull request from a fork in runner mode. Covered by tests only.
+- The job summary as GitHub renders it. Its text is tested; the page was not looked at.
+- Uninstalling the app when there is something to delete. The event was handled, but that
+  installation had no review, key or session left.
+- A review for a second installation on the public deployment.
+- Azure against a real resource.
+
+Known limits: the Action asks no AI model, runs on Linux runners only, and posts no line
+comments; its image is built at the start of every run; a service older than this version
+reviews a runner-mode repository as well.
 
 ## [0.3.0] — 2026-10-10
 
@@ -272,6 +308,7 @@ Not verified against real services, and covered by automated tests only:
 None: this is the first release. From this version on, reviews older than
 `REVIEW_RETENTION_DAYS` (365 unless set) are deleted at start-up and daily.
 
+[0.4.0]: https://github.com/Abhishek-Sidnal/pr-buddy/releases/tag/v0.4.0
 [0.3.0]: https://github.com/Abhishek-Sidnal/pr-buddy/releases/tag/v0.3.0
 [0.2.0]: https://github.com/Abhishek-Sidnal/pr-buddy/releases/tag/v0.2.0
 [0.1.0]: https://github.com/Abhishek-Sidnal/pr-buddy/releases/tag/v0.1.0

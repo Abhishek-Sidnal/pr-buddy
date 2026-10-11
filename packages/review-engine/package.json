@@ -1,6 +1,6 @@
 {
   "name": "@pr-buddy/review-engine",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "description": "Deterministic, framework-independent pull request review engine.",
   "license": "MIT",
   "type": "module",
