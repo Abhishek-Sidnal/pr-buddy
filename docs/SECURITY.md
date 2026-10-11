@@ -310,6 +310,26 @@ Design: [DESIGN-OPERATIONS.md](DESIGN-OPERATIONS.md).
 - **The owner role is a snapshot** from sign-in, for at most eight hours.
 - **The last four characters of a key are stored in clear**, to let an owner recognise it.
 
+## 6G. Threats and controls proposed for runner mode
+
+Design: [DESIGN-RUNNER.md](DESIGN-RUNNER.md). **Proposed, not built.** Runner mode moves the
+review into the repository's CI, which removes some threats and adds others.
+
+| #   | Threat                                                             | Control                                                                                                             |
+| --- | ------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------- |
+| R1  | A pull request makes the run execute its code                      | Nothing from the pull request is installed, built or run; the Action's code comes from a pinned version of PR Buddy |
+| R2  | A fork's pull request obtains the AI key                           | The `pull_request_target` trigger is never used; without secrets the Action runs the rules only                     |
+| R3  | Text in the pull request or the repository steers the model        | It is passed as data; the model has read-only tools, no network and no shell; its output goes through the filter    |
+| R4  | The model reads outside the checkout, or a credential file         | Paths are resolved and confined; links that leave are refused; credential patterns are never read                   |
+| R5  | The model is given a pattern that hangs the run                    | `search` takes a literal string; every tool call is bounded                                                         |
+| R6  | A run spends without limit                                         | Gates before any model cost; a ceiling on steps and on tokens; early stop is stated in the comment                  |
+| R7  | The model invents a finding about code it never opened             | A finding must point at lines recorded as read in that run, or it is dropped                                        |
+| R8  | A pull request switches its own repository's mode or rules         | The configuration is read at the base commit, in the Action as in the service                                       |
+| R9  | A repository is reviewed twice, or a run claims another repository | The mode is one value per repository; a report is accepted only with GitHub's identity token for that repository    |
+| R10 | The Action deletes or edits someone else's comment                 | Only comments with PR Buddy's marker, written by the same identity, are touched                                     |
+| R11 | A report to the service carries code                               | The record has the same fields the service stores today, plus token counts; the service validates it                |
+| R12 | The AI key appears in a log, a comment or a tool result            | Tools cannot read the environment; the key is masked by GitHub and redacted by the runner's logger                  |
+
 ## 8. What PR Buddy does not claim
 
 PR Buddy holds no security certification. It is not a replacement for dedicated secret scanning,

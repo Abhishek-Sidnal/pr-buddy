@@ -457,6 +457,31 @@ Design: [DESIGN-OPERATIONS.md](DESIGN-OPERATIONS.md), sections 5 and 6.
 Out of scope: charts over time, exporting figures, alerts from the page (the watcher does
 that), changing an existing app.
 
+## 6I. Milestone 7 — runner mode (proposed)
+
+A review that sees the whole repository, run where the code already is. Design:
+[DESIGN-RUNNER.md](DESIGN-RUNNER.md). Nothing here is built; the design has decisions still to
+be confirmed.
+
+| ID      | Requirement                                                                                      |
+| ------- | ------------------------------------------------------------------------------------------------ |
+| FR-112  | A repository can run PR Buddy as a GitHub Action, with the same rules and the same comment.      |
+| FR-113  | A repository is reviewed by the service or by the Action, never both, as its configuration says. |
+| FR-114  | In runner mode the model can read, search and list files of the checkout, and nothing else.      |
+| FR-115  | A small change gets one reviewer; a larger one gets specialists and a lead who checks them.      |
+| FR-116  | A re-review says which earlier findings are fixed, still open or withdrawn.                      |
+| FR-117  | A run reports its token use; with a configured price, an estimated cost.                         |
+| FR-118  | A run can send its record to a PR Buddy service, where it appears with history and usage.        |
+| NFR-107 | Nothing from a pull request is executed, and no code reaches the operator's service.             |
+| NFR-108 | Checks that cost nothing run before any request to a model.                                      |
+| NFR-109 | A finding is published only if code can verify that the reviewer read what it points at.         |
+| NFR-110 | A pull request from a fork never receives the AI key.                                            |
+| NFR-111 | A review is bounded in steps and tokens, and says so when it stopped early.                      |
+| NFR-112 | Runner mode works with every AI provider the service supports, and without any service.          |
+
+Out of scope: running linters or tests, memory of past pull requests, review across
+repositories, approving or blocking a merge.
+
 ## 7. Success metrics (from M2 onward)
 
 These cannot be measured until PR Buddy reviews real pull requests.
