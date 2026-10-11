@@ -2,7 +2,7 @@
 
 How an organisation or person that installed PR Buddy can supply their own model provider and
 key, so that a hosted PR Buddy does not pay for, or choose, everyone's AI review. Decisions are
-in [BRAIN.md](BRAIN.md) (D-071 to D-081); threats and controls in [SECURITY.md](SECURITY.md),
+in [BRAIN.md](BRAIN.md) (D-071 to D-081, D-095); threats and controls in [SECURITY.md](SECURITY.md),
 section 6E.
 
 ## 1. What this delivers
@@ -39,6 +39,13 @@ installations (D-049), and kept in the session:
 ```
 GET /user/installations                 → installations, each with its account and type
 GET /user/memberships/orgs/{org}        → role "admin" and state "active" make an owner
+```
+
+The second question needs the app's organisation permission **Members: read** (D-095). GitHub
+refuses it with `403` otherwise, and that refusal is logged with the installation's ID:
+
+```
+The owner check for an organisation did not complete   reason: http-403
 ```
 
 If GitHub does not answer the membership question with a clear yes, the person is not treated
@@ -179,7 +186,7 @@ is cleared after saving.
 - The role is a snapshot from sign-in.
 - One key per installation, not per repository.
 - No usage or spending report: the provider's own console has that.
-- The membership check has not been run against a real organisation; see the tracker.
+- An organisation must have approved the app's Members permission, or nobody there is an owner.
 - Azure has not been run against a real resource; see the tracker.
 - A test shows that the provider accepts the key and knows the model. It does not show that a
   repository has opted in.

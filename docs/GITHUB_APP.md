@@ -42,6 +42,18 @@ docker compose run --rm dev node -e "console.log(require('node:crypto').randomBy
 | Pull requests | Read and write                                   |
 | Single file   | Read-only, with the path `.github/pr-buddy.json` |
 
+And one **Organization permission**:
+
+| Permission | Access    | Why                                                                         |
+| ---------- | --------- | --------------------------------------------------------------------------- |
+| Members    | Read-only | So that GitHub will say whether the person signing in owns the organisation |
+
+PR Buddy uses it for one question, about the person who is signing in: their own role in an
+organisation where the app is installed. Without it GitHub answers `403`, nobody is taken to be
+an owner of an organisation, and no organisation can store its own AI key. It does not list or
+store an organisation's members. If you add the permission to an app that is already installed,
+each organisation has to approve it once before it takes effect there.
+
 Leave every other permission at **No access**.
 
 If reviews later fail with `403` while reading the configuration file, the single-file permission

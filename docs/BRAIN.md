@@ -769,6 +769,23 @@ permissions are easy to get wrong.
 **Rejected.** A page in the dashboard that registers the app: the service would then have to
 rewrite its own configuration while running.
 
+### D-095 — The app asks for Members: read, to learn one thing
+
+**Decision.** The GitHub App requests the organisation permission "Members: read". It is used
+for one request, `GET /user/memberships/orgs/{org}`, about the person who is signing in. A
+failed owner check is logged with its reason; the reason is never stored.
+**Why.** The first organisation to install the app showed that GitHub answers that request
+`403` without the permission. The check failed closed, as designed, so nobody in an
+organisation could set its AI key, and the cause was invisible because every failure looked
+the same.
+**Cost.** The app may read an organisation's member list, which it has no other use for, and
+each organisation must approve the permission once. Until it does, nobody there is an owner.
+**Rejected.** Treating an admin of every covered repository as an owner: it needs no
+permission, but such a person is not the one who may decide for the whole organisation, and
+the set of repositories can grow after the key was set.
+**Lesson.** A check that fails closed still has to say why. "Unverified" in the tracker was
+right, and one sign-in by a real organisation owner would have found this before release.
+
 ## 3. Glossary
 
 | Term       | Meaning                                                                                 |

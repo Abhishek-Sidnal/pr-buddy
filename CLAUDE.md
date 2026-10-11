@@ -106,7 +106,7 @@ or updates the comment.
 
 ## Invariants
 
-These are design decisions with reasons recorded in `docs/BRAIN.md` (D-001 to D-094). Read the
+These are design decisions with reasons recorded in `docs/BRAIN.md` (D-001 to D-095). Read the
 relevant entry before changing one.
 
 - A webhook body is only a trigger. What gets reviewed is fetched from the API.

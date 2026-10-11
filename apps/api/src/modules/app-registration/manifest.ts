@@ -89,6 +89,9 @@ export function buildManifest(options: RegistrationOptions): AppManifest {
     default_permissions: {
       metadata: "read",
       pull_requests: "write",
+      // An organisation permission. Without it GitHub refuses to say whether the person signing
+      // in is an owner of an organisation, and then nobody there may set its AI key (D-095).
+      members: "read",
       ...(options.configAccess === "contents"
         ? { contents: "read" as const }
         : { single_file: "read" as const }),

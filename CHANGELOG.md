@@ -20,9 +20,19 @@ change behaviour or configuration; such changes are listed under "Upgrade notes"
   section 2.
 - `GET /api/me` says whether the signed-in person is an operator.
 
+### Fixed
+
+- An owner of an organisation was never recognised as one, so no organisation could store its
+  own AI key. GitHub refuses the question PR Buddy asks unless the app has the organisation
+  permission **Members: read**. The registration command now requests it, the guide lists it,
+  and a failed owner check is logged with its reason.
+
 ### Upgrade notes
 
-- Nothing changes until `OPERATOR_GITHUB_USER_IDS` is set.
+- The operator's page does not exist until `OPERATOR_GITHUB_USER_IDS` is set.
+- **Add the organisation permission "Members: Read-only" to your GitHub App** (its settings,
+  Permissions and events). Each organisation that installed the app must then approve it;
+  until it does, nobody there is treated as an owner. Personal accounts are not affected.
 
 ## [0.3.0] — 2026-10-10
 

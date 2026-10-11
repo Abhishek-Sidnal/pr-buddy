@@ -151,6 +151,11 @@ export function PrivacyContent(props: { readonly service: Resource<ServiceInfo> 
             GitHub, where the pull requests are and where you sign in. PR Buddy keeps no GitHub
             token of yours: it is used once at sign-in and dropped.
           </li>
+          <li>
+            At sign-in PR Buddy asks GitHub for your own role in each organisation where the app is
+            installed, to tell whether you are an owner. It does not read or keep a list of an
+            organisation&apos;s members.
+          </li>
           <li>An AI provider, only as described above.</li>
           <li>Whoever hosts this deployment for its operator.</li>
         </ul>

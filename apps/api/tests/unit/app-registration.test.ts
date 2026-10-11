@@ -99,7 +99,12 @@ describe("the app that is described to GitHub", () => {
       public: false,
       request_oauth_on_install: false,
       default_events: ["pull_request"],
-      default_permissions: { metadata: "read", pull_requests: "write", single_file: "read" },
+      default_permissions: {
+        metadata: "read",
+        pull_requests: "write",
+        members: "read",
+        single_file: "read",
+      },
     });
   });
 
@@ -107,18 +112,20 @@ describe("the app that is described to GitHub", () => {
     expect(buildManifest({ ...OPTIONS, configAccess: "contents" }).default_permissions).toEqual({
       metadata: "read",
       pull_requests: "write",
+      members: "read",
       contents: "read",
     });
   });
 
-  it("never asks to write code, to administer, or for anything about people", () => {
+  it("never asks to write code or to administer, and reads members only to tell who is an owner", () => {
     for (const configAccess of ["single-file", "contents"] as const) {
       const permissions = buildManifest({ ...OPTIONS, configAccess }).default_permissions;
       expect(Object.entries(permissions).filter(([, access]) => access === "write")).toEqual([
         ["pull_requests", "write"],
       ]);
       expect(Object.keys(permissions)).not.toContain("administration");
-      expect(Object.keys(permissions)).not.toContain("members");
+      expect(permissions["members"]).toBe("read");
+      expect(Object.keys(permissions)).not.toContain("organization_administration");
     }
   });
 
