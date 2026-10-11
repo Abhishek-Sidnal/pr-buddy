@@ -91,7 +91,7 @@ apps/runner ─┴──► packages/ai-reviewer ─────►┘
 - In **`api`**, `modules/auth` holds sign-in and sessions, `modules/history` the read API, and
   `modules/web` serves the built dashboard. All three exist only when the dashboard is configured.
   `modules/ai-keys` stores an installation's own AI key and exists only with a master key.
-- **`apps/runner`** is PR Buddy as a GitHub Action (`action.yml`, `docker/runner.Dockerfile`): the
+- **`apps/runner`** is PR Buddy as a GitHub Action (`action.yml`, the root `Dockerfile`): the
   same rules, in a repository's own CI, with the workflow's token. `main.ts` is its only file that
   reads the environment. It asks no AI model yet. It depends on nothing in `apps/api`.
 - **`github-client`** is the only package that knows GitHub: signature verification, event

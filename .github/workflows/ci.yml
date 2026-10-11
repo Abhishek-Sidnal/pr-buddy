@@ -111,7 +111,7 @@ jobs:
 
       # The image GitHub builds when a repository uses PR Buddy as an Action.
       - name: Build the Action's image
-        run: docker build --file docker/runner.Dockerfile --tag pr-buddy-runner .
+        run: docker build --tag pr-buddy-runner .
 
       - name: Check that the Action refuses the pull_request_target event
         run: |

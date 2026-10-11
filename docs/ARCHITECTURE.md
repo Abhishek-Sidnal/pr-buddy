@@ -224,7 +224,7 @@ apps/runner/src/
 ├── job-summary.ts   What a run did, for the job's page
 └── limits.ts        Named sizes and thresholds
 action.yml           The Action's definition, at the repository's root
-docker/runner.Dockerfile   Its image
+Dockerfile           Its image, at the root because GitHub builds it with that folder as context
 ```
 
 It depends on `review-engine`, `github-client` and `ai-reviewer`, and on nothing in `apps/api`:

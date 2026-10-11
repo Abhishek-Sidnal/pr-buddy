@@ -1,6 +1,9 @@
-# The image of PR Buddy's GitHub Action. GitHub builds it from the repository at the commit a
-# workflow pins, so the code that runs is PR Buddy's own and never a pull request's.
-#   docker build -f docker/runner.Dockerfile -t pr-buddy-runner .
+# The image of PR Buddy's GitHub Action (action.yml). The API's image is docker/api.Dockerfile.
+#
+# This file is at the root because GitHub builds a container action with the Dockerfile's own
+# folder as the build context, and the build needs the whole repository. GitHub builds it at the
+# commit a workflow pins, so the code that runs is PR Buddy's own and never a pull request's.
+#   docker build -t pr-buddy-runner .
 
 FROM node:24-alpine@sha256:ebfe2f90462722a7a4de65e91990e97fe0d401c70e0e762c5b53302f905ec1c1 AS build
 WORKDIR /app

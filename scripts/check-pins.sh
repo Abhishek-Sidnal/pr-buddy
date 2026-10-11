@@ -23,7 +23,7 @@ fi
 # `FROM` and `image:` must name a digest. The one exception is an image that the operator must
 # name themselves: a variable that is required and has no default, so nothing here chooses a tag.
 unpinned_images=$(grep -rnE '^\s*(FROM|image:)\s' \
-  docker compose.yaml deploy/compose.yaml deploy/compose.image.yaml .github/workflows \
+  Dockerfile docker compose.yaml deploy/compose.yaml deploy/compose.image.yaml .github/workflows \
   | grep -vE '@sha256:[0-9a-f]{64}(\s|$)' \
   | grep -vE 'image:\s*\$\{[A-Z_]+:\?[^}]*\}\s*$' || true)
 if [ -n "$unpinned_images" ]; then
