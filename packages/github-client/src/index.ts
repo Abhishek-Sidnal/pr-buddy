@@ -66,6 +66,7 @@ export {
   SignInError,
   type AccessibleInstallation,
   type GitHubUser,
+  type OwnerCheckOutcome,
   type SignInFailure,
   type UserAccess,
   type UserAuthClient,

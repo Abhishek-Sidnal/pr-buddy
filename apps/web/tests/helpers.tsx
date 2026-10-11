@@ -20,6 +20,7 @@ export const ME: Me = {
   login: "octocat",
   installationCount: 1,
   expiresAt: "2026-10-10T18:00:00.000Z",
+  isOperator: false,
 };
 
 export function buildSummary(overrides: Partial<ReviewSummary> = {}): ReviewSummary {

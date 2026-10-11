@@ -6,6 +6,34 @@ change behaviour or configuration; such changes are listed under "Upgrade notes"
 
 ## [Unreleased]
 
+### Added
+
+- A **Service** page for the people who run a deployment, at `/operator`: installations and
+  repositories reviewed, reviews and AI reviews by outcome over 24 hours, 7 days and 30 days,
+  what is running and waiting, stored AI keys by provider, and one row per installation with
+  its account, activity, failures and AI provider. Set `OPERATOR_GITHUB_USER_IDS` to the GitHub
+  user IDs that may see it. It shows no repository name, pull request, finding or login, and
+  everyone else finds nothing at its address.
+- `register-app`, a command that registers a GitHub App from a manifest and writes its
+  credentials to an environment file: one click on GitHub in place of a dozen fields and five
+  secrets. Meant first for a private app of your own for development. See `docs/GITHUB_APP.md`,
+  section 2.
+- `GET /api/me` says whether the signed-in person is an operator.
+
+### Fixed
+
+- An owner of an organisation was never recognised as one, so no organisation could store its
+  own AI key. GitHub refuses the question PR Buddy asks unless the app has the organisation
+  permission **Members: read**. The registration command now requests it, the guide lists it,
+  and a failed owner check is logged with its reason.
+
+### Upgrade notes
+
+- The operator's page does not exist until `OPERATOR_GITHUB_USER_IDS` is set.
+- **Add the organisation permission "Members: Read-only" to your GitHub App** (its settings,
+  Permissions and events). Each organisation that installed the app must then approve it;
+  until it does, nobody there is treated as an owner. Personal accounts are not affected.
+
 ## [0.3.0] — 2026-10-10
 
 A hosted PR Buddy that a stranger can start with and an operator can keep running: a first

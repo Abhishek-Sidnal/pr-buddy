@@ -36,7 +36,28 @@ export interface AccessibleInstallation {
    * organisation. Only a clear yes from GitHub makes it true.
    */
   readonly isOwner: boolean;
+  /**
+   * For an organisation whose owner check did not say yes: why. It is for the operator's log,
+   * so that "nobody is an owner there" can be told apart from "this person is a member".
+   */
+  readonly ownerCheck?: OwnerCheckOutcome;
 }
+
+/**
+ * Why a person was not taken to be an owner of an organisation.
+ * - "not-an-owner": GitHub answered, and their role is not `admin`.
+ * - "not-active": their membership is pending.
+ * - "http-<status>": GitHub refused the question, for example `http-403`.
+ * - "unreachable", "invalid-response": GitHub did not answer, or not in the expected form.
+ * - "not-asked": the sign-in had already asked about as many organisations as it may.
+ */
+export type OwnerCheckOutcome =
+  | "not-an-owner"
+  | "not-active"
+  | "unreachable"
+  | "invalid-response"
+  | "not-asked"
+  | `http-${string}`;
 
 export type SignInFailure = "code-rejected" | "github-unavailable" | "invalid-response";
 
@@ -185,16 +206,41 @@ export function createUserAuthClient(options: UserAuthClientOptions): UserAuthCl
    * error, a refusal or any role but "admin" means no. Deciding where an organisation's code is
    * sent is never granted on a guess.
    */
-  async function isOrganizationOwner(organization: string, token: string): Promise<boolean> {
+  async function isOrganizationOwner(
+    organization: string,
+    token: string,
+  ): Promise<{ isOwner: boolean; ownerCheck?: OwnerCheckOutcome }> {
+    // Asked directly, not through `requestJson`: the status is what tells an operator why the
+    // answer was not a yes. Only the status is kept; the body of a refusal is never read.
+    let response: Response;
     try {
-      const membership = parse(
-        membershipSchema,
-        await apiGet(`/user/memberships/orgs/${encodeURIComponent(organization)}`, token),
+      response = await send(
+        `${API_URL}/user/memberships/orgs/${encodeURIComponent(organization)}`,
+        {
+          headers: {
+            Accept: "application/vnd.github+json",
+            Authorization: `Bearer ${token}`,
+            "User-Agent": USER_AGENT,
+            "X-GitHub-Api-Version": API_VERSION,
+          },
+          signal: AbortSignal.timeout(timeoutMs),
+        },
       );
-      return membership.role === "admin" && membership.state === "active";
     } catch {
-      return false;
+      return { isOwner: false, ownerCheck: "unreachable" };
     }
+    if (!response.ok) {
+      return { isOwner: false, ownerCheck: `http-${String(response.status)}` };
+    }
+    const membership = membershipSchema.safeParse(await response.json().catch(() => undefined));
+    if (!membership.success) {
+      return { isOwner: false, ownerCheck: "invalid-response" };
+    }
+    const { role, state } = membership.data;
+    if (state !== "active") {
+      return { isOwner: false, ownerCheck: "not-active" };
+    }
+    return role === "admin" ? { isOwner: true } : { isOwner: false, ownerCheck: "not-an-owner" };
   }
 
   async function listInstallations(
@@ -213,13 +259,21 @@ export function createUserAuthClient(options: UserAuthClientOptions): UserAuthCl
           continue;
         }
         let isOwner = false;
+        let ownerCheck: OwnerCheckOutcome | undefined;
         if (account?.type === "User") {
           isOwner = account.id === userId;
+        } else if (account?.type === "Organization" && lookups >= MAX_MEMBERSHIP_LOOKUPS) {
+          ownerCheck = "not-asked";
         } else if (account?.type === "Organization" && lookups < MAX_MEMBERSHIP_LOOKUPS) {
           lookups += 1;
-          isOwner = await isOrganizationOwner(account.login, token);
+          ({ isOwner, ownerCheck } = await isOrganizationOwner(account.login, token));
         }
-        found.set(id, { id, account: account?.login ?? "", isOwner });
+        found.set(id, {
+          id,
+          account: account?.login ?? "",
+          isOwner,
+          ...(ownerCheck === undefined ? {} : { ownerCheck }),
+        });
       }
       if (installations.length < PAGE_SIZE) {
         break;

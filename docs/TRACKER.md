@@ -20,6 +20,7 @@ The one current figure. Counts in the sections below are what was true when each
 accepted and are kept as history.
 
 | Date | Command | Result |
+| 2026-10-11 | `docker compose run --rm dev npm run check` | Passed: 1,926 tests (engine 474, AI reviewer 186, GitHub client 266, API 717, web 283) |
 | 2026-10-10 | `docker compose run --rm dev npm run check` | Passed: 1,812 tests (engine 474, AI reviewer 186, GitHub client 266, API 621, web 265) |
 | 2026-10-10 | `docker compose run --rm dev npm run check` | Passed: 1,732 tests (engine 474, AI reviewer 186, GitHub client 266, API 584, web 222). The clean-checkout check for `v0.2.0` passed on `a092c81` with 1,655 |
 | 2026-10-10 | `docker compose run --rm dev npm run check` | Passed: 1,655 tests (engine 474, AI reviewer 186, GitHub client 266, API 556, web 173) |
@@ -28,6 +29,30 @@ accepted and are kept as history.
 | 2026-10-10 | Clean export of commit `6929d67` in a fresh `node:24-alpine` container: `npm ci`, `npm run check`, audit, signatures, pin check | Passed: 1,448 tests; 0 vulnerabilities; 358 signatures verified |
 | 2026-10-10 | `docker compose run --rm dev npm audit --omit=dev` | 0 vulnerabilities |
 
+## Milestone 6 — running it day to day
+
+Design: [DESIGN-OPERATIONS.md](DESIGN-OPERATIONS.md), sections 5 and 6. Decisions D-092 to
+D-094. Threats O11 to O14.
+
+| Task                                                                                   | Requirement                      | Status |
+| -------------------------------------------------------------------------------------- | -------------------------------- | ------ |
+| The operator setting, `isOperator` in `GET /api/me`, and `GET /api/operator/overview`  | FR-109, FR-110, NFR-104, NFR-105 | ✅     |
+| The operator's page                                                                    | FR-109, FR-110                   | ✅     |
+| `register-app`: a GitHub App from a manifest, written to the environment file          | FR-111, NFR-106                  | ✅     |
+| A development app registered with it, and a review through it on a developer's machine | FR-111                           | ⬜     |
+
+### What 0.3.0 left unverified, and what has been seen since
+
+| Check                                                       | Result                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
+| ----------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| An alert reaching a person                                  | Passed on 2026-10-11: after the maintainer confirmed the subscription, a rehearsed problem and its recovery each arrived by email                                                                                                                                                                                                                                                                                                                                       |
+| A scheduled backup overnight                                | Passed: cron ran `deploy/backup.sh` at 20:15 UTC on 2026-10-10 and the server logged the dump as stored locally and in the bucket                                                                                                                                                                                                                                                                                                                                       |
+| An alarm outside the server                                 | In place: a Lightsail alarm on the instance's status check, with a verified email contact. Not triggered: that would mean breaking the server                                                                                                                                                                                                                                                                                                                           |
+| The owner check for an organisation                         | **Failed on 2026-10-11**, then diagnosed: an owner of a new organisation signed in and was not recognised. GitHub answered the membership request `403` because the app lacked the organisation permission "Members: read" (D-095). After the permission was added to the app and approved for the organisation, the same person signed in again and was recognised as its owner, with no warning logged. Seen on a development machine connected to the production app |
+| A review for a second installation on the public deployment | ⬜                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
+| Suspending the app ends sessions                            | Passed on 2026-10-11 on the public deployment: GitHub's event arrived for the organisation's installation, the one session that held it was deleted, and the maintainer's own account, its history and its key were untouched                                                                                                                                                                                                                                           |
+| Uninstalling deletes history, key and sessions              | Partly: the event arrived and was handled, and nothing of that installation remains. But the organisation had no review, no key and, after the suspension, no session, so nothing was there to delete. ⬜ Repeat with an installation that has all three                                                                                                                                                                                                                |
+
 ## Milestone 5 — a hosted service
 
 | Part | Contents                       | Status |
@@ -35,9 +60,9 @@ accepted and are kept as history.
 | 1    | An installation's own AI key   | ✅     |
 | 2    | A first public deployment      | ✅     |
 | 3    | Onboarding                     | ✅     |
-| 4    | Operations: backups and alerts | 🟡     |
-| 5    | Who runs the service           | 🟡     |
-| 6    | A fair share of the queue      | 🟡     |
+| 4    | Operations: backups and alerts | ✅     |
+| 5    | Who runs the service           | ✅     |
+| 6    | A fair share of the queue      | ✅     |
 
 ### Parts 4 to 6 — operations, the operator's page, the queue
 

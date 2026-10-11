@@ -106,6 +106,8 @@ export const meSchema = z.object({
   login: z.string(),
   installationCount: count,
   expiresAt: z.string(),
+  /** Whether this person runs the deployment. It only decides whether a link is shown. */
+  isOperator: z.boolean().default(false),
 });
 
 export const overviewSchema = z.object({
@@ -191,6 +193,40 @@ export const aiKeyTestSchema = z.discriminatedUnion("result", [
   z.object({ result: z.literal("unreadable") }),
   z.object({ result: z.literal("missing") }),
 ]);
+
+const outcomeCountsSchema = z.object({ completed: count, skipped: count, failed: count });
+
+/**
+ * What the whole service has been doing, for its operator. Account names and counts only: the
+ * API sends nothing about what was reviewed, and this schema would not keep it if it did.
+ */
+export const operatorOverviewSchema = z.object({
+  generatedAt: z.string(),
+  totals: z.object({ installations: count, repositories: count, people: count }),
+  reviews: z.object({
+    day: outcomeCountsSchema,
+    week: outcomeCountsSchema,
+    month: outcomeCountsSchema,
+  }),
+  aiReviews: outcomeCountsSchema,
+  pending: z.object({ count, oldestRequestedAt: z.string().nullable() }),
+  queue: z.object({ running: count, waiting: count }),
+  keysByProvider: z.array(z.object({ provider: z.string(), count })),
+  installations: z.array(
+    z.object({
+      installationId: z.number().int().positive(),
+      account: z.string(),
+      repositoryCount: count,
+      reviewCount: count,
+      failedCount: count,
+      lastReviewAt: z.string().nullable(),
+      aiProvider: z.string().nullable(),
+    }),
+  ),
+});
+
+export type OperatorOverview = z.infer<typeof operatorOverviewSchema>;
+export type OutcomeCounts = z.infer<typeof outcomeCountsSchema>;
 
 export type AiKeyTest = z.infer<typeof aiKeyTestSchema>;
 export type AiKeySummary = z.infer<typeof aiKeySummarySchema>;

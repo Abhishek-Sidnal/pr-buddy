@@ -314,33 +314,38 @@ describe("who owns an installation", () => {
 
     expect(access.installations).toEqual([
       { id: 1001, account: "acme", isOwner: true },
-      { id: 1002, account: "other-org", isOwner: false },
+      { id: 1002, account: "other-org", isOwner: false, ownerCheck: "not-an-owner" },
     ]);
     const lookup = requests.find(({ url }) => url.pathname === "/user/memberships/orgs/acme");
     expect(lookup?.headers.get("authorization")).toBe(`Bearer ${TOKEN}`);
   });
 
-  it.each<[string, Handler]>([
-    ["a billing manager", membership("billing_manager")],
-    ["an owner whose invitation is pending", membership("admin", "pending")],
-    ["a role GitHub may add later", membership("super-admin")],
-    ["someone GitHub does not list as a member", () => json({ message: "Not Found" }, 404)],
-    ["an organisation that blocks the app", () => json({ message: "Forbidden" }, 403)],
-    ["a failing GitHub", () => json({}, 500)],
-    ["an answer of another shape", () => json({ role: 1 })],
+  it.each<[string, Handler, string]>([
+    ["a billing manager", membership("billing_manager"), "not-an-owner"],
+    ["an owner whose invitation is pending", membership("admin", "pending"), "not-active"],
+    ["a role GitHub may add later", membership("super-admin"), "not-an-owner"],
+    [
+      "someone GitHub does not list as a member",
+      () => json({ message: "Not Found" }, 404),
+      "http-404",
+    ],
+    ["an organisation that blocks the app", () => json({ message: "Forbidden" }, 403), "http-403"],
+    ["a failing GitHub", () => json({}, 500), "http-500"],
+    ["an answer of another shape", () => json({ role: 1 }), "invalid-response"],
     [
       "a network failure",
       () => {
         throw new TypeError("fetch failed");
       },
+      "unreachable",
     ],
-  ])("does not make an owner of %s", async (_name, handler) => {
+  ])("does not make an owner of %s, and says why", async (_name, handler, ownerCheck) => {
     expect(
       await ownership({
         "/user/installations": installations({ id: 50, login: "acme", type: "Organization" }),
         "/user/memberships/orgs/acme": handler,
       }),
-    ).toEqual([{ id: 1001, account: "acme", isOwner: false }]);
+    ).toEqual([{ id: 1001, account: "acme", isOwner: false, ownerCheck }]);
   });
 
   it.each<[string, unknown]>([
@@ -376,6 +381,9 @@ describe("who owns an installation", () => {
     const access = await client.signIn("the-code", REDIRECT_URI);
 
     expect(access.installations.filter(({ isOwner }) => isOwner)).toHaveLength(50);
+    expect(
+      access.installations.filter(({ ownerCheck }) => ownerCheck === "not-asked"),
+    ).toHaveLength(accounts.length - 50);
     expect(
       requests.filter(({ url }) => url.pathname.startsWith("/user/memberships/")),
     ).toHaveLength(50);

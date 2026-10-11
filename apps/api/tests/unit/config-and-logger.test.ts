@@ -223,6 +223,41 @@ describe("loadConfig for the dashboard", () => {
     );
   });
 
+  it("has no operators unless they are listed", () => {
+    expect(loadConfig(environment(DASHBOARD)).dashboard?.operatorUserIds).toEqual([]);
+  });
+
+  it.each<[string, number[]]>([
+    ["583231", [583231]],
+    ["583231,71709624", [583231, 71709624]],
+    ["7,7,9", [7, 9]],
+  ])("reads the operators' GitHub user IDs from %j", (value, expected) => {
+    expect(
+      loadConfig(environment({ ...DASHBOARD, OPERATOR_GITHUB_USER_IDS: value })).dashboard
+        ?.operatorUserIds,
+    ).toEqual(expected);
+  });
+
+  it.each([
+    "",
+    "octocat",
+    "583231, 71709624",
+    "583231,",
+    ",583231",
+    "0",
+    "-5",
+    "1.5",
+    "0x10",
+    "1e3",
+    "583231;71709624",
+    "9999999999999999",
+    Array.from({ length: 21 }, (_unused, index) => String(index + 1)).join(","),
+  ])("refuses operators given as %j", (value) => {
+    expect(issuesOf({ ...DASHBOARD, OPERATOR_GITHUB_USER_IDS: value })).toEqual([
+      "OPERATOR_GITHUB_USER_IDS: must be up to 20 GitHub user IDs separated by commas, without spaces",
+    ]);
+  });
+
   it("has no operator details unless they are set", () => {
     expect(loadConfig(environment(DASHBOARD)).dashboard?.operator).toEqual({
       name: null,
@@ -326,6 +361,7 @@ describe("loadConfig for the dashboard", () => {
       clientSecret: "CLIENT-SECRET-CANARY",
       publicUrl: "https://buddy.example",
       operator: { name: null, contact: null, privacyUrl: null, termsUrl: null },
+      operatorUserIds: [],
     });
   });
 
