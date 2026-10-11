@@ -1,6 +1,6 @@
 {
   "name": "@pr-buddy/github-client",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "description": "Everything PR Buddy knows about GitHub: webhooks, API access and review output.",
   "license": "MIT",
   "type": "module",
@@ -28,7 +28,7 @@
   "dependencies": {
     "@octokit/auth-app": "^8.3.1",
     "@octokit/rest": "^22.0.1",
-    "@pr-buddy/review-engine": "0.3.0",
+    "@pr-buddy/review-engine": "0.4.0",
     "zod": "^4.6.5"
   }
 }

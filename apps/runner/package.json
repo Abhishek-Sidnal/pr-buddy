@@ -1,6 +1,6 @@
 {
   "name": "@pr-buddy/runner",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "private": true,
   "description": "PR Buddy as a GitHub Action: reviews a pull request inside the repository's own CI.",
   "license": "MIT",
@@ -17,9 +17,9 @@
     "test:coverage": "vitest run --coverage"
   },
   "dependencies": {
-    "@pr-buddy/ai-reviewer": "0.3.0",
-    "@pr-buddy/github-client": "0.3.0",
-    "@pr-buddy/review-engine": "0.3.0",
+    "@pr-buddy/ai-reviewer": "0.4.0",
+    "@pr-buddy/github-client": "0.4.0",
+    "@pr-buddy/review-engine": "0.4.0",
     "zod": "^4.6.5"
   }
 }

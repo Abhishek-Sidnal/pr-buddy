@@ -31,4 +31,5 @@ jobs:
       # Pin a full commit SHA, so that the code that runs is the code you looked at.
       # No checkout is needed: PR Buddy reads the pull request through GitHub's API and runs
       # nothing from it.
+      # The commit of a release is on its page: github.com/Abhishek-Sidnal/pr-buddy/releases
       - uses: Abhishek-Sidnal/pr-buddy@<full commit SHA>

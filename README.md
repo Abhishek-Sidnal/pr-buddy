@@ -3,7 +3,7 @@
 An open-source assistant that reviews GitHub pull requests. It reports a small number of
 actionable findings, shows the evidence behind each one, and leaves the merge decision to people.
 
-> **Status: `v0.3.0` released.** See the [changelog](CHANGELOG.md) for what it includes and what is not yet verified. The review engine and the GitHub App are implemented and
+> **Status: `v0.4.0` released.** See the [changelog](CHANGELOG.md) for what it includes and what is not yet verified. The review engine and the GitHub App are implemented and
 > verified against the real GitHub API. Seven rules run, findings on a line are posted on that line,
 > and review history is stored in PostgreSQL. An optional AI reviewer can use AWS Bedrock,
 > Anthropic, OpenAI, Azure AI Foundry or any OpenAI-compatible service; it is off until an operator
