@@ -4,9 +4,10 @@ How PR Buddy can review a pull request with the whole repository in view, withou
 a customer's code. Decisions are in [BRAIN.md](BRAIN.md) (D-096 to D-110); threats and controls
 in [SECURITY.md](SECURITY.md), section 6G.
 
-**Status on 2026-10-11: designed, not built.** The maintainer confirmed the decisions of
-section 2. No Action exists yet. Work proceeds in the phases of section 18, each behind an
-acceptance gate; phase 0, this design, is the only one done.
+**Status on 2026-10-11: phase 1 is built.** The maintainer confirmed the decisions of section 2.
+The Action exists and runs the deterministic rules; it asks no AI model. What was tried on a real
+repository is in [TRACKER.md](TRACKER.md). Phases 2 to 6 are not built, and each waits for the
+gate of the one before (section 18). How to use it: [RUNNER.md](RUNNER.md).
 
 ## 1. The problem
 

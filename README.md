@@ -193,28 +193,29 @@ More detail: [architecture](docs/ARCHITECTURE.md) · [engine design](docs/DESIGN
 
 ## Documentation
 
-| Document                                       | Contents                                                 |
-| ---------------------------------------------- | -------------------------------------------------------- |
-| [Context](docs/CONTEXT.md)                     | Start here: orientation, commands, ground rules          |
-| [Product requirements](docs/PRD.md)            | What is being built and why                              |
-| [Architecture](docs/ARCHITECTURE.md)           | Modules and their boundaries                             |
-| [Engine design](docs/DESIGN.md)                | Data contracts, pipeline, limits                         |
-| [GitHub App design](docs/DESIGN-GITHUB.md)     | Webhook, queue, review service, permissions              |
-| [GitHub App setup](docs/GITHUB_APP.md)         | Registering the app and running the service              |
-| [Deployment](docs/DEPLOYMENT.md)               | Running it on a server over HTTPS; backups, upgrades     |
-| [Storage design](docs/DESIGN-STORAGE.md)       | Database schema and what is stored                       |
-| [AI reviewer design](docs/DESIGN-AI.md)        | What is sent to a model and how replies are checked      |
-| [Dashboard design](docs/DESIGN-DASHBOARD.md)   | Sign-in, sessions, the read API, the web app             |
-| [AI key design](docs/DESIGN-AI-KEYS.md)        | An installation's own AI key: owners, encryption         |
-| [Operations design](docs/DESIGN-OPERATIONS.md) | Backups, alerts, the queue, the operator's view          |
-| [Runner mode design](docs/DESIGN-RUNNER.md)    | A review in the repository's own CI. Designed, not built |
-| [Design system](docs/DESIGN-SYSTEM.md)         | Colours, type, components, rules for every screen        |
-| [Rules](docs/RULES.md)                         | Reference for the built-in rules                         |
-| [Security](docs/SECURITY.md)                   | Threat model and controls                                |
-| [Brain](docs/BRAIN.md)                         | Decisions and their reasons                              |
-| [Tracker](docs/TRACKER.md)                     | Status of the work                                       |
-| [Deployment and release](docs/RELEASING.md)    | How a release is made and checked                        |
-| [Changelog](CHANGELOG.md)                      | What each version adds, verifies and leaves open         |
+| Document                                       | Contents                                             |
+| ---------------------------------------------- | ---------------------------------------------------- |
+| [Context](docs/CONTEXT.md)                     | Start here: orientation, commands, ground rules      |
+| [Product requirements](docs/PRD.md)            | What is being built and why                          |
+| [Architecture](docs/ARCHITECTURE.md)           | Modules and their boundaries                         |
+| [Engine design](docs/DESIGN.md)                | Data contracts, pipeline, limits                     |
+| [GitHub App design](docs/DESIGN-GITHUB.md)     | Webhook, queue, review service, permissions          |
+| [GitHub App setup](docs/GITHUB_APP.md)         | Registering the app and running the service          |
+| [Deployment](docs/DEPLOYMENT.md)               | Running it on a server over HTTPS; backups, upgrades |
+| [Storage design](docs/DESIGN-STORAGE.md)       | Database schema and what is stored                   |
+| [AI reviewer design](docs/DESIGN-AI.md)        | What is sent to a model and how replies are checked  |
+| [Dashboard design](docs/DESIGN-DASHBOARD.md)   | Sign-in, sessions, the read API, the web app         |
+| [AI key design](docs/DESIGN-AI-KEYS.md)        | An installation's own AI key: owners, encryption     |
+| [Operations design](docs/DESIGN-OPERATIONS.md) | Backups, alerts, the queue, the operator's view      |
+| [Runner mode](docs/RUNNER.md)                  | PR Buddy as a GitHub Action: setting it up           |
+| [Runner mode design](docs/DESIGN-RUNNER.md)    | A review in the repository's own CI, built in phases |
+| [Design system](docs/DESIGN-SYSTEM.md)         | Colours, type, components, rules for every screen    |
+| [Rules](docs/RULES.md)                         | Reference for the built-in rules                     |
+| [Security](docs/SECURITY.md)                   | Threat model and controls                            |
+| [Brain](docs/BRAIN.md)                         | Decisions and their reasons                          |
+| [Tracker](docs/TRACKER.md)                     | Status of the work                                   |
+| [Deployment and release](docs/RELEASING.md)    | How a release is made and checked                    |
+| [Changelog](CHANGELOG.md)                      | What each version adds, verifies and leaves open     |
 
 ## Roadmap
 
@@ -226,7 +227,7 @@ More detail: [architecture](docs/ARCHITECTURE.md) · [engine design](docs/DESIGN
 | M4        | Hardening and `v0.1.0`                                         | Released    |
 | M5        | A hosted service: own AI keys, onboarding, operations          | Released    |
 | M6        | Running it day to day: the operator's view, registering an app | Implemented |
-| M7        | Runner mode: a review in the repository's own CI               | Designed    |
+| M7        | Runner mode: a review in the repository's own CI               | Phase 1     |
 
 PR Buddy does not merge pull requests or change code.
 

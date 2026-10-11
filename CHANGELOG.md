@@ -8,6 +8,13 @@ change behaviour or configuration; such changes are listed under "Upgrade notes"
 
 ### Added
 
+- **Runner mode, phase 1: PR Buddy as a GitHub Action.** A repository can run PR Buddy's rules
+  in its own CI, with no PR Buddy service: `uses: Abhishek-Sidnal/pr-buddy@<commit>`. It posts
+  one summary comment with the workflow's token, writes a job summary, needs no checkout and
+  runs nothing from the pull request. It asks no AI model yet. See `docs/RUNNER.md`.
+- `review.mode` in `.github/pr-buddy.json`: `hosted` (the default) or `runner`. A repository is
+  reviewed by the service or by the Action, never both. The service records a skipped review,
+  reason `runner`, for a repository that selects runner mode.
 - A **Service** page for the people who run a deployment, at `/operator`: installations and
   repositories reviewed, reviews and AI reviews by outcome over 24 hours, 7 days and 30 days,
   what is running and waiting, stored AI keys by provider, and one row per installation with
@@ -32,6 +39,9 @@ change behaviour or configuration; such changes are listed under "Upgrade notes"
 
 ### Upgrade notes
 
+- **Upgrade the service before any repository selects runner mode.** An older service does not
+  know `review.mode`: it calls the file invalid, falls back to its defaults and reviews the
+  repository as well, which is the double review the setting exists to prevent.
 - The operator's page does not exist until `OPERATOR_GITHUB_USER_IDS` is set.
 - **Add the organisation permission "Members: Read-only" to your GitHub App** (its settings,
   Permissions and events). Each organisation that installed the app must then approve it;

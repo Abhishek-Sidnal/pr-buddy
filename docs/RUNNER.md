@@ -43,6 +43,11 @@ The mode is read from the pull request's **base** commit, so:
 If the PR Buddy app is also installed on the repository, the hosted service sees the same
 setting and stops reviewing that repository. A repository is never reviewed by both.
 
+**If the PR Buddy app is installed too, its service must know about runner mode first.** A
+service older than this feature treats `review.mode` as an unknown setting, calls the file
+invalid and reviews the repository as before, beside the Action. Upgrade the service, then
+select runner mode.
+
 ## 3. Permissions
 
 | Permission             | Why                                                |
@@ -100,5 +105,6 @@ say that nothing is left.
 ## 8. Limits
 
 - Linux runners only: the Action is a container.
-- The image is built at the start of each run, which adds to its time.
+- The image is built at the start of each run. In the first real runs a whole job, build included,
+  took 34 to 39 seconds.
 - The Action pins its own base image by digest; you pin the Action by commit.

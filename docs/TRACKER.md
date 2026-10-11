@@ -20,6 +20,7 @@ The one current figure. Counts in the sections below are what was true when each
 accepted and are kept as history.
 
 | Date | Command | Result |
+| 2026-10-11 | `docker compose run --rm dev npm run check` | Passed: 2,094 tests (engine 474, AI reviewer 211, GitHub client 284, runner 103, API 739, web 283) |
 | 2026-10-11 | `docker compose run --rm dev npm run check` | Passed: 1,938 tests (engine 474, AI reviewer 186, GitHub client 266, API 729, web 283) |
 | 2026-10-11 | `docker compose run --rm dev npm run check` | Passed: 1,926 tests (engine 474, AI reviewer 186, GitHub client 266, API 717, web 283) |
 | 2026-10-10 | `docker compose run --rm dev npm run check` | Passed: 1,812 tests (engine 474, AI reviewer 186, GitHub client 266, API 621, web 265) |
@@ -33,7 +34,7 @@ accepted and are kept as history.
 ## Milestone 7 — runner mode
 
 Design: [DESIGN-RUNNER.md](DESIGN-RUNNER.md). Decisions D-096 to D-108, accepted on 2026-10-11.
-Threats R1 to R17. **No Action exists.** Only phase 0 is done.
+Threats R1 to R17. Phase 0 is done; phase 1 is built and waits for its acceptance gate.
 
 | Phase | Delivers                                                        | Status |
 | ----- | --------------------------------------------------------------- | ------ |
@@ -49,7 +50,7 @@ A phase starts only when the one before it has passed its gate (DESIGN-RUNNER.md
 
 ### Phase 0 — design and security baseline
 
-Documents only. Waiting for the maintainer's review of the reconciled design.
+Documents only. Reviewed and merged on 2026-10-11; the post-merge checks passed.
 
 | Task                                                                        | Status |
 | --------------------------------------------------------------------------- | ------ |
@@ -59,7 +60,7 @@ Documents only. Waiting for the maintainer's review of the reconciled design.
 | Limits, provider compatibility, idempotency, failure modes                  | ✅     |
 | Phases with acceptance gates                                                | ✅     |
 | The release checks of decision 5, as found                                  | ✅     |
-| Reviewed by the maintainer                                                  | ⬜     |
+| Reviewed by the maintainer                                                  | ✅     |
 
 | Check                                  | Result                                                                                                                                                                                                                                                  |
 | -------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -68,6 +69,49 @@ Documents only. Waiting for the maintainer's review of the reconciled design.
 | Release checks, as found on 2026-10-11 | The repository is public. `LICENSE` holds the MIT text; GitHub's license detection reported none. `SECURITY.md` sends reports to GitHub's private reporting, which is **turned off**, so that route does not work. The code of conduct names no contact |
 | Unsupported claims left in the design  | Tool calling is "documented" for each provider's API; none has been tried by PR Buddy. The limits have no numbers yet; each gets one in the phase that builds it                                                                                        |
 | Still open                             | `review.mode` is not in the configuration schema yet: it arrives with phase 1, on both sides at once                                                                                                                                                    |
+
+### Phase 1 — the Action without AI
+
+Guide: [RUNNER.md](RUNNER.md). Decisions D-109 and D-110 were made while building it.
+
+| Task                                                                        | Requirement      | Status |
+| --------------------------------------------------------------------------- | ---------------- | ------ |
+| `review.mode`, read by one function for both sides; invalid means hosted    | FR-113, NFR-113  | ✅     |
+| The service skips a runner-mode repository and records why                  | FR-113           | ✅     |
+| A client that acts with the workflow's token and owns only its own comments | NFR-116          | ✅     |
+| Gates: closed, merged, draft, same commit; a small re-push measured         | FR-120, NFR-108  | ✅     |
+| The rules, one summary comment updated in place, the reviewed commit named  | FR-112           | ✅     |
+| The job summary                                                             | FR-119           | ✅     |
+| Refuses `pull_request_target`; least permissions; own image pinned          | NFR-110, NFR-115 | ✅     |
+| Works with no PR Buddy service                                              | NFR-114          | ✅     |
+| The acceptance gate on a real repository                                    |                  | 🟡     |
+
+Tried on a private test repository on 2026-10-11, with the Action pinned to commit `446066f`
+and a workflow copied from `examples/runner-workflow.yml`. No checkout step.
+
+| Scenario                                       | Result                                                                                                                          |
+| ---------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
+| A pull request with a finding                  | Passed: one summary comment, written as GitHub Actions, with the finding and the reviewed commit                                |
+| A clean pull request                           | Passed: zero findings, no comment                                                                                               |
+| A draft                                        | Passed: "Nothing done: draft"                                                                                                   |
+| A closed pull request                          | Passed: the run was repeated after closing; "Nothing done: closed"                                                              |
+| The same commit again                          | Passed: the run was repeated; "Nothing done: same-commit"; still one comment                                                    |
+| A re-push                                      | Passed: a push that added the missing test; the same comment now says "No findings" and names the new commit; still one comment |
+| A base branch in hosted mode                   | Passed: "Nothing done: the base commit does not select runner mode", and the hosted service reviewed that pull request          |
+| The hosted service on a runner-mode repository | Passed for the service running this change: it logged "Review skipped", reason `runner`, for each event and wrote no comment    |
+| Time                                           | Each run took 34 to 39 seconds from start to finish, the image build included                                                   |
+
+What the first real run found: GitHub builds a container action with the Dockerfile's own
+folder as the build context. From `docker/` the build could not see the packages and every run
+failed. The Action's Dockerfile is at the repository root for that reason.
+
+| Not verified                                       | Why                                                                                                                                                                                                                                                         |
+| -------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| A pull request from a fork                         | Needs a second account's fork. The behaviour is covered by tests only                                                                                                                                                                                       |
+| The job summary as GitHub shows it                 | GitHub's API does not return it. Its text is covered by tests; the page was not looked at                                                                                                                                                                   |
+| A service that has not been upgraded               | Seen, and it is a hazard: the public deployment, still on the previous version, does not know `review.mode`, called the file invalid and reviewed the runner-mode pull requests as well. A service must be upgraded before a repository selects runner mode |
+| The pull_request_target refusal in a real workflow | Checked in the built image and in CI, not in a workflow of that kind                                                                                                                                                                                        |
+| Size limits on a very large pull request           | Covered by tests only                                                                                                                                                                                                                                       |
 
 Where the ideas come from: a reviewer the maintainer built for an organisation, which runs in
 CI with a full checkout. Only its design is reused. No source, prompt, rule or configuration is
