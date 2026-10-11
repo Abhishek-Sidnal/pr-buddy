@@ -6,6 +6,7 @@ import {
   type ReviewFinding,
 } from "@pr-buddy/review-engine";
 import { z } from "zod";
+import { errorNameOf } from "./error-name.js";
 import { DEFAULT_AI_TIMEOUT_MS, MAX_AI_TIMEOUT_MS, MAX_OUTPUT_TOKENS } from "./limits.js";
 import { parseResponse } from "./output/parse-response.js";
 import { toFindings } from "./output/to-findings.js";
@@ -67,14 +68,7 @@ const optionsSchema = z.object({
   timeoutMs: z.number().int().min(1).max(MAX_AI_TIMEOUT_MS),
 });
 
-/** An error name is stored and logged, so anything that is not a plain identifier is replaced. */
-const ERROR_NAME = /^[A-Za-z][A-Za-z0-9]{0,63}$/;
-
 class AiTimeoutError extends Error {}
-
-function errorNameOf(error: unknown): string {
-  return error instanceof Error && ERROR_NAME.test(error.name) ? error.name : "Error";
-}
 
 /** Runs one request. The provider is told to stop when time is up, and is not waited for. */
 async function completeWithin(

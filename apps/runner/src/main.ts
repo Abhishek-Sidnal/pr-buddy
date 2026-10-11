@@ -20,8 +20,13 @@ function describeOutcome(outcome: RunOutcome): string {
       return `Nothing done: ${outcome.gate}.`;
     case "superseded":
       return "Not published: a newer commit arrived.";
-    case "reviewed":
-      return `Reviewed: ${String(outcome.result.findings.length)} finding(s); comment ${outcome.comment}.`;
+    case "reviewed": {
+      const asked =
+        outcome.ai.kind === "asked"
+          ? `AI review ${outcome.ai.review.status}`
+          : `no AI review (${outcome.ai.reason})`;
+      return `Reviewed: ${String(outcome.result.findings.length)} finding(s); comment ${outcome.comment}; ${asked}.`;
+    }
   }
 }
 
@@ -58,11 +63,12 @@ if (!read.ok) {
   process.exit(FAILED);
 }
 
-const { token, owner, repo, pullRequestNumber } = read.environment;
+const { token, owner, repo, pullRequestNumber, ai, workspacePath } = read.environment;
 try {
   const outcome = await runReview({
     client: createWorkflowRepositoryClient({ token, owner, repo }),
     pullRequestNumber,
+    ai: { inputs: ai, workspacePath },
   });
   process.stdout.write(`${describeOutcome(outcome)}\n`);
   writeSummary(renderJobSummary(outcome));

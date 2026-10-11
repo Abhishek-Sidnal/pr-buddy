@@ -1,15 +1,15 @@
 # Design: runner mode
 
 How PR Buddy can review a pull request with the whole repository in view, without ever holding
-a customer's code. Decisions are in [BRAIN.md](BRAIN.md) (D-096 to D-115); threats and controls
+a customer's code. Decisions are in [BRAIN.md](BRAIN.md) (D-096 to D-117); threats and controls
 in [SECURITY.md](SECURITY.md), section 6G.
 
-**Status on 2026-10-11: phase 1 is built and released in `v0.4.0`; phase 2 has started.** The
-Action runs the deterministic rules and asks no AI model. Of phase 2, the three tools and the
-read record exist and are tested; nothing calls them yet, so a run behaves exactly as in phase 1
-(section 18). Phase 2 began on the maintainer's instruction with two items of phase 1's gate
-still unverified (D-111). What was tried on a real repository is in [TRACKER.md](TRACKER.md).
-How to use the Action: [RUNNER.md](RUNNER.md).
+**Status on 2026-10-11: phase 1 is released in `v0.4.0`; phase 2 is built and has not passed its
+gate.** All three changes of phase 2 exist and are tested: the tools, the loop with each
+provider's adapter, and the reviewer with its filter, wired into the Action. **No real provider
+has been asked and no real workflow has run it**; that is the gate (section 18). Phase 2 began
+on the maintainer's instruction with two items of phase 1's gate still unverified (D-111). What
+was tried is in [TRACKER.md](TRACKER.md). How to use the Action: [RUNNER.md](RUNNER.md).
 
 ## 1. The problem
 
@@ -239,6 +239,36 @@ A file larger than 1 MiB, or holding a NUL byte, is not text for a review and is
 the review's budget, so the record never runs ahead of what the model received. The lines of the
 diff that the prompt carries are added to the same record in the change that builds the reviewer.
 
+### 8.4 The loop
+
+`runToolLoop`, in `packages/ai-reviewer`, holds the conversation. It knows no provider and no
+tool: it is given both.
+
+```
+send the pull request ──► reply asks for tools? ──no──► that reply is the answer
+        ▲                        │ yes
+        │                 run each tool, in order
+        └── answers ◄─────  (unknown tool, a tool that fails, too many: a refusal)
+```
+
+- **Steps.** At most 20 requests to the model. A reply may ask for several tools; 8 are served
+  and the rest refused.
+- **Tokens.** The provider's own counts are added up over the requests. At 400,000 the loop
+  stops asking for tools. A provider that reports no counts cannot be limited this way; the
+  limits on steps and on tool output still hold.
+- **Time.** 4 minutes for everything. The request in flight is told to stop.
+- **The closing request.** When steps, tokens or the tool budget run out, the model is asked
+  once more, with a fixed sentence, for the answer it can give from what it has read. A tool
+  request in that reply is ignored. So a limit costs depth, not the whole review (D-116).
+- **When time runs out, or the provider fails or answers malformed,** there is no answer. The
+  result says which, by a fixed word and the error's name; nothing of a reply or of an error's
+  message is kept.
+- **A tool cannot break the loop.** A tool that throws is reported to the model as failed, in
+  fixed words. Its error is not passed on: it could quote a path.
+
+The loop never rejects. What it returns is the model's last reply as text, which is untrusted
+input for the filter of section 10, and counts: requests, tool calls, tokens, time.
+
 ## 9. Depth follows size (phase 3)
 
 Phase 2 has one reviewer. Phase 3 adds a second shape:
@@ -268,6 +298,19 @@ bypass a check that code enforces.
 
 As in hosted mode, the model never sets a rule ID, cannot report `critical`, and its findings
 are labelled as AI and kept apart from rule findings.
+
+As built in phase 2 (`reviewWithTools`, `toReadFindings`):
+
+- A model is asked only when three things hold: `ai.enabled` at the base commit, a provider in
+  the workflow's inputs, and a checkout at the head commit (D-117). The gates of section 6 are
+  checked in a fixed order before the provider is even constructed.
+- The lines of the diff that the first message carries are recorded as read; so is every line a
+  tool returns. A suggestion with a file and a line needs that line in the record; one with a
+  file alone needs any line of that file; one with neither concerns the whole pull request.
+- A suggestion at the file and line of a rule's finding is dropped: the rule already said it.
+- What was dropped is counted in the job summary. Why a suggestion was dropped is not
+  published: it would repeat text a model wrote about code it did not read.
+- AI suggestions alone are enough for a comment to be posted.
 
 PR Buddy does not approve, request changes, block or merge (D-100). It publishes findings for
 people to assess.
@@ -321,7 +364,11 @@ in the phase that builds it.
 | `search`: matches, files, bytes, names | 50, 5,000,    | The search stops and says there may be more    |
 |                                        | 64 MiB, 50k   |                                                |
 | `list_files`: entries                  | 200           | The rest are counted                           |
-| Steps, tokens, wall-clock time         | phase 2b      | The review stops early                         |
+| Steps of one review                    | 20, plus one  | The model is asked for its answer (D-116)      |
+| Tool requests served from one reply    | 8             | The rest are refused                           |
+| Tokens of one review, as reported      | 400,000       | The model is asked for its answer              |
+| Output tokens per request              | 4,000         | The provider cuts the reply                    |
+| Wall-clock time of one review          | 4 minutes     | No AI answer; the rules stand                  |
 | Findings, and AI line comments         | phases 2c, 5  | The rest are counted, not published            |
 
 The ceiling is in tokens, which every provider reports, not in money, which depends on a price
@@ -333,13 +380,13 @@ Runner mode uses the adapters PR Buddy already has (D-060). Each gains the abili
 tools and to receive a tool request, behind the same interface; nothing vendor-specific leaks
 past the adapter.
 
-| Provider                | Tool calling in its API    | Tried live in runner mode |
-| ----------------------- | -------------------------- | ------------------------- |
-| AWS Bedrock (Converse)  | Documented                 | No                        |
-| Anthropic (Messages)    | Documented                 | No                        |
-| OpenAI                  | Documented                 | No                        |
-| Azure AI Foundry        | Documented, as for OpenAI  | No                        |
-| Other compatible server | Varies by server and model | No                        |
+| Provider                | Tool calling in its adapter  | Tried live in runner mode |
+| ----------------------- | ---------------------------- | ------------------------- |
+| AWS Bedrock (Converse)  | Built from its documentation | No                        |
+| Anthropic (Messages)    | Built from its documentation | No                        |
+| OpenAI                  | Built from its documentation | No                        |
+| Azure AI Foundry        | Built, as for OpenAI         | No                        |
+| Other compatible server | Varies by server and model   | No                        |
 
 A provider or model that does not answer with usable tool requests is reported as unsupported
 for runner mode: the rules still run and the comment says that AI review was not possible. The
@@ -402,11 +449,11 @@ own, with its tests, and with the tracker updated in the same change.
 Phase 2 is delivered as three changes, so that each can be reviewed on its own. Only the last
 one changes what a run does.
 
-| Change | Delivers                                                                   | Status  |
-| ------ | -------------------------------------------------------------------------- | ------- |
-| 2a     | The checkout check, the three tools, the read record, their limits         | Built   |
-| 2b     | Tool calling in each provider's adapter; the bounded tool loop             | Not yet |
-| 2c     | The reviewer, the filter, the Action's inputs, the comment; real providers | Not yet |
+| Change | Delivers                                                                   | Status                        |
+| ------ | -------------------------------------------------------------------------- | ----------------------------- |
+| 2a     | The checkout check, the three tools, the read record, their limits         | Built                         |
+| 2b     | Tool calling in each provider's adapter; the bounded tool loop             | Built                         |
+| 2c     | The reviewer, the filter, the Action's inputs, the comment; real providers | Built; no real provider tried |
 
 For every phase: the full check from a clean checkout, least-privilege permissions verified,
 Actions and images pinned (D-070), a real GitHub workflow exercised, and a record of exactly

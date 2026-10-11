@@ -218,12 +218,13 @@ the same `review-engine` and publishes through `github-client`, in a repository'
 apps/runner/src/
 ├── main.ts          Entry point: the environment, the workflow's token, the job summary, exit
 ├── environment.ts   What is taken from the workflow: token, repository, which pull request
-├── run.ts           Mode, gates, rules, the summary comment
+├── run.ts           Mode, gates, rules, the AI step, the summary comment
+├── ai-step.ts       Phase 2: the gates before a model is asked; the review with tools
 ├── gates.ts         Closed, draft, same commit; how much a push changed
 ├── markers.ts       The hidden line that names the reviewed commit
 ├── job-summary.ts   What a run did, for the job's page
 ├── limits.ts        Named sizes and thresholds
-└── tools/           Phase 2: what a model may read of the checkout. Not called yet
+└── tools/           Phase 2: what a model may read of the checkout
     ├── checkout.ts        Opens the checkout at the head commit; checks every path
     ├── read-file.ts       `read_file`
     ├── search.ts          `search`, a literal text
@@ -240,7 +241,9 @@ it needs no service. Both sides read the repository's configuration through
 `parseRepositoryConfiguration` in `ai-reviewer`, so they cannot disagree about who reviews
 (D-110). `apps/api` knows about runner mode only in that it skips a repository that selects it.
 
-As of phase 1 the runner asks no AI model. The tools of phase 2 are the only code in PR Buddy
+`ai-step.ts` decides whether a model is asked and gives it the tools. They are the only code in PR Buddy
 that reads a file system on behalf of a model, and they live here and not in a package, so that
 the hosted service cannot reach them (D-114). `ai-reviewer` holds the shape of a tool (`AiTool`)
-and the one policy for what never reaches a model (`isNeverSentPath`, D-115).
+and the one policy for what never reaches a model (`isNeverSentPath`, D-115). It also holds the
+conversation itself: `runToolLoop` and each adapter's `converse`, which know no file system and
+are given their tools by the caller. The hosted reviewer calls neither.

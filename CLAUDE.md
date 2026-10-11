@@ -85,6 +85,8 @@ apps/runner ─┴──► packages/ai-reviewer ─────►┘
   Tests use `createScriptedProvider`. Real providers are in `src/providers/`, one file each over
   `fetch` with no vendor SDK (D-060); an error reply becomes `ProviderHttp<status>` and its body
   is never read (D-062). The operator picks one with `AI_PROVIDER`; `AI_MODEL` has no default.
+  For runner mode only, each adapter also has `converse` and `tool-loop.ts` holds a bounded
+  conversation with tools it is given (D-097, D-116); the hosted reviewer never offers a tool.
 - **`apps/web`** is the dashboard: React, React Router and plain CSS driven by the tokens in
   `src/styles/tokens.css`. Shared components are in `src/components/`; reuse them. The rules are
   in `docs/DESIGN-SYSTEM.md`. It is tested with Testing Library against a fake `fetch`.
@@ -93,8 +95,8 @@ apps/runner ─┴──► packages/ai-reviewer ─────►┘
   `modules/ai-keys` stores an installation's own AI key and exists only with a master key.
 - **`apps/runner`** is PR Buddy as a GitHub Action (`action.yml`, the root `Dockerfile`): the
   same rules, in a repository's own CI, with the workflow's token. `main.ts` is its only file that
-  reads the environment. It asks no AI model yet; `src/tools` holds the read-only tools a model
-  will get in phase 2. It depends on nothing in `apps/api`.
+  reads the environment. `ai-step.ts` asks a model only past every gate (D-117); `src/tools` holds
+  the read-only tools that model gets. It depends on nothing in `apps/api`.
 - **`github-client`** is the only package that knows GitHub: signature verification, event
   parsing, the `RepositoryClient` interface and its Octokit implementation, mapping GitHub files
   to engine input, and rendering and publishing the summary comment.
@@ -111,7 +113,7 @@ or updates the comment.
 
 ## Invariants
 
-These are design decisions with reasons recorded in `docs/BRAIN.md` (D-001 to D-115; D-096 onward are for runner mode, `docs/DESIGN-RUNNER.md`, of which phase 1 and the tools of phase 2 are built). Read the
+These are design decisions with reasons recorded in `docs/BRAIN.md` (D-001 to D-117; D-096 onward are for runner mode, `docs/DESIGN-RUNNER.md`, of which phases 1 and 2 are built; phase 2 has not been tried with a real model). Read the
 relevant entry before changing one.
 
 - A webhook body is only a trigger. What gets reviewed is fetched from the API.

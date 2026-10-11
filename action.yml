@@ -1,6 +1,7 @@
 name: PR Buddy
 description: >-
-  Reviews a pull request with PR Buddy's deterministic rules, inside the repository's own CI.
+  Reviews a pull request with PR Buddy's deterministic rules, inside the repository's own CI,
+  and optionally with an AI model that reads the checkout through read-only tools.
   It posts one summary comment and never approves, blocks or merges.
 author: PR Buddy contributors
 branding:
@@ -14,6 +15,36 @@ inputs:
       to read .github/pr-buddy.json at the base commit. Nothing else.
     required: false
     default: ${{ github.token }}
+  ai-provider:
+    description: >-
+      Optional. The service that runs the AI model: bedrock, anthropic, openai, azure or
+      openai-compatible. Without it, only the rules run. The repository must also turn AI review
+      on in .github/pr-buddy.json, and the workflow must check out the head commit.
+    required: false
+  ai-model:
+    description: The model to ask; for azure, the name of the deployment. Required with ai-provider.
+    required: false
+  ai-api-key:
+    description: >-
+      The provider's API key, from a secret of the repository or the organisation. Never write
+      a key in the workflow file.
+    required: false
+  ai-base-url:
+    description: >-
+      Where the API is reached. Required for azure (ending in /openai/v1) and openai-compatible.
+    required: false
+  aws-region:
+    description: For bedrock, the AWS region, such as us-east-1.
+    required: false
+  aws-access-key-id:
+    description: For bedrock with an access key instead of a Bedrock API key.
+    required: false
+  aws-secret-access-key:
+    description: For bedrock with an access key; from a secret.
+    required: false
+  aws-session-token:
+    description: For bedrock with temporary credentials; from a secret.
+    required: false
 
 runs:
   using: docker

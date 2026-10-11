@@ -507,3 +507,51 @@ describe("publishReviewSummary", () => {
     expect(comments[0]?.body).toBe(body);
   });
 });
+
+describe("the summary of a review whose model could read the repository", () => {
+  const ai = {
+    model: "anthropic/model-1",
+    isFailed: false,
+    findings: [buildFinding({ ruleId: "ai-review", message: "A suggestion." })],
+    omittedFileCount: 0,
+  };
+
+  it("says what the model could read", () => {
+    const fromDiff = renderReviewSummary(buildResult(), { ...NO_NOTES, ai });
+    const fromCheckout = renderReviewSummary(buildResult(), {
+      ...NO_NOTES,
+      ai: { ...ai, source: "checkout" },
+    });
+
+    expect(fromDiff).toContain("from this pull request's diff.");
+    expect(fromCheckout).toContain(
+      "from this pull request and the files of the repository it read.",
+    );
+    expect(fromCheckout).not.toContain("pull request's diff");
+  });
+
+  it("says when a limit ended the model's reading, unless the review failed anyway", () => {
+    const stopped = renderReviewSummary(buildResult(), {
+      ...NO_NOTES,
+      ai: { ...ai, isStoppedEarly: true },
+    });
+    const failed = renderReviewSummary(buildResult(), {
+      ...NO_NOTES,
+      ai: { ...ai, findings: [], isFailed: true, isStoppedEarly: true },
+    });
+
+    expect(stopped).toContain("reached a limit on how much it may read and stopped early");
+    expect(failed).not.toContain("stopped early");
+    expect(renderReviewSummary(buildResult(), { ...NO_NOTES, ai })).not.toContain("stopped early");
+  });
+
+  it("adds the caller's own notes", () => {
+    const body = renderReviewSummary(buildResult(), {
+      ...NO_NOTES,
+      extraNotes: ["The AI review did not run for this push."],
+    });
+
+    expect(body).toContain("#### Notes");
+    expect(body).toContain("- The AI review did not run for this push.");
+  });
+});
