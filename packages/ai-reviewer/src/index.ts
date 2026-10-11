@@ -29,6 +29,9 @@ export {
   type ToolLoopResult,
   type ToolLoopStop,
 } from "./tool-loop.js";
+export { reviewWithTools, type ToolReview, type ToolReviewOptions } from "./tool-reviewer.js";
+export type { ReadEvidence } from "./output/to-findings.js";
+export { TOOL_SYSTEM_PROMPT } from "./prompt/build-tool-prompt.js";
 export {
   createScriptedToolProvider,
   type ScriptedToolProvider,

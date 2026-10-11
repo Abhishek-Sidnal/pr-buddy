@@ -6,6 +6,23 @@ change behaviour or configuration; such changes are listed under "Upgrade notes"
 
 ## [Unreleased]
 
+### Added
+
+- **Runner mode, phase 2: an AI review that can read the repository.** Built, and not yet tried
+  with a real model. With `ai.enabled` in the repository's configuration, a provider and a key
+  in the Action's inputs, and a checkout of the head commit, a model reviews the pull request
+  and may read more through three read-only tools: `read_file`, `search` (an exact text) and
+  `list_files`. It never sees credential files, lockfiles or `.git`, never follows a symbolic
+  link, and a suggestion is published only if it points at a line the model was given. Each
+  review is bounded in requests, tokens, text read and time. See `docs/RUNNER.md`, section 9.
+- The Action's inputs `ai-provider`, `ai-model`, `ai-api-key`, `ai-base-url` and `aws-*`.
+
+### Changed
+
+- The example workflow has a checkout step, at the head commit and without stored credentials.
+  The rules still need no checkout.
+- The job summary says whether a model was asked, why not if not, and what a review used.
+
 ## [0.4.0] — 2026-10-11
 
 PR Buddy can run as a GitHub Action in a repository's own CI, the people who run a

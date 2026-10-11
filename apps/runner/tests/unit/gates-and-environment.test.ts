@@ -1,6 +1,6 @@
 import type { PullRequestSnapshot } from "@pr-buddy/github-client";
 import { describe, expect, it } from "vitest";
-import { readEnvironment } from "../../src/environment.js";
+import { readAiInputs, readEnvironment } from "../../src/environment.js";
 import { classifyRepush, countCodeLines, sameCommitGate, stateGate } from "../../src/gates.js";
 import { readReviewedCommit, renderReviewedMarker } from "../../src/markers.js";
 
@@ -140,6 +140,8 @@ describe("reading the workflow's environment", () => {
         repo: "widgets",
         pullRequestNumber: 7,
         summaryPath: "/summary.md",
+        workspacePath: undefined,
+        ai: { kind: "none" },
       },
     });
   });
@@ -210,5 +212,99 @@ describe("reading the workflow's environment", () => {
 
     expect(result.ok).toBe(false);
     expect(JSON.stringify(result)).not.toContain("CANARY");
+  });
+});
+
+describe("reading the AI provider from the Action's inputs", () => {
+  it("finds none when no provider is named, as in a fork's pull request", () => {
+    expect(readAiInputs({})).toEqual({ kind: "none" });
+    // A secret that does not exist arrives as an empty input.
+    expect(
+      readAiInputs({ "INPUT_AI-PROVIDER": "", "INPUT_AI-MODEL": "m", "INPUT_AI-API-KEY": "" }),
+    ).toEqual({ kind: "none" });
+  });
+
+  it("builds the settings of each kind of provider", () => {
+    expect(
+      readAiInputs({
+        "INPUT_AI-PROVIDER": "anthropic",
+        "INPUT_AI-MODEL": "model-1",
+        "INPUT_AI-API-KEY": "KEY-CANARY",
+        "INPUT_AI-BASE-URL": "",
+      }),
+    ).toMatchObject({
+      kind: "configured",
+      settings: { provider: "anthropic", model: "model-1", apiKey: "KEY-CANARY" },
+    });
+    expect(
+      readAiInputs({
+        "INPUT_AI-PROVIDER": "bedrock",
+        "INPUT_AI-MODEL": "model-1",
+        "INPUT_AWS-REGION": "us-east-1",
+        "INPUT_AWS-ACCESS-KEY-ID": "AKIDEXAMPLEEXAMPLE00",
+        "INPUT_AWS-SECRET-ACCESS-KEY": "SECRET-CANARY",
+        "INPUT_AWS-SESSION-TOKEN": "TOKEN-CANARY",
+      }),
+    ).toMatchObject({
+      kind: "configured",
+      settings: { provider: "bedrock", region: "us-east-1", sessionToken: "TOKEN-CANARY" },
+    });
+    expect(
+      readAiInputs({
+        "INPUT_AI-PROVIDER": "azure",
+        "INPUT_AI-MODEL": "deployment",
+        "INPUT_AI-API-KEY": "KEY",
+        "INPUT_AI-BASE-URL": "https://example.openai.azure.com/openai/v1/",
+      }),
+    ).toMatchObject({
+      kind: "configured",
+      settings: { baseUrl: "https://example.openai.azure.com/openai/v1" },
+    });
+  });
+
+  it("names the inputs that are wrong, and never repeats a value", () => {
+    const missingKey = readAiInputs({
+      "INPUT_AI-PROVIDER": "anthropic",
+      "INPUT_AI-MODEL": "model-1",
+    });
+    const several = readAiInputs({
+      "INPUT_AI-PROVIDER": "bedrock",
+      "INPUT_AI-MODEL": "bad model VALUE-CANARY",
+      "INPUT_AI-API-KEY": "KEY-CANARY",
+      "INPUT_AI-BASE-URL": "http://attacker.example/VALUE-CANARY",
+    });
+    const unknown = readAiInputs({ "INPUT_AI-PROVIDER": "VALUE-CANARY" });
+
+    expect(missingKey).toEqual({ kind: "invalid", fields: ["ai-api-key"] });
+    expect(several).toEqual({
+      kind: "invalid",
+      fields: ["ai-base-url", "ai-model", "aws-region"],
+    });
+    expect(unknown).toEqual({ kind: "invalid", fields: ["ai-model", "ai-provider"] });
+    expect(JSON.stringify([missingKey, several, unknown])).not.toContain("CANARY");
+  });
+
+  it("is part of the environment, with the place of the checkout", () => {
+    const result = readEnvironment(
+      {
+        GITHUB_EVENT_NAME: "pull_request",
+        GITHUB_REPOSITORY: "acme/widgets",
+        GITHUB_EVENT_PATH: "/event.json",
+        GITHUB_WORKSPACE: "/github/workspace",
+        "INPUT_GITHUB-TOKEN": "ghs_TOKEN",
+        "INPUT_AI-PROVIDER": "openai",
+        "INPUT_AI-MODEL": "model-1",
+        "INPUT_AI-API-KEY": "KEY",
+      },
+      () => JSON.stringify({ pull_request: { number: 7 } }),
+    );
+
+    expect(result).toMatchObject({
+      ok: true,
+      environment: {
+        workspacePath: "/github/workspace",
+        ai: { kind: "configured", settings: { provider: "openai" } },
+      },
+    });
   });
 });

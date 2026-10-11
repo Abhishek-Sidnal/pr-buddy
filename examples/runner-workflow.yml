@@ -28,8 +28,23 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
+      # Needed only for the AI review, which reads the repository; the rules need no checkout.
+      # Both settings matter: the head commit, because that is what the diff's line numbers
+      # mean, and no stored credentials. PR Buddy reads these files and runs none of them.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          persist-credentials: false
+
       # Pin a full commit SHA, so that the code that runs is the code you looked at.
-      # No checkout is needed: PR Buddy reads the pull request through GitHub's API and runs
-      # nothing from it.
       # The commit of a release is on its page: github.com/Abhishek-Sidnal/pr-buddy/releases
       - uses: Abhishek-Sidnal/pr-buddy@<full commit SHA>
+        # Leave "with" out to run the rules only. For the AI review, the default branch's
+        # .github/pr-buddy.json must also say: "ai": { "enabled": true }
+        with:
+          ai-provider: anthropic # or bedrock, openai, azure, openai-compatible
+          ai-model: <a model your key may use>
+          # A secret of this repository or its organisation. Never write the key here.
+          ai-api-key: ${{ secrets.PR_BUDDY_AI_API_KEY }}
+          # bedrock also needs:      aws-region: us-east-1
+          # azure also needs:        ai-base-url: https://<resource>.openai.azure.com/openai/v1

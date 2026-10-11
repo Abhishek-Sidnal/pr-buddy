@@ -1005,6 +1005,23 @@ two turns of the same side in a row, so the closing request is shaped to suit al
 most one request. Bedrock's API cannot be told "no tools now", so there the closing request
 relies on its wording and on ignoring what comes back.
 
+### D-117 — In runner mode a model is asked only when repository, workflow and checkout agree
+
+**Status: accepted on 2026-10-11, while building phase 2.**
+**Decision.** Three things are needed, and each is decided by a different party: `ai.enabled`
+in the configuration at the base commit (the repository's maintainers), a provider and key in
+the Action's inputs (whoever controls the workflow and its secrets), and a checkout verified to
+be at the head commit. Missing any one, the rules run alone and the job summary names which.
+The cost gates are checked in a fixed order before a provider is constructed. After a small
+re-push the comment is rebuilt from the rules alone.
+**Why.** It is D-042 carried over: a key in a workflow must not by itself send a repository's
+code to a provider, and a setting in a repository must not by itself spend anyone's key. The
+checkout is the third because without it the model's reading cannot be trusted to match the
+diff (D-112).
+**Cost.** Three places to configure. And until re-reviews exist (phase 3), suggestions from an
+earlier review disappear from the comment after a small push; the comment says that no model
+was asked for that push.
+
 ## 3. Glossary
 
 | Term       | Meaning                                                                                 |

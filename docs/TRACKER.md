@@ -20,6 +20,7 @@ The one current figure. Counts in the sections below are what was true when each
 accepted and are kept as history.
 
 | Date | Command | Result |
+| 2026-10-11 | `docker compose run --rm dev npm run check` | Passed: 2,282 tests (engine 474, AI reviewer 254, GitHub client 287, runner 245, API 739, web 283) |
 | 2026-10-11 | `docker compose run --rm dev npm run check` | Passed: 2,239 tests (engine 474, AI reviewer 246, GitHub client 284, runner 213, API 739, web 283) |
 | 2026-10-11 | `docker compose run --rm dev npm run check` | Passed: 2,204 tests (engine 474, AI reviewer 211, GitHub client 284, runner 213, API 739, web 283) |
 | 2026-10-11 | `docker compose run --rm dev npm run check` | Passed: 2,094 tests (engine 474, AI reviewer 211, GitHub client 284, runner 103, API 739, web 283) |
@@ -36,7 +37,7 @@ accepted and are kept as history.
 ## Milestone 7 — runner mode
 
 Design: [DESIGN-RUNNER.md](DESIGN-RUNNER.md). Decisions D-096 to D-108, accepted on 2026-10-11.
-Threats R1 to R17. Phase 1 is released in `v0.4.0`; phase 2 has started (D-111 to D-116).
+Threats R1 to R17. Phase 1 is released in `v0.4.0`; phase 2 has started (D-111 to D-117).
 
 | Phase | Delivers                                                        | Status |
 | ----- | --------------------------------------------------------------- | ------ |
@@ -130,7 +131,7 @@ still open (D-111). Delivered as three changes (DESIGN-RUNNER.md, section 18).
 | One never-sent policy for the prompt and the tools                             | 2a     | ✅     |
 | Tool calling in each provider's adapter                                        | 2b     | ✅     |
 | The tool loop: steps, tokens, time                                             | 2b     | ✅     |
-| One reviewer, the filter, the Action's inputs, the comment and job summary     | 2c     | ⬜     |
+| One reviewer, the filter, the Action's inputs, the comment and job summary     | 2c     | ✅     |
 | Real requests to providers; a real workflow with a checkout                    | 2c     | ⬜     |
 
 Change 2a, checked by tests against a real file system in the development container:
@@ -162,6 +163,27 @@ Change 2b, checked by tests with a scripted provider and a fake `fetch`:
 | **Any real provider accepting these requests** | No request was made. The bodies follow each API's documentation. This is the gate of phase 2, and change 2c makes the requests |
 | That each provider accepts the closing request | The same. Its shape (tools still sent, one user turn) is a reading of the documentation, not an observation                    |
 | A model's behaviour at a limit                 | No model was asked                                                                                                             |
+
+Change 2c, checked by tests with a scripted model over a real folder:
+
+| What                        | What the tests try                                                                                                                                                      |
+| --------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Read evidence (R7)          | A suggestion on a line of the diff, on a line a tool returned, on a line beyond what was read, in a file never opened, with a line and no file: only the read ones stay |
+| A model that probes (R4)    | It asks for `.env`, `.git/config`, a path out of the checkout and a search for a secret's name: four refusals, and no canary in anything sent to it or published        |
+| Every gate before cost (R6) | AI off in the repository, no provider, invalid inputs, an incomplete pull request, a small re-push, no checkout, a checkout at another commit: no provider is built     |
+| An AI failure (D-048)       | The provider fails: the rules' comment is published, the run does not fail, and no error message is kept                                                                |
+| The Action's inputs (R12)   | Invalid inputs are reported by name; a canary in each value never appears                                                                                               |
+
+**The gate of phase 2 is open.** These are not verified, and none is reported as passed:
+
+| Not verified                                           | Why, and what it needs                                                                                                                       |
+| ------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------- |
+| **A real request to any provider, with tools**         | No key was used. Needs a key as an Actions secret of a test repository, added by the maintainer                                              |
+| Bedrock, Anthropic, OpenAI, Azure, a compatible server | Each is recorded as not tried (DESIGN-RUNNER.md, section 14) until a real request to it succeeds                                             |
+| A real workflow with a checkout step                   | In particular that `actions/checkout` with a commit as `ref` leaves that commit in `.git/HEAD`, which the whole AI step depends on           |
+| The Action's inputs as GitHub passes them              | The names (`INPUT_AI-API-KEY` and so on) follow GitHub's documented rule for container actions; phase 1 confirmed it for `github-token` only |
+| Whether a real model's suggestions are any good        | No model was asked. The prompt is untested against one                                                                                       |
+| What a real review costs in tokens and time            | The same                                                                                                                                     |
 
 Where the ideas come from: a reviewer the maintainer built for an organisation, which runs in
 CI with a full checkout. Only its design is reused. No source, prompt, rule or configuration is

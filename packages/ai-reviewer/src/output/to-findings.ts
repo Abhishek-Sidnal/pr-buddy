@@ -28,14 +28,14 @@ function clean(text: string): string {
   return text.replace(/\s+/g, " ").trim();
 }
 
-function toCandidate(suggestion: Suggestion): unknown {
+function toCandidate(suggestion: Suggestion, evidence: typeof AI_EVIDENCE = AI_EVIDENCE): unknown {
   const advice = clean(suggestion.suggestion ?? "");
   return {
     ruleId: AI_RULE_ID,
     severity: capSeverity(suggestion.severity),
     confidence: AI_CONFIDENCE,
     message: clean(suggestion.message),
-    evidence: AI_EVIDENCE,
+    evidence,
     ...(typeof suggestion.filePath === "string" ? { filePath: suggestion.filePath } : {}),
     ...(typeof suggestion.line === "number" ? { line: suggestion.line } : {}),
     ...(advice === "" ? {} : { suggestion: advice }),
@@ -70,6 +70,56 @@ export function toFindings(
       continue;
     }
     if (validateLocation(candidate.data).removalReason === undefined) {
+      verified.push(candidate.data);
+    }
+  }
+
+  const findings = sortFindings(dedupeFindings(verified));
+  return { findings, rejectedCount: suggestions.length - findings.length };
+}
+
+/**
+ * Which lines a reviewer with tools was actually given: the lines of the diff in its first
+ * message, and what its tools returned. The runner keeps it; this package only asks it.
+ */
+export interface ReadEvidence {
+  addLine(path: string, line: number): void;
+  hasLine(path: string, line: number): boolean;
+  hasFile(path: string): boolean;
+}
+
+const AI_READ_EVIDENCE = [
+  { label: "Basis", value: "AI model suggestion about code it read, not verified" },
+];
+
+/**
+ * Turns the suggestions of a reviewer with tools into findings. A suggestion is kept only if
+ * the place it names is in the record of what was read: the model saying that it looked is not
+ * evidence (D-099). A suggestion that names no place concerns the pull request as a whole.
+ */
+export function toReadFindings(
+  suggestions: readonly Suggestion[],
+  evidence: ReadEvidence,
+): VerifiedFindings {
+  const verified: ReviewFinding[] = [];
+
+  for (const suggestion of suggestions) {
+    const candidate = findingSchema.safeParse(toCandidate(suggestion, AI_READ_EVIDENCE));
+    if (
+      !candidate.success ||
+      candidate.data.message.length > MAX_AI_MESSAGE_LENGTH ||
+      (candidate.data.suggestion?.length ?? 0) > MAX_AI_SUGGESTION_LENGTH
+    ) {
+      continue;
+    }
+    const { filePath, line } = candidate.data;
+    const wasRead =
+      filePath === undefined
+        ? line === undefined
+        : line === undefined
+          ? evidence.hasFile(filePath)
+          : evidence.hasLine(filePath, line);
+    if (wasRead) {
       verified.push(candidate.data);
     }
   }

@@ -1,15 +1,15 @@
 # Design: runner mode
 
 How PR Buddy can review a pull request with the whole repository in view, without ever holding
-a customer's code. Decisions are in [BRAIN.md](BRAIN.md) (D-096 to D-116); threats and controls
+a customer's code. Decisions are in [BRAIN.md](BRAIN.md) (D-096 to D-117); threats and controls
 in [SECURITY.md](SECURITY.md), section 6G.
 
-**Status on 2026-10-11: phase 1 is built and released in `v0.4.0`; phase 2 has started.** The
-Action runs the deterministic rules and asks no AI model. Of phase 2, the three tools and the
-read record exist and are tested; nothing calls them yet, so a run behaves exactly as in phase 1
-(section 18). Phase 2 began on the maintainer's instruction with two items of phase 1's gate
-still unverified (D-111). What was tried on a real repository is in [TRACKER.md](TRACKER.md).
-How to use the Action: [RUNNER.md](RUNNER.md).
+**Status on 2026-10-11: phase 1 is released in `v0.4.0`; phase 2 is built and has not passed its
+gate.** All three changes of phase 2 exist and are tested: the tools, the loop with each
+provider's adapter, and the reviewer with its filter, wired into the Action. **No real provider
+has been asked and no real workflow has run it**; that is the gate (section 18). Phase 2 began
+on the maintainer's instruction with two items of phase 1's gate still unverified (D-111). What
+was tried is in [TRACKER.md](TRACKER.md). How to use the Action: [RUNNER.md](RUNNER.md).
 
 ## 1. The problem
 
@@ -299,6 +299,19 @@ bypass a check that code enforces.
 As in hosted mode, the model never sets a rule ID, cannot report `critical`, and its findings
 are labelled as AI and kept apart from rule findings.
 
+As built in phase 2 (`reviewWithTools`, `toReadFindings`):
+
+- A model is asked only when three things hold: `ai.enabled` at the base commit, a provider in
+  the workflow's inputs, and a checkout at the head commit (D-117). The gates of section 6 are
+  checked in a fixed order before the provider is even constructed.
+- The lines of the diff that the first message carries are recorded as read; so is every line a
+  tool returns. A suggestion with a file and a line needs that line in the record; one with a
+  file alone needs any line of that file; one with neither concerns the whole pull request.
+- A suggestion at the file and line of a rule's finding is dropped: the rule already said it.
+- What was dropped is counted in the job summary. Why a suggestion was dropped is not
+  published: it would repeat text a model wrote about code it did not read.
+- AI suggestions alone are enough for a comment to be posted.
+
 PR Buddy does not approve, request changes, block or merge (D-100). It publishes findings for
 people to assess.
 
@@ -436,11 +449,11 @@ own, with its tests, and with the tracker updated in the same change.
 Phase 2 is delivered as three changes, so that each can be reviewed on its own. Only the last
 one changes what a run does.
 
-| Change | Delivers                                                                   | Status  |
-| ------ | -------------------------------------------------------------------------- | ------- |
-| 2a     | The checkout check, the three tools, the read record, their limits         | Built   |
-| 2b     | Tool calling in each provider's adapter; the bounded tool loop             | Built   |
-| 2c     | The reviewer, the filter, the Action's inputs, the comment; real providers | Not yet |
+| Change | Delivers                                                                   | Status                        |
+| ------ | -------------------------------------------------------------------------- | ----------------------------- |
+| 2a     | The checkout check, the three tools, the read record, their limits         | Built                         |
+| 2b     | Tool calling in each provider's adapter; the bounded tool loop             | Built                         |
+| 2c     | The reviewer, the filter, the Action's inputs, the comment; real providers | Built; no real provider tried |
 
 For every phase: the full check from a clean checkout, least-privilege permissions verified,
 Actions and images pinned (D-070), a real GitHub workflow exercised, and a record of exactly
