@@ -85,6 +85,8 @@ apps/runner ─┴──► packages/ai-reviewer ─────►┘
   Tests use `createScriptedProvider`. Real providers are in `src/providers/`, one file each over
   `fetch` with no vendor SDK (D-060); an error reply becomes `ProviderHttp<status>` and its body
   is never read (D-062). The operator picks one with `AI_PROVIDER`; `AI_MODEL` has no default.
+  For runner mode only, each adapter also has `converse` and `tool-loop.ts` holds a bounded
+  conversation with tools it is given (D-097, D-116); the hosted reviewer never offers a tool.
 - **`apps/web`** is the dashboard: React, React Router and plain CSS driven by the tokens in
   `src/styles/tokens.css`. Shared components are in `src/components/`; reuse them. The rules are
   in `docs/DESIGN-SYSTEM.md`. It is tested with Testing Library against a fake `fetch`.
@@ -111,7 +113,7 @@ or updates the comment.
 
 ## Invariants
 
-These are design decisions with reasons recorded in `docs/BRAIN.md` (D-001 to D-115; D-096 onward are for runner mode, `docs/DESIGN-RUNNER.md`, of which phase 1 and the tools of phase 2 are built). Read the
+These are design decisions with reasons recorded in `docs/BRAIN.md` (D-001 to D-116; D-096 onward are for runner mode, `docs/DESIGN-RUNNER.md`, of which phase 1 and, of phase 2, the tools and the tool loop are built). Read the
 relevant entry before changing one.
 
 - A webhook body is only a trigger. What gets reviewed is fetched from the API.

@@ -989,6 +989,22 @@ weaker one would be the leak.
 **Cost.** Lockfiles are refused to the tools as well, though they hold no secret: the policy is
 "never sent", not "secret", and a lockfile is as useless to a model in a checkout as in a diff.
 
+### D-116 — A limit ends the search, not the review
+
+**Status: accepted on 2026-10-11, while building phase 2.**
+**Decision.** When the tool loop reaches its limit on steps, on tokens or on tool output, it
+makes one more request that asks for the answer from what was read, and ignores any tool
+request in the reply. The tools' definitions are still sent with it, and the request for the
+answer travels in the same turn as the last tool answers. Only the limit on time ends a review
+with no answer.
+**Why.** A reviewer that has read twenty files and is cut off has findings worth having; the
+design promises that what was verified is published and marked as stopped early. Providers
+refuse a conversation that holds tool requests without the tools' definitions, and some refuse
+two turns of the same side in a row, so the closing request is shaped to suit all of them.
+**Cost.** One request beyond the limit on steps, and tokens beyond the limit on tokens by at
+most one request. Bedrock's API cannot be told "no tools now", so there the closing request
+relies on its wording and on ignoring what comes back.
+
 ## 3. Glossary
 
 | Term       | Meaning                                                                                 |

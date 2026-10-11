@@ -20,6 +20,7 @@ The one current figure. Counts in the sections below are what was true when each
 accepted and are kept as history.
 
 | Date | Command | Result |
+| 2026-10-11 | `docker compose run --rm dev npm run check` | Passed: 2,239 tests (engine 474, AI reviewer 246, GitHub client 284, runner 213, API 739, web 283) |
 | 2026-10-11 | `docker compose run --rm dev npm run check` | Passed: 2,204 tests (engine 474, AI reviewer 211, GitHub client 284, runner 213, API 739, web 283) |
 | 2026-10-11 | `docker compose run --rm dev npm run check` | Passed: 2,094 tests (engine 474, AI reviewer 211, GitHub client 284, runner 103, API 739, web 283) |
 | 2026-10-11 | `docker compose run --rm dev npm run check` | Passed: 1,938 tests (engine 474, AI reviewer 186, GitHub client 266, API 729, web 283) |
@@ -35,7 +36,7 @@ accepted and are kept as history.
 ## Milestone 7 — runner mode
 
 Design: [DESIGN-RUNNER.md](DESIGN-RUNNER.md). Decisions D-096 to D-108, accepted on 2026-10-11.
-Threats R1 to R17. Phase 1 is released in `v0.4.0`; phase 2 has started (D-111 to D-115).
+Threats R1 to R17. Phase 1 is released in `v0.4.0`; phase 2 has started (D-111 to D-116).
 
 | Phase | Delivers                                                        | Status |
 | ----- | --------------------------------------------------------------- | ------ |
@@ -127,8 +128,8 @@ still open (D-111). Delivered as three changes (DESIGN-RUNNER.md, section 18).
 | `read_file`, `search`, `list_files`, confined to the checkout                  | 2a     | ✅     |
 | The read record, and the budget for tool output                                | 2a     | ✅     |
 | One never-sent policy for the prompt and the tools                             | 2a     | ✅     |
-| Tool calling in each provider's adapter                                        | 2b     | ⬜     |
-| The tool loop: steps, tokens, time                                             | 2b     | ⬜     |
+| Tool calling in each provider's adapter                                        | 2b     | ✅     |
+| The tool loop: steps, tokens, time                                             | 2b     | ✅     |
 | One reviewer, the filter, the Action's inputs, the comment and job summary     | 2c     | ⬜     |
 | Real requests to providers; a real workflow with a checkout                    | 2c     | ⬜     |
 
@@ -146,6 +147,21 @@ Change 2a, checked by tests against a real file system in the development contai
 | Anything in a real workflow                     | Nothing calls the tools yet; a run behaves as in `v0.4.0`                                  |
 | That `actions/checkout` leaves a commit in HEAD | Taken from its documentation. It is the first thing change 2c tries on a real repository   |
 | A checkout on a file system that ignores case   | The Action runs on Linux only. Names are compared in lower case as a precaution, by a test |
+
+Change 2b, checked by tests with a scripted provider and a fake `fetch`:
+
+| What                    | What the tests try                                                                                                                           |
+| ----------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
+| The loop's limits (R6)  | Steps, tokens, the caller's own stop, and time, both while waiting for the provider and while a tool runs                                    |
+| A hostile reply (R3)    | A tool that does not exist, more requests than are served, a request with no identifier, a reply of the wrong shape, a tool request at close |
+| What is kept (D-046)    | A provider's error by name only; a failing tool's error not at all, with a canary in its message                                             |
+| Each adapter's requests | The exact body sent for a conversation, for Anthropic, the Chat Completions dialects and Bedrock, and what is read back                      |
+
+| Not verified in 2b                             | Why                                                                                                                            |
+| ---------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
+| **Any real provider accepting these requests** | No request was made. The bodies follow each API's documentation. This is the gate of phase 2, and change 2c makes the requests |
+| That each provider accepts the closing request | The same. Its shape (tools still sent, one user turn) is a reading of the documentation, not an observation                    |
+| A model's behaviour at a limit                 | No model was asked                                                                                                             |
 
 Where the ideas come from: a reviewer the maintainer built for an organisation, which runs in
 CI with a full checkout. Only its design is reused. No source, prompt, rule or configuration is

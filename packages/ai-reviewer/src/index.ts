@@ -6,7 +6,34 @@ export {
   type AiReviewerOptions,
   type AiReviewStatus,
 } from "./ai-reviewer.js";
-export type { AiProvider, AiRequest, AiResponse, AiUsage } from "./provider.js";
+export type {
+  AiMessage,
+  AiProvider,
+  AiRequest,
+  AiResponse,
+  AiToolCall,
+  AiToolCallResult,
+  AiToolDefinition,
+  AiToolProvider,
+  AiTurn,
+  AiTurnRequest,
+  AiUsage,
+} from "./provider.js";
+export {
+  CLOSING_MESSAGE,
+  runToolLoop,
+  TOOL_LOOP_LIMITS,
+  type ToolLoopFailure,
+  type ToolLoopLimits,
+  type ToolLoopOptions,
+  type ToolLoopResult,
+  type ToolLoopStop,
+} from "./tool-loop.js";
+export {
+  createScriptedToolProvider,
+  type ScriptedToolProvider,
+  type ScriptedTurn,
+} from "./scripted-provider.js";
 export type { AiTool, AiToolResult } from "./tool.js";
 export { isNeverSentPath } from "./never-sent.js";
 export {
