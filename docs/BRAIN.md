@@ -786,6 +786,87 @@ the set of repositories can grow after the key was set.
 **Lesson.** A check that fails closed still has to say why. "Unverified" in the tracker was
 right, and one sign-in by a real organisation owner would have found this before release.
 
+### D-096 — Deep review runs in the repository's CI, not on the service
+
+**Status: proposed.**
+**Decision.** A second way to run PR Buddy: a GitHub Action that reviews with the whole checkout
+in view. The hosted service keeps reviewing from the diff.
+**Why.** A reviewer that sees only the diff misses broken callers and existing helpers. Bringing
+the code to the service would make the operator hold customers' source and run a sandbox.
+Bringing the reviewer to the code needs neither: the runner is GitHub's, and so is its isolation.
+**Cost.** Two ways to run one product, and a repository has to add a workflow file.
+
+### D-097 — The tool loop is PR Buddy's own, over each provider's API
+
+**Status: proposed.**
+**Decision.** The runner implements three read-only tools and the loop that offers them to a
+model, using each provider's own tool-calling API. No vendor agent toolkit.
+**Why.** D-060 again: one small file per provider, and every provider PR Buddy supports can be
+used in runner mode. A toolkit would tie deep review to one vendor's models and bring its own
+tools, some of which run commands.
+**Cost.** More code to write and test than adopting a toolkit.
+
+### D-098 — The model searches with plain strings and reads within the checkout only
+
+**Status: proposed.**
+**Decision.** `read_file`, `search` and `list_files`. Paths are resolved and confined to the
+checkout, credential files are refused, `search` takes a literal string, and every call is
+bounded in size and counted.
+**Why.** The author of a pull request controls what the model is tempted to read. A regular
+expression from the model is a way to hang the run (D-011); a path is a way out of the folder.
+
+### D-099 — A finding must point at code that was actually read
+
+**Status: proposed.**
+**Decision.** The runner records every file and line range a reviewer read. A finding whose
+location was never read in that run is dropped.
+**Why.** It turns "the model says it checked" into something code can verify, and removes the
+most common kind of confident invention: a claim about a file nobody opened.
+
+### D-100 — Runner mode comments; it does not approve or request changes
+
+**Status: proposed.**
+**Decision.** The Action posts comments only. It never submits an approving or blocking review.
+**Why.** That is what PR Buddy is (PRD, section 1). A deeper review makes its findings more
+useful; it does not make an unverifiable model fit to gate a merge.
+
+### D-101 — AI findings may be line comments in runner mode, on conditions
+
+**Status: proposed. It narrows D-045 for runner mode only.**
+**Decision.** Off by default. When a repository turns it on, an AI finding becomes a line
+comment only if it passed every check of the filter, including read evidence and, in the larger
+shape, the lead. Their number is capped, and each is labelled as AI.
+**Why.** D-045 kept AI out of line comments because a suggestion pinned to a line reads as fact
+while nothing had checked it. Here something has. In hosted mode nothing changes.
+
+### D-102 — Runner comments are posted with the workflow's token
+
+**Status: proposed.**
+**Decision.** Comments appear as GitHub Actions. The Action updates and deletes only comments
+that carry PR Buddy's marker and were written by that same identity.
+**Why.** It needs no service and no extra credential, so runner mode works for someone who has
+never heard of a hosted PR Buddy.
+**Cost.** The comments do not carry PR Buddy's name and avatar. A service could later issue a
+short-lived token of the app for one repository.
+
+### D-103 — A runner proves which repository it is with GitHub's identity token
+
+**Status: proposed.**
+**Decision.** To report to a PR Buddy service, a run obtains GitHub's signed identity token for
+that service. The service verifies the signature and takes the repository and the run from the
+token's claims.
+**Why.** No secret has to be created, stored in each repository, or rotated, and a run cannot
+claim to be another repository.
+
+### D-104 — In runner mode the AI key is a secret of the repository
+
+**Status: proposed.**
+**Decision.** The Action takes the key as an input, from a repository or organisation secret.
+The service never sends a stored key to a runner.
+**Why.** D-073 holds: no route returns a key. And the secret store of the place where the code
+runs is where its owner expects to manage it.
+**Cost.** An installation that uses both modes enters its key in two places.
+
 ## 3. Glossary
 
 | Term       | Meaning                                                                                 |

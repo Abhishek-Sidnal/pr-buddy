@@ -30,6 +30,25 @@ accepted and are kept as history.
 | 2026-10-10 | Clean export of commit `6929d67` in a fresh `node:24-alpine` container: `npm ci`, `npm run check`, audit, signatures, pin check | Passed: 1,448 tests; 0 vulnerabilities; 358 signatures verified |
 | 2026-10-10 | `docker compose run --rm dev npm audit --omit=dev` | 0 vulnerabilities |
 
+## Milestone 7 — runner mode (proposed)
+
+Design: [DESIGN-RUNNER.md](DESIGN-RUNNER.md). Decisions D-096 to D-104, all proposed. Threats R1
+to R12. **Nothing is built.** The design waits for the maintainer to confirm the five decisions
+in its section 13.
+
+| Part | Delivers                                                                          | Status |
+| ---- | --------------------------------------------------------------------------------- | ------ |
+| 0    | The design, and the five decisions confirmed                                      | 🟡     |
+| 1    | The Action: gates, rules, the summary comment, the mode switch. No AI             | ⬜     |
+| 2    | Tool use for the providers; the read-only tools; one-pass deep review; the filter | ⬜     |
+| 3    | Depth by size: specialists and a lead. Re-reviews that track earlier findings     | ⬜     |
+| 4    | Reporting to a service; tokens, cost and usage in the dashboard                   | ⬜     |
+| 5    | AI line comments and suggested changes                                            | ⬜     |
+| 6    | Notifications to chat, and a measure of how often findings are acted on           | ⬜     |
+
+Where the ideas come from: a reviewer the maintainer built for an organisation, which runs in
+CI with a full checkout. Only its design is reused; no code is taken from it.
+
 ## Milestone 6 — running it day to day
 
 Design: [DESIGN-OPERATIONS.md](DESIGN-OPERATIONS.md), sections 5 and 6. Decisions D-092 to
