@@ -127,7 +127,78 @@ describe("reviewing a pull request", () => {
 
     await service.review({ ...TRIGGER, action: "edited" });
 
-    expect(github.calls.slice(0, 2)).toEqual(["getPullRequest", "listPullRequestFiles"]);
+    // The configuration is read before the files: it says whether this service reviews at all.
+    expect(github.calls.slice(0, 3)).toEqual([
+      "getPullRequest",
+      "getFileText",
+      "listPullRequestFiles",
+    ]);
+  });
+});
+
+describe("a repository that selects runner mode", () => {
+  it("is skipped, without reading its files and without a comment", async () => {
+    makeReviewable();
+    github.setConfiguration({ review: { mode: "runner" } });
+
+    await expect(service.review(TRIGGER)).resolves.toEqual({ status: "skipped", reason: "runner" });
+    expect(github.calls).toEqual(["getPullRequest", "getFileText"]);
+    expect(github.comments).toEqual([]);
+    expect(github.lineComments).toEqual([]);
+  });
+
+  it("is skipped because of the file at the base commit, not the pull request's own", async () => {
+    makeReviewable();
+    github.setConfiguration({ review: { mode: "runner" } });
+
+    await service.review(TRIGGER);
+
+    expect(github.configurationRefs).toEqual([github.pullRequest.baseSha]);
+  });
+
+  it("logs the reason with identifiers only", async () => {
+    makeReviewable();
+    github.setConfiguration({ review: { mode: "runner" } });
+
+    await service.review(TRIGGER);
+
+    expect(logger.entries).toContainEqual({
+      level: "info",
+      message: "Review skipped",
+      fields: { repositoryId: 2002, pullRequestNumber: 7, reason: "runner" },
+    });
+  });
+
+  it("does not ask an AI model", async () => {
+    makeReviewable();
+    github.setConfiguration({ review: { mode: "runner" }, ai: { enabled: true } });
+
+    const outcome = await service.review(TRIGGER);
+
+    expect(outcome).toEqual({ status: "skipped", reason: "runner" });
+  });
+
+  it.each<[string, unknown]>([
+    ["says hosted", { review: { mode: "hosted" } }],
+    ["has no review section", { rules: {} }],
+  ])("is reviewed here when its configuration %s", async (_name, config) => {
+    makeReviewable();
+    github.setConfiguration(config);
+
+    expect(await service.review(TRIGGER)).toMatchObject({ status: "completed" });
+    expect(github.comments).toHaveLength(1);
+  });
+
+  it.each<[string, string]>([
+    ["an unknown mode", JSON.stringify({ review: { mode: "both" } })],
+    ["runner mode beside a broken rule", JSON.stringify({ review: { mode: "runner" }, rules: 7 })],
+    ["runner mode in a file that is not JSON", '{ "review": { "mode": "runner" }'],
+  ])("is reviewed here, and told its file is invalid, when it has %s", async (_name, text) => {
+    makeReviewable();
+    github.configuration = { status: "found", text };
+
+    expect(await service.review(TRIGGER)).toMatchObject({ status: "completed" });
+    expect(github.comments[0]?.body).toContain("is invalid");
   });
 });
 

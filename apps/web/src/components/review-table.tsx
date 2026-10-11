@@ -10,6 +10,7 @@ const SKIP_REASONS: Readonly<Record<string, string>> = {
   draft: "Draft",
   closed: "Closed",
   stale: "Superseded by a newer commit",
+  runner: "Reviewed in the repository's own CI",
 };
 
 function describeFindings(review: ReviewSummary): string {

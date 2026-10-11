@@ -1,4 +1,5 @@
 import type {
+  FileChange,
   FileListLimits,
   FileLookup,
   PullRequestFile,
@@ -44,6 +45,7 @@ export class FakeGitHub {
     state: "open",
     isDraft: false,
     changedFileCount: 2,
+    isFromFork: false,
   };
 
   files: PullRequestFile[] = [
@@ -58,6 +60,8 @@ export class FakeGitHub {
   readonly fileListLimits: FileListLimits[] = [];
 
   comments: FakeComment[] = [];
+  /** What comparing two commits answers, keyed by "<older>...<newer>". Absent: not comparable. */
+  readonly comparisons = new Map<string, readonly FileChange[]>();
   /** Comments placed on lines of the pull request. */
   lineComments: FakeLineComment[] = [];
   #nextLineCommentId = 100;
@@ -98,6 +102,17 @@ export class FakeGitHub {
       await this.#enter("findOwnComment");
       return this.comments.find((comment) => comment.byThisApp && comment.body.includes(marker))
         ?.id;
+    },
+    getOwnComment: async (_number, marker) => {
+      await this.#enter("getOwnComment");
+      const own = this.comments.find(
+        (comment) => comment.byThisApp && comment.body.includes(marker),
+      );
+      return own === undefined ? undefined : { id: own.id, body: own.body };
+    },
+    compareCommits: async (baseSha, headSha) => {
+      await this.#enter("compareCommits");
+      return this.comparisons.get(`${baseSha}...${headSha}`);
     },
     createComment: async (_number, body) => {
       await this.#enter("createComment");

@@ -16,6 +16,8 @@ export interface PullRequestSnapshot {
   readonly isDraft: boolean;
   /** Total files changed, which can exceed the number the API will list. */
   readonly changedFileCount: number;
+  /** True when the head branch is in another repository. GitHub gives such a run no secrets. */
+  readonly isFromFork: boolean;
 }
 
 /** One changed file as GitHub reports it, before it is checked for the review engine. */
@@ -53,6 +55,19 @@ export interface NewLineComment {
   readonly body: string;
 }
 
+/** One of PR Buddy's own comments on a pull request. */
+export interface OwnComment {
+  readonly id: number;
+  readonly body: string;
+}
+
+/** How much one file differs between two commits. */
+export interface FileChange {
+  readonly path: string;
+  readonly additions: number;
+  readonly deletions: number;
+}
+
 export type FileLookup =
   | { readonly status: "found"; readonly text: string }
   | { readonly status: "missing" }
@@ -74,8 +89,16 @@ export interface RepositoryClient {
   ): Promise<PullRequestFile[]>;
   /** Reads a text file at a commit. Files larger than `maxBytes` are not downloaded. */
   getFileText(path: string, ref: string, maxBytes: number): Promise<FileLookup>;
-  /** Finds the ID of a comment written by this app whose body contains `marker`. */
+  /** Finds the ID of a comment written by this identity whose body contains `marker`. */
   findOwnComment(pullRequestNumber: number, marker: string): Promise<number | undefined>;
+  /** Finds a comment written by this identity whose body contains `marker`, with its text. */
+  getOwnComment(pullRequestNumber: number, marker: string): Promise<OwnComment | undefined>;
+  /**
+   * Lists the files that differ between two commits, with how many lines each gained and lost.
+   * Resolves to `undefined` when GitHub cannot compare them, as after a force-push that removed
+   * the older commit, or when the list is too long to be complete.
+   */
+  compareCommits(baseSha: string, headSha: string): Promise<readonly FileChange[] | undefined>;
   createComment(pullRequestNumber: number, body: string): Promise<void>;
   updateComment(commentId: number, body: string): Promise<void>;
   /** Lists the comments this app has placed on lines of the pull request. */

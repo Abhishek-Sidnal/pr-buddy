@@ -420,7 +420,7 @@ describe("the PostgreSQL review store", () => {
     ]);
   });
 
-  it.each(["closed", "draft", "stale"] as const)(
+  it.each(["closed", "draft", "stale", "runner"] as const)(
     "records a review skipped as %s",
     async (reason) => {
       await store.save(buildRecord({ outcome: { status: "skipped", reason } }));

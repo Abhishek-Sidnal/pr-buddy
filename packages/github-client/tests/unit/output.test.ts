@@ -428,6 +428,8 @@ function fakeClient(comments: StoredComment[]): RepositoryClient {
     getPullRequest: unsupported,
     listPullRequestFiles: unsupported,
     getFileText: unsupported,
+    getOwnComment: unsupported,
+    compareCommits: unsupported,
     listOwnReviewComments: unsupported,
     createReviewWithComments: unsupported,
     deleteReviewComment: unsupported,

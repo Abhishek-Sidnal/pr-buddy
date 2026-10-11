@@ -1,6 +1,9 @@
 import { generateKeyPairSync } from "node:crypto";
 import { beforeEach, describe, expect, it } from "vitest";
-import { createRepositoryClientFactory } from "../../src/api/octokit-client.js";
+import {
+  createRepositoryClientFactory,
+  createWorkflowRepositoryClient,
+} from "../../src/api/octokit-client.js";
 import type { FileListLimits, RepositoryClient } from "../../src/api/repository-client.js";
 
 const APP_ID = 4242;
@@ -139,8 +142,8 @@ function pullRequestBody(overrides: Record<string, unknown> = {}): Record<string
     state: "open",
     draft: false,
     changed_files: 3,
-    base: { sha: "a".repeat(40) },
-    head: { sha: "b".repeat(40) },
+    base: { sha: "a".repeat(40), repo: { full_name: "acme/widgets" } },
+    head: { sha: "b".repeat(40), repo: { full_name: "acme/widgets" } },
     ...overrides,
   };
 }
@@ -209,6 +212,7 @@ describe("getPullRequest", () => {
       state: "open",
       isDraft: true,
       changedFileCount: 3,
+      isFromFork: false,
     });
   });
 
@@ -597,5 +601,175 @@ describe("line comments", () => {
     await clientFor().deleteReviewComment(55);
 
     expect(api.requestsTo("DELETE /repos/acme/widgets/pulls/comments/55")).toHaveLength(1);
+  });
+});
+
+describe("where a pull request comes from", () => {
+  it.each<[string, unknown, boolean]>([
+    ["the same repository", { sha: "b".repeat(40), repo: { full_name: "acme/widgets" } }, false],
+    ["a fork", { sha: "b".repeat(40), repo: { full_name: "stranger/widgets" } }, true],
+    ["a head repository that no longer exists", { sha: "b".repeat(40), repo: null }, true],
+  ])("tells %s", async (_name, head, isFromFork) => {
+    api.on(`GET ${PULL_PATH}`, { body: pullRequestBody({ head }) });
+
+    expect((await clientFor().getPullRequest(7)).isFromFork).toBe(isFromFork);
+  });
+});
+
+describe("getOwnComment", () => {
+  it("returns the comment with its text", async () => {
+    api.on(`GET ${COMMENTS_PATH}`, {
+      body: [commentBody(1, "chatter", null), commentBody(2, `${MARKER} reviewed abc`, APP_ID)],
+    });
+
+    await expect(clientFor().getOwnComment(7, MARKER)).resolves.toEqual({
+      id: 2,
+      body: `${MARKER} reviewed abc`,
+    });
+  });
+
+  it("is undefined when the only comments with the marker are someone else's", async () => {
+    api.on(`GET ${COMMENTS_PATH}`, { body: [commentBody(1, MARKER, OTHER_APP_ID)] });
+
+    await expect(clientFor().getOwnComment(7, MARKER)).resolves.toBeUndefined();
+  });
+});
+
+describe("compareCommits", () => {
+  const COMPARE_PATH = `/repos/acme/widgets/compare/${"a".repeat(40)}...${"b".repeat(40)}`;
+
+  it("lists the files that differ, with their line counts", async () => {
+    api.on(`GET ${COMPARE_PATH}`, {
+      body: {
+        files: [
+          { filename: "src/a.ts", additions: 3, deletions: 1 },
+          { filename: "README.md", additions: 10, deletions: 0 },
+        ],
+      },
+    });
+
+    await expect(clientFor().compareCommits("a".repeat(40), "b".repeat(40))).resolves.toEqual([
+      { path: "src/a.ts", additions: 3, deletions: 1 },
+      { path: "README.md", additions: 10, deletions: 0 },
+    ]);
+  });
+
+  it("is an empty list when nothing differs", async () => {
+    api.on(`GET ${COMPARE_PATH}`, { body: {} });
+
+    await expect(clientFor().compareCommits("a".repeat(40), "b".repeat(40))).resolves.toEqual([]);
+  });
+
+  it("is undefined when GitHub cannot compare the commits", async () => {
+    api.on(`GET ${COMPARE_PATH}`, { status: 404, body: { message: "Not Found" } });
+
+    await expect(
+      clientFor().compareCommits("a".repeat(40), "b".repeat(40)),
+    ).resolves.toBeUndefined();
+  });
+
+  it("is undefined when the list may have been cut off", async () => {
+    api.on(`GET ${COMPARE_PATH}`, {
+      body: {
+        files: Array.from({ length: 300 }, (_unused, index) => ({
+          filename: `src/file-${index}.ts`,
+          additions: 1,
+          deletions: 0,
+        })),
+      },
+    });
+
+    await expect(
+      clientFor().compareCommits("a".repeat(40), "b".repeat(40)),
+    ).resolves.toBeUndefined();
+  });
+
+  it("rejects when GitHub fails in another way", async () => {
+    api.on(`GET ${COMPARE_PATH}`, { status: 403, body: { message: "Forbidden" } });
+
+    await expect(clientFor().compareCommits("a".repeat(40), "b".repeat(40))).rejects.toMatchObject({
+      status: 403,
+    });
+  });
+});
+
+describe("a client that acts with a workflow's token", () => {
+  const TOKEN = "ghs_WORKFLOW-TOKEN-CANARY";
+  const workflowComment = (
+    id: number,
+    body: string,
+    author: { login?: string; type?: string; slug?: string | null },
+  ): Record<string, unknown> => ({
+    id,
+    body,
+    user: { login: author.login ?? "github-actions[bot]", type: author.type ?? "Bot" },
+    performed_via_github_app:
+      author.slug === null ? null : { id: 15368, slug: author.slug ?? "github-actions" },
+  });
+
+  function workflowClient(): RepositoryClient {
+    return createWorkflowRepositoryClient({
+      token: TOKEN,
+      owner: "acme",
+      repo: "widgets",
+      fetch: api.fetch,
+      retry: {
+        attempts: 1,
+        baseDelayMs: 1,
+        maxRateLimitDelayMs: 1,
+        sleep: () => Promise.resolve(),
+      },
+    });
+  }
+
+  it("sends the token it was given, and asks GitHub for no other", async () => {
+    api.on(`GET ${PULL_PATH}`, { body: pullRequestBody() });
+
+    await workflowClient().getPullRequest(7);
+
+    expect(api.requests).toHaveLength(1);
+    expect(api.requests[0]?.authorization).toBe(`token ${TOKEN}`);
+  });
+
+  it("takes as its own a comment written by GitHub Actions that carries the marker", async () => {
+    api.on(`GET ${COMMENTS_PATH}`, {
+      body: [workflowComment(1, "chatter", {}), workflowComment(2, `${MARKER} ours`, {})],
+    });
+
+    await expect(workflowClient().getOwnComment(7, MARKER)).resolves.toEqual({
+      id: 2,
+      body: `${MARKER} ours`,
+    });
+  });
+
+  it.each<[string, { login?: string; type?: string; slug?: string | null }]>([
+    ["a person who pasted the marker", { login: "octocat", type: "User", slug: null }],
+    [
+      "a person who took the bot's name",
+      { login: "github-actions[bot]", type: "User", slug: null },
+    ],
+    ["another app", { login: "other-app[bot]", type: "Bot", slug: "other-app" }],
+    ["another app claiming the bot's login", { login: "github-actions[bot]", slug: "other-app" }],
+    ["PR Buddy's own app", { login: "pr-buddy[bot]", type: "Bot", slug: "pr-buddy" }],
+  ])("never takes as its own a comment by %s", async (_name, author) => {
+    api.on(`GET ${COMMENTS_PATH}`, { body: [workflowComment(1, `${MARKER} copied`, author)] });
+
+    await expect(workflowClient().getOwnComment(7, MARKER)).resolves.toBeUndefined();
+    await expect(workflowClient().findOwnComment(7, MARKER)).resolves.toBeUndefined();
+  });
+
+  it("lists as its own only line comments written by GitHub Actions", async () => {
+    api.on("GET /repos/acme/widgets/pulls/7/comments", {
+      body: [
+        { id: 1, body: "ours", user: { login: "github-actions[bot]" } },
+        { id: 2, body: "a person's", user: { login: "octocat" } },
+      ],
+    });
+
+    await expect(workflowClient().listOwnReviewComments(7)).resolves.toEqual([
+      { id: 1, body: "ours" },
+    ]);
+    // The app's client looks its own name up; this one must not need to.
+    expect(api.requestsTo("GET /app")).toEqual([]);
   });
 });

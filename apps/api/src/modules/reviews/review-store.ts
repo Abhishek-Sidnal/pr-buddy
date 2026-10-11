@@ -2,7 +2,7 @@ import type { PublishAction } from "@pr-buddy/github-client";
 import type { AiFailureReason, AiReviewStatus } from "@pr-buddy/ai-reviewer";
 import type { ReviewResult } from "@pr-buddy/review-engine";
 
-export type SkipReason = "closed" | "draft" | "stale";
+export type SkipReason = "closed" | "draft" | "stale" | "runner";
 
 /**
  * What is kept about an AI review. The text of its suggestions is deliberately not part of it:

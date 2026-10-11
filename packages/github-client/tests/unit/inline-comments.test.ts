@@ -204,6 +204,8 @@ function fakeClient(existing: ReviewComment[]): { client: RepositoryClient; reco
     listPullRequestFiles: unsupported,
     getFileText: unsupported,
     findOwnComment: unsupported,
+    getOwnComment: unsupported,
+    compareCommits: unsupported,
     createComment: unsupported,
     updateComment: unsupported,
     listOwnReviewComments: () => Promise.resolve(recorded.comments),

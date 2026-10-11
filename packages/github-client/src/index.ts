@@ -9,9 +9,11 @@ export {
 export { parseInstallationEvent, type InstallationChange } from "./webhook/installation-event.js";
 
 export type {
+  FileChange,
   FileListLimits,
   FileLookup,
   NewLineComment,
+  OwnComment,
   PullRequestFile,
   PullRequestSnapshot,
   RepositoryClient,
@@ -21,8 +23,10 @@ export type {
 } from "./api/repository-client.js";
 export {
   createRepositoryClientFactory,
+  createWorkflowRepositoryClient,
   type GitHubAppCredentials,
   type OctokitClientOptions,
+  type WorkflowClientOptions,
 } from "./api/octokit-client.js";
 export {
   DEFAULT_RETRY,
