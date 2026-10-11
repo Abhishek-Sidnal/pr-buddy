@@ -312,10 +312,17 @@ Design: [DESIGN-OPERATIONS.md](DESIGN-OPERATIONS.md).
 
 ## 6G. Threats and controls designed for runner mode
 
-Design: [DESIGN-RUNNER.md](DESIGN-RUNNER.md). **Accepted on 2026-10-11; none of these controls
-exists yet.** Each is built, and tested against the threat beside it, in the phase that
+Design: [DESIGN-RUNNER.md](DESIGN-RUNNER.md). **Accepted on 2026-10-11.**
+Each control is built, and tested against the threat beside it, in the phase that
 introduces it (DESIGN-RUNNER.md, section 18). Runner mode moves the
 review into the repository's CI, which removes some threats and adds others.
+
+**Built so far.** R1, R2, R8, R10, R13, R15 (the summary comment) and R16 with phase 1. With
+the first change of phase 2, the parts of R4, R5, R12 and R14 that concern the tools: paths are
+confined, links are never followed (D-113), `.git` and never-sent names are refused (D-115),
+`search` compares literally, and every tool answer is bounded. Their tests run against a real
+file system. No model is given the tools yet, so R3, R6, R7 and the token and time limits of R14
+are still designs.
 
 | #   | Threat                                                                                 | Control                                                                                                                                                                            |
 | --- | -------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |

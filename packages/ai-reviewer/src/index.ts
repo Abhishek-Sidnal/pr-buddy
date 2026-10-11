@@ -7,6 +7,8 @@ export {
   type AiReviewStatus,
 } from "./ai-reviewer.js";
 export type { AiProvider, AiRequest, AiResponse, AiUsage } from "./provider.js";
+export type { AiTool, AiToolResult } from "./tool.js";
+export { isNeverSentPath } from "./never-sent.js";
 export {
   AI_DISABLED,
   aiSettingsSchema,
