@@ -257,6 +257,7 @@ describe("the pages of registering an app", () => {
   const STATE = "state-0123456789-abcdefghijklmnopqrstuvwxyz";
   let stored: AppCredentials[];
   let finished: string[];
+  let failures: string[];
   let exchanges: { url: string; method: string | undefined }[];
   let githubAnswer: () => Response;
   let app: Express;
@@ -274,7 +275,12 @@ describe("the pages of registering an app", () => {
           stored.push(credentials);
           return overrides.storing?.() ?? Promise.resolve();
         },
-        onFinished: (outcome) => finished.push(outcome),
+        onFinished: (outcome, failure) => {
+          finished.push(outcome);
+          if (failure !== undefined) {
+            failures.push(failure);
+          }
+        },
         fetch: (input, init) => {
           exchanges.push({ url: typeof input === "string" ? input : "", method: init?.method });
           return Promise.resolve(githubAnswer());
@@ -287,6 +293,7 @@ describe("the pages of registering an app", () => {
   beforeEach(() => {
     stored = [];
     finished = [];
+    failures = [];
     exchanges = [];
     githubAnswer = () => Response.json(CREDENTIALS, { status: 201 });
     app = build();
@@ -442,6 +449,71 @@ describe("the pages of registering an app", () => {
     expect(response.status).toBe(502);
     expect(response.text).not.toContain("CANARY");
     expect(finished).toEqual(["failed"]);
+  });
+
+  it.each<[string, () => Response, string]>([
+    [
+      "GitHub refuses the code",
+      () => Response.json({ message: "SECRET-CANARY" }, { status: 404 }),
+      "GitHub answered 404 when asked for the credentials",
+    ],
+    [
+      "a field is missing or of the wrong kind",
+      () =>
+        Response.json({ ...CREDENTIALS, pem: "SECRET-CANARY", client_secret: 7 }, { status: 201 }),
+      "GitHub's answer was not in the expected form (pem, client_secret)",
+    ],
+    [
+      "the answer is not JSON",
+      () => new Response("SECRET-CANARY"),
+      "GitHub's answer was not in the expected form (answer)",
+    ],
+  ])("says why, without anything GitHub returned, when %s", async (_name, answer, reason) => {
+    githubAnswer = answer;
+
+    const response = await callback({ code: "abc123", state: STATE });
+
+    expect(failures).toEqual([reason]);
+    expect(response.text).toContain(reason.replaceAll("'", "&#39;"));
+    expect(`${response.text}${failures.join()}`).not.toContain("CANARY");
+  });
+
+  it("says that GitHub could not be reached", async () => {
+    githubAnswer = () => {
+      throw new TypeError("fetch failed: SECRET-CANARY");
+    };
+
+    await callback({ code: "abc123", state: STATE });
+
+    expect(failures).toEqual(["GitHub could not be reached to fetch the credentials"]);
+  });
+
+  it.each<[string, Error, string]>([
+    [
+      "an error with a code",
+      Object.assign(new Error("SECRET-CANARY"), { code: "EACCES" }),
+      "EACCES",
+    ],
+    ["an error without one", new Error("SECRET-CANARY"), "error"],
+    [
+      "an error whose code is not a code",
+      Object.assign(new Error("x"), { code: "a b; rm" }),
+      "error",
+    ],
+  ])("names only the kind of failure when writing fails with %s", async (_name, thrown, kind) => {
+    app = build({ storing: () => Promise.reject(thrown) });
+
+    const response = await callback({ code: "abc123", state: STATE });
+
+    expect(failures).toEqual([`the credentials could not be written to the file (${kind})`]);
+    expect(response.text).not.toContain("CANARY");
+  });
+
+  it("gives no reason when the registration worked", async () => {
+    await callback({ code: "abc123", state: STATE });
+
+    expect(finished).toEqual(["registered"]);
+    expect(failures).toEqual([]);
   });
 
   it("answers nothing else", async () => {

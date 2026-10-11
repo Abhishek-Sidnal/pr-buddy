@@ -1,6 +1,14 @@
 import { randomBytes } from "node:crypto";
-import { chmodSync, copyFileSync, existsSync, readFileSync, writeFileSync } from "node:fs";
-import { resolve } from "node:path";
+import {
+  accessSync,
+  chmodSync,
+  constants,
+  copyFileSync,
+  existsSync,
+  readFileSync,
+  writeFileSync,
+} from "node:fs";
+import { dirname, resolve } from "node:path";
 import { parseArgs } from "node:util";
 import express from "express";
 import { mergeEnvFile } from "../modules/app-registration/env-file.js";
@@ -90,6 +98,24 @@ if (!parsed.success) {
 }
 const options = parsed.data;
 const envFile = resolve(values["write-to"]);
+
+// Checked before GitHub is asked for anything: once GitHub has created the app, its credentials
+// can be fetched exactly once, and an app whose credentials were lost has to be deleted by hand.
+try {
+  if (existsSync(envFile)) {
+    accessSync(envFile, constants.R_OK | constants.W_OK);
+  } else {
+    accessSync(dirname(envFile), constants.W_OK);
+  }
+} catch {
+  process.stderr.write(
+    `This command cannot read and write ${envFile}.\n` +
+      `Nothing was sent to GitHub. Fix the file's permissions, run the command as a user who may\n` +
+      `write it (in the dev container: docker compose run --user 0 ...), or pass --write-to with\n` +
+      `another path.\n`,
+  );
+  process.exit(2);
+}
 const state = randomBytes(STATE_BYTES).toString("base64url");
 
 const app = express();
@@ -118,7 +144,13 @@ app.use(
       );
       return Promise.resolve();
     },
-    onFinished: (outcome) => {
+    onFinished: (outcome, failure) => {
+      if (outcome === "failed") {
+        process.stderr.write(
+          `Not registered: ${failure ?? "unknown reason"}. Nothing was saved.\n` +
+            `Delete the app on GitHub (Settings, Developer settings, GitHub Apps) and try again.\n`,
+        );
+      }
       // Let the last page reach the browser before the process ends.
       server.close();
       setTimeout(() => process.exit(outcome === "registered" ? 0 : 1), 500).unref();
