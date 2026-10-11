@@ -36,9 +36,9 @@ export const registrationOptionsSchema = z.strictObject({
   /** Whether anyone may install the app. A development app is private. */
   isPublic: z.boolean(),
   /**
-   * How the app reads `.github/pr-buddy.json`. "single-file" asks for that one file, which
-   * needs its path entered by hand afterwards; "contents" asks to read all code, and needs
-   * nothing more.
+   * How the app reads `.github/pr-buddy.json`. "single-file" asks for that one file and
+   * nothing else; "contents" asks to read all code, for a GitHub that will not take the
+   * single file.
    */
   configAccess: z.enum(["single-file", "contents"]),
   /** The port of the page this command serves, where GitHub sends the browser back. */
@@ -61,6 +61,11 @@ export interface AppManifest {
   readonly request_oauth_on_install: boolean;
   readonly default_events: readonly string[];
   readonly default_permissions: Readonly<Record<string, "read" | "write">>;
+  /**
+   * The one file the single-file permission covers. GitHub's documentation of the manifest does
+   * not list this field, but GitHub refuses a manifest that asks for the permission without it.
+   */
+  readonly single_file_name?: string;
 }
 
 /** Where GitHub sends the browser once the app exists. Only this command listens there. */
@@ -96,6 +101,7 @@ export function buildManifest(options: RegistrationOptions): AppManifest {
         ? { contents: "read" as const }
         : { single_file: "read" as const }),
     },
+    ...(options.configAccess === "single-file" ? { single_file_name: CONFIG_FILE_PATH } : {}),
   };
 }
 

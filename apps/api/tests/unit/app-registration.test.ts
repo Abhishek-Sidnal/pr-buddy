@@ -105,6 +105,7 @@ describe("the app that is described to GitHub", () => {
         members: "read",
         single_file: "read",
       },
+      single_file_name: ".github/pr-buddy.json",
     });
   });
 
@@ -127,6 +128,13 @@ describe("the app that is described to GitHub", () => {
       expect(permissions["members"]).toBe("read");
       expect(Object.keys(permissions)).not.toContain("organization_administration");
     }
+  });
+
+  it("names the one file when it asks for a single file, and no file when it asks for code", () => {
+    expect(buildManifest(OPTIONS).single_file_name).toBe(".github/pr-buddy.json");
+    expect(buildManifest({ ...OPTIONS, configAccess: "contents" })).not.toHaveProperty(
+      "single_file_name",
+    );
   });
 
   it("is public only when asked", () => {
@@ -350,12 +358,12 @@ describe("the pages of registering an app", () => {
     expect(response.text).not.toContain("123456");
   });
 
-  it("tells the person to enter the file's path when the app reads a single file", async () => {
+  it("tells the person to check the file's path when the app reads a single file", async () => {
     const response = await callback({ code: "abc123", state: STATE });
 
     expect(response.text).toContain("https://github.com/settings/apps/pr-buddy-dev/permissions");
     expect(response.text).toContain("<code>.github/pr-buddy.json</code>");
-    expect(response.text).toContain("Do this before installing the app.");
+    expect(response.text).toContain("It should list <code>.github/pr-buddy.json</code>.");
   });
 
   it("leaves that step out when the app may read code", async () => {

@@ -78,14 +78,14 @@ docker compose run --rm -p 127.0.0.1:3999:3999 dev sh -c \
 
 1. Open `http://localhost:3999/` and choose **Continue on GitHub**.
 2. Confirm on GitHub. You are sent back to a page that says the app is registered.
-3. Follow the steps on that page: enter the path `.github/pr-buddy.json` under the app's
-   **Single file** permission, then install the app.
+3. Follow the steps on that page: check that the app's **Single file** permission lists the
+   path `.github/pr-buddy.json`, then install the app.
 
 The command sets the three permissions and the pull request event, the callback and setup
 addresses for the dashboard, and keeps the app private unless you pass `--public`. An existing
 `.env` is kept beside the new one as `.env.before-register-app`. No secret is printed or shown
 in the browser. `--help` lists the options; `--contents` asks to read all code in place of the
-single file, which saves step 3 and grants more.
+single file, and grants more.
 
 **An app of your own for development.** A GitHub App sends its webhooks to one address. If the
 app you registered serves a public deployment, your own machine receives nothing. Register a

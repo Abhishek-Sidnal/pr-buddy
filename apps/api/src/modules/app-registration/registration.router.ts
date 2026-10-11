@@ -11,7 +11,7 @@ export interface RegistrationDependencies {
   readonly manifest: AppManifest;
   /** An unguessable value that ties GitHub's answer to the request this command started. */
   readonly state: string;
-  /** Whether the path of the configuration file still has to be entered by hand. */
+  /** Whether the app reads one file, whose path is then worth a look after registering. */
   readonly needsFilePath: boolean;
   /** Called once with the credentials GitHub returned. It stores them; it must not print them. */
   readonly onRegistered: (credentials: AppCredentials) => Promise<void>;
@@ -169,7 +169,7 @@ export function createRegistrationRouter(dependencies: RegistrationDependencies)
 <ol>
 ${
   dependencies.needsFilePath
-    ? `<li><strong>Enter the file's path.</strong> Open <a href="${permissionsUrl}">the app's permissions</a>, find <em>Single file</em> under repository permissions, add the path <code>${escapeHtml(CONFIG_FILE_PATH)}</code> and save. Do this before installing the app.</li>`
+    ? `<li><strong>Check the file&#39;s path.</strong> Open <a href="${permissionsUrl}">the app&#39;s permissions</a> and find <em>Single file</em> under repository permissions. It should list <code>${escapeHtml(CONFIG_FILE_PATH)}</code>. If it does not, add it and save, before installing the app.</li>`
     : ""
 }
 <li><a href="${installUrl}">Install the app</a> on a repository.</li>
