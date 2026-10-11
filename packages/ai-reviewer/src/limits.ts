@@ -27,3 +27,24 @@ export const MAX_AI_TIMEOUT_MS = 300_000;
 export const MAX_PROVIDER_LABEL_LENGTH = 200;
 /** Validation issues are published, so they are bounded. */
 export const MAX_SETTINGS_ISSUE_LENGTH = 300;
+
+/*
+ * The tool loop, used in runner mode only (docs/DESIGN-RUNNER.md, sections 8 and 13).
+ */
+
+/** Requests to the model in one review, the closing one not counted. */
+export const MAX_TOOL_STEPS = 20;
+/** Input and output tokens of one review, summed over its requests, as the provider reports them. */
+export const MAX_TOOL_LOOP_TOKENS = 400_000;
+/** Output tokens the model is asked to stay within, per request. */
+export const MAX_TOOL_STEP_OUTPUT_TOKENS = 4_000;
+/** Wall-clock time for the whole loop. */
+export const DEFAULT_TOOL_LOOP_TIMEOUT_MS = 240_000;
+export const MAX_TOOL_LOOP_TIMEOUT_MS = 900_000;
+/** Tool requests served from one reply; further ones are refused. */
+export const MAX_TOOL_CALLS_PER_STEP = 8;
+/** Characters kept of one tool's answer, whatever the tool returned. */
+export const MAX_TOOL_RESULT_LENGTH = 50_000;
+/** A provider's identifier for a tool request, and a tool's name, as accepted from a reply. */
+export const MAX_TOOL_CALL_ID_LENGTH = 200;
+export const MAX_TOOL_NAME_LENGTH = 64;

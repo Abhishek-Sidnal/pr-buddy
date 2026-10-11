@@ -243,4 +243,6 @@ it needs no service. Both sides read the repository's configuration through
 As of phase 1 the runner asks no AI model. The tools of phase 2 are the only code in PR Buddy
 that reads a file system on behalf of a model, and they live here and not in a package, so that
 the hosted service cannot reach them (D-114). `ai-reviewer` holds the shape of a tool (`AiTool`)
-and the one policy for what never reaches a model (`isNeverSentPath`, D-115).
+and the one policy for what never reaches a model (`isNeverSentPath`, D-115). It also holds the
+conversation itself: `runToolLoop` and each adapter's `converse`, which know no file system and
+are given their tools by the caller. The hosted reviewer calls neither.

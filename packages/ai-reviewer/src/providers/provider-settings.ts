@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { DEFAULT_AI_TIMEOUT_MS, MAX_AI_TIMEOUT_MS } from "../limits.js";
-import { providerLabelSchema, type AiProvider } from "../provider.js";
+import { providerLabelSchema, type AiToolProvider } from "../provider.js";
 import { ANTHROPIC_BASE_URL, createAnthropicProvider } from "./anthropic.js";
 import { createBedrockProvider } from "./bedrock.js";
 import { createChatCompletionsProvider, OPENAI_BASE_URL } from "./openai.js";
@@ -106,7 +106,7 @@ export interface ProviderDependencies {
 export function createProvider(
   settings: ProviderSettings,
   dependencies: ProviderDependencies = {},
-): AiProvider {
+): AiToolProvider {
   const { model, apiKey, baseUrl } = settings;
   const shared = dependencies.fetch === undefined ? {} : { fetch: dependencies.fetch };
 

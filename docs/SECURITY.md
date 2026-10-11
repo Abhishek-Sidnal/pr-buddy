@@ -321,8 +321,10 @@ review into the repository's CI, which removes some threats and adds others.
 the first change of phase 2, the parts of R4, R5, R12 and R14 that concern the tools: paths are
 confined, links are never followed (D-113), `.git` and never-sent names are refused (D-115),
 `search` compares literally, and every tool answer is bounded. Their tests run against a real
-file system. No model is given the tools yet, so R3, R6, R7 and the token and time limits of R14
-are still designs.
+file system. With the second, the tool loop: its limits on steps, tokens and time (R6, R14), and
+its handling of a reply that asks for what it may not have (part of R3). No model has been asked
+yet, so R7 and the rest of R3
+are still designs, and no provider has been tried.
 
 | #   | Threat                                                                                 | Control                                                                                                                                                                            |
 | --- | -------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
