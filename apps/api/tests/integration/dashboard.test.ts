@@ -609,6 +609,7 @@ describe("the read API", () => {
     expect(Object.keys(response.body as object).sort()).toEqual([
       "expiresAt",
       "installationCount",
+      "isOperator",
       "login",
     ]);
     expect(response.headers["cache-control"]).toBe("no-store");

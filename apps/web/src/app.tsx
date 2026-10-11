@@ -8,6 +8,7 @@ import { plural } from "./format.js";
 import { appInstallUrl } from "./github-links.js";
 import { HistoryPage } from "./pages/history.js";
 import { LandingPage } from "./pages/landing.js";
+import { OperatorPage } from "./pages/operator.js";
 import { OverviewPage } from "./pages/overview.js";
 import { PrivacyContent } from "./pages/privacy.js";
 import { RepositoriesPage } from "./pages/repositories.js";
@@ -49,6 +50,16 @@ const NAVIGATION: readonly { to: string; label: string; icon: IconName; end?: bo
   { to: "/settings", label: "Settings", icon: "settings" },
 ];
 
+/**
+ * Shown only to the people who run the deployment. Showing it grants nothing: the API decides
+ * who may read what is behind it, and answers everyone else as for a page that does not exist.
+ */
+const OPERATOR_NAVIGATION: (typeof NAVIGATION)[number] = {
+  to: "/operator",
+  label: "Service",
+  icon: "service",
+};
+
 function Shell(props: {
   readonly me: Me;
   readonly installUrl: string | undefined;
@@ -73,7 +84,7 @@ function Shell(props: {
       <div className="app-body">
         <nav aria-label="Main" className="sidebar">
           <ul>
-            {NAVIGATION.map((item) => (
+            {[...NAVIGATION, ...(me.isOperator ? [OPERATOR_NAVIGATION] : [])].map((item) => (
               <li key={item.to}>
                 <NavLink to={item.to} end={item.end === true}>
                   <Icon name={item.icon} />
@@ -120,6 +131,9 @@ function Shell(props: {
               path="/settings"
               element={<SettingsPage me={me} onSignOut={props.onSignOut} />}
             />
+            {me.isOperator ? (
+              <Route path={OPERATOR_NAVIGATION.to} element={<OperatorPage />} />
+            ) : null}
             <Route
               path={PRIVACY_PATH}
               element={

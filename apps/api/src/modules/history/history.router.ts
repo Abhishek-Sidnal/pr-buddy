@@ -44,7 +44,11 @@ function notFound(response: Response): void {
  * The read API of the dashboard. It must be mounted behind `createRequireSession`: every handler
  * reads the session from the response and passes its installations to the store.
  */
-export function createHistoryRouter(historyStore: HistoryStore): Router {
+export function createHistoryRouter(
+  historyStore: HistoryStore,
+  /** GitHub user IDs of the people who run this deployment; they are told so in `/me`. */
+  operatorUserIds: readonly number[] = [],
+): Router {
   const router = Router();
 
   router.get("/me", (_request, response) => {
@@ -53,6 +57,8 @@ export function createHistoryRouter(historyStore: HistoryStore): Router {
       login: session.login,
       installationCount: session.installationIds.length,
       expiresAt: session.expiresAt.toISOString(),
+      // So that the dashboard can show the link. It grants nothing: the route checks again.
+      isOperator: operatorUserIds.includes(session.userId),
     });
   });
 

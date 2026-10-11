@@ -5,6 +5,7 @@ import {
   aiKeyTestSchema,
   installationListSchema,
   meSchema,
+  operatorOverviewSchema,
   overviewSchema,
   repositoryListSchema,
   reviewDetailsSchema,
@@ -16,6 +17,7 @@ import {
   type CustomerProvider,
   type InstallationList,
   type Me,
+  type OperatorOverview,
   type Overview,
   type RepositoryList,
   type ReviewDetails,
@@ -90,6 +92,10 @@ async function getJson<Schema extends z.ZodType>(
 
 export const api = {
   me: (signal?: AbortSignal): Promise<Me> => getJson("/api/me", meSchema, signal),
+
+  /** For the people who run the deployment. Everyone else gets `not-found`. */
+  operatorOverview: (signal?: AbortSignal): Promise<OperatorOverview> =>
+    getJson("/api/operator/overview", operatorOverviewSchema, signal),
 
   /** Needs no session: it is what the page for signed-out visitors is built from. */
   service: (signal?: AbortSignal): Promise<ServiceInfo> =>

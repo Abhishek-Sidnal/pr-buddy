@@ -155,6 +155,16 @@ const environmentSchema = z.object({
     .optional(),
   OPERATOR_PRIVACY_URL: operatorLinkSetting.optional(),
   OPERATOR_TERMS_URL: operatorLinkSetting.optional(),
+  // GitHub's numeric user IDs of the people who run this deployment, separated by commas.
+  // IDs and not logins: a login can be given up and taken by someone else (D-093).
+  OPERATOR_GITHUB_USER_IDS: z
+    .string()
+    .regex(
+      /^[1-9]\d{0,14}(?:,[1-9]\d{0,14}){0,19}$/,
+      "must be up to 20 GitHub user IDs separated by commas, without spaces",
+    )
+    .transform((value) => [...new Set(value.split(",").map(Number))])
+    .optional(),
 });
 
 export interface AppConfig {
@@ -200,6 +210,8 @@ export interface AppConfig {
     /** The app's name in github.com/apps/<slug>. Without it nobody is offered an Install link. */
     readonly appSlug?: string;
     readonly operator: OperatorInfo;
+    /** GitHub user IDs that may see the operator's view. Empty: nobody, and it does not exist. */
+    readonly operatorUserIds: readonly number[];
   };
 }
 
@@ -311,6 +323,7 @@ function readDashboardSettings(values: z.infer<typeof environmentSchema>): AppCo
       privacyUrl: values.OPERATOR_PRIVACY_URL ?? null,
       termsUrl: values.OPERATOR_TERMS_URL ?? null,
     },
+    operatorUserIds: values.OPERATOR_GITHUB_USER_IDS ?? [],
   };
 }
 

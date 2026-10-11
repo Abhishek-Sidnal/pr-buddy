@@ -16,6 +16,7 @@ const PATHS = {
   skip: "M8 2.5a5.5 5.5 0 1 0 0 11a5.5 5.5 0 0 0 0-11z M5.5 8h5",
   external: "M9.5 2.5h4v4 M13.5 2.5l-6 6 M11.5 9.5v4h-9v-9h4",
   copy: "M5.5 5.5h8v8h-8z M10.5 5.5v-3h-8v8h3",
+  service: "M1.5 8.5h3l1.75-5 3.5 9 1.75-4h3",
 } as const;
 
 export type IconName = keyof typeof PATHS;

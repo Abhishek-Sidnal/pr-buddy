@@ -31,6 +31,7 @@ import {
   createPostgresPendingReviewStore,
   type PendingReviewStore,
 } from "./modules/reviews/pending-review-store.js";
+import { createPostgresOperatorStore } from "./modules/operator/operator-store.js";
 import { createPostgresReviewStore } from "./modules/reviews/postgres-review-store.js";
 import { deleteExpiredData } from "./modules/reviews/retention.js";
 import { createReviewQueue } from "./modules/reviews/review-queue.js";
@@ -137,6 +138,12 @@ function buildDashboard(): DashboardDependencies | undefined {
     return undefined;
   }
   logger.info({ publicUrl: config.dashboard.publicUrl }, "Dashboard is on");
+  if (config.dashboard.operatorUserIds.length > 0) {
+    logger.info(
+      { operators: config.dashboard.operatorUserIds.length },
+      "The operator view is on for the listed GitHub users",
+    );
+  }
   return {
     authClient: createUserAuthClient({
       clientId: config.dashboard.clientId,
@@ -148,6 +155,14 @@ function buildDashboard(): DashboardDependencies | undefined {
     ...(config.dashboard.appSlug === undefined ? {} : { appSlug: config.dashboard.appSlug }),
     operator: config.dashboard.operator,
     retentionDays: config.reviewRetentionDays,
+    ...(config.dashboard.operatorUserIds.length === 0
+      ? {}
+      : {
+          operatorView: {
+            operatorStore: createPostgresOperatorStore(database),
+            operatorUserIds: config.dashboard.operatorUserIds,
+          },
+        }),
     webRoot: WEB_ROOT,
     authRateLimit: AUTH_RATE_LIMIT,
     apiRateLimit: API_RATE_LIMIT,

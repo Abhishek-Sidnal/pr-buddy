@@ -13,6 +13,8 @@ import {
 } from "./modules/github/webhook.router.js";
 import type { HistoryStore } from "./modules/history/history-store.js";
 import { createHistoryRouter } from "./modules/history/history.router.js";
+import type { OperatorStore } from "./modules/operator/operator-store.js";
+import { createOperatorRouter } from "./modules/operator/operator.router.js";
 import { createWebRouter, setDashboardHeaders } from "./modules/web/web.router.js";
 
 const ONE_MINUTE_MS = 60_000;
@@ -54,6 +56,14 @@ export interface DashboardDependencies {
     readonly aiKeyStore: AiKeyStore;
     /** Replaces the global `fetch` for the request that checks a key; used by tests. */
     readonly fetch?: typeof fetch;
+  };
+  /**
+   * Lets the listed people see figures about every installation. Without it that route does
+   * not exist. The store reads across installations: it goes to the operator's router only.
+   */
+  readonly operatorView?: {
+    readonly operatorStore: OperatorStore;
+    readonly operatorUserIds: readonly number[];
   };
 }
 
@@ -146,6 +156,7 @@ export function createApp(dependencies: AppDependencies): Express {
 
   const { dashboard } = dependencies;
   if (dashboard !== undefined) {
+    const operatorUserIds = dashboard.operatorView?.operatorUserIds ?? [];
     const perMinute = (limit: number): RequestHandler =>
       rateLimit({
         windowMs: ONE_MINUTE_MS,
@@ -164,7 +175,17 @@ export function createApp(dependencies: AppDependencies): Express {
       "/api",
       perMinute(dashboard.apiRateLimit),
       createRequireSession(dashboard.sessionStore, dashboard.publicUrl),
-      createHistoryRouter(dashboard.historyStore),
+      createHistoryRouter(dashboard.historyStore, operatorUserIds),
+      ...(dashboard.operatorView === undefined || operatorUserIds.length === 0
+        ? []
+        : [
+            createOperatorRouter({
+              operatorStore: dashboard.operatorView.operatorStore,
+              operatorUserIds,
+              reviewQueue: dependencies.reviewQueue,
+              logger: dependencies.logger,
+            }),
+          ]),
       ...(dashboard.aiKeys === undefined
         ? []
         : [
