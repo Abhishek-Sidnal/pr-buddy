@@ -1,7 +1,12 @@
 import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { SignInError, type UserAccess, type UserAuthClient } from "@pr-buddy/github-client";
+import {
+  SignInError,
+  type OwnerCheckOutcome,
+  type UserAccess,
+  type UserAuthClient,
+} from "@pr-buddy/github-client";
 import { createReviewEngine } from "@pr-buddy/review-engine";
 import type { Express } from "express";
 import request from "supertest";
@@ -46,9 +51,16 @@ const github = {
   } as SignedInAs,
   /** Installations the person owns; the others are only readable. */
   owned: new Set<number>(),
+  /** Why the owner check of an installation did not say yes, when it did not. */
+  ownerChecks: new Map<number, OwnerCheckOutcome>(),
   failure: undefined as Error | undefined,
   signIns: [] as { code: string; redirectUri: string }[],
 };
+function ownerCheckOf(installationId: number): { ownerCheck?: OwnerCheckOutcome } {
+  const ownerCheck = github.ownerChecks.get(installationId);
+  return ownerCheck === undefined ? {} : { ownerCheck };
+}
+
 const authClient: UserAuthClient = {
   authorizeUrl: (state, redirectUri) =>
     `https://github.example/authorize?state=${state}&redirect_uri=${encodeURIComponent(redirectUri)}`,
@@ -61,6 +73,7 @@ const authClient: UserAuthClient = {
             id,
             account: `account-${id}`,
             isOwner: github.owned.has(id),
+            ...ownerCheckOf(id),
           })),
         })
       : Promise.reject(github.failure);
@@ -196,6 +209,7 @@ beforeEach(async () => {
     installationIds: [OURS.installationId],
   };
   github.failure = undefined;
+  github.ownerChecks.clear();
   github.signIns = [];
   logger = createRecordingLogger();
   sessionStore = createPostgresSessionStore(test.database);
@@ -483,6 +497,46 @@ describe("arriving from GitHub after installing the app", () => {
     expect(response.headers["location"]).not.toContain("9009");
     expect(response.headers["location"]).not.toContain("ATTACKER");
     expect(setCookieValue(response, SESSION_COOKIE)).toBeUndefined();
+  });
+});
+
+describe("when the owner check for an organisation does not say yes", () => {
+  it("logs why, with identifiers only, so that an operator can see nobody is an owner there", async () => {
+    github.access = {
+      user: { id: 583231, login: "octocat" },
+      installationIds: [OURS.installationId, THEIRS.installationId],
+    };
+    github.ownerChecks.set(THEIRS.installationId, "http-403");
+
+    await signIn();
+
+    expect(logger.entries).toContainEqual({
+      level: "warn",
+      message: "The owner check for an organisation did not complete",
+      fields: { userId: 583231, installationId: THEIRS.installationId, reason: "http-403" },
+    });
+    expect(logger.text()).not.toContain("account-");
+  });
+
+  it("does not log an ordinary member, who is simply not an owner", async () => {
+    github.ownerChecks.set(OURS.installationId, "not-an-owner");
+
+    await signIn();
+
+    expect(logger.entries.filter(({ level }) => level === "warn")).toEqual([]);
+  });
+
+  it("keeps the reason out of the session", async () => {
+    github.ownerChecks.set(OURS.installationId, "http-403");
+
+    await signIn();
+
+    const stored = await test.database.query<{ installations: unknown }>(
+      "SELECT installations FROM sessions",
+    );
+    expect(stored.rows[0]?.installations).toEqual([
+      { id: OURS.installationId, account: `account-${OURS.installationId}`, isOwner: false },
+    ]);
   });
 });
 

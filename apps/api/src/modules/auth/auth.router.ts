@@ -163,7 +163,12 @@ export function createAuthRouter(dependencies: AuthDependencies): Router {
       userId: access.user.id,
       login: access.user.login,
       installationIds: access.installationIds,
-      installations: access.installations,
+      // The reason an owner check did not say yes is for the log, not for the session.
+      installations: access.installations.map(({ id, account, isOwner }) => ({
+        id,
+        account,
+        isOwner,
+      })),
     });
     response.append(
       "Set-Cookie",
@@ -173,6 +178,20 @@ export function createAuthRouter(dependencies: AuthDependencies): Router {
       { userId: access.user.id, installationCount: access.installationIds.length },
       "Signed in",
     );
+    for (const installation of access.installations) {
+      // An ordinary member is not news. Anything else means nobody may be an owner there, and
+      // an operator has to be able to see why. Identifiers and a reason only.
+      if (installation.ownerCheck !== undefined && installation.ownerCheck !== "not-an-owner") {
+        logger.warn(
+          {
+            userId: access.user.id,
+            installationId: installation.id,
+            reason: installation.ownerCheck,
+          },
+          "The owner check for an organisation did not complete",
+        );
+      }
+    }
     response.redirect(SIGNED_IN_PATH);
   });
 
