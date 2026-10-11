@@ -61,7 +61,7 @@ writes the credentials GitHub returns into `.env`:
 ```bash
 docker compose run --rm -p 127.0.0.1:3999:3999 dev sh -c \
   'npm run build -w @pr-buddy/api && npm run register-app -w @pr-buddy/api -- \
-     --webhook-url https://smee.io/YOUR_CHANNEL --name pr-buddy-yourname --env-file /workspace/.env'
+     --webhook-url https://smee.io/YOUR_CHANNEL --name pr-buddy-yourname --write-to /workspace/.env'
 ```
 
 1. Open `http://localhost:3999/` and choose **Continue on GitHub**.

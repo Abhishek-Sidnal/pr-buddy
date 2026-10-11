@@ -17,7 +17,7 @@ import { createRegistrationRouter } from "../modules/app-registration/registrati
  * or after an hour. It never prints a secret. See docs/GITHUB_APP.md, section 2.
  *
  *   register-app --webhook-url https://smee.io/<channel> [--name <name>]
- *                [--public-url http://localhost:3000] [--env-file .env] [--port 3999]
+ *                [--public-url http://localhost:3000] [--write-to .env] [--port 3999]
  *                [--public] [--contents]
  */
 
@@ -41,7 +41,7 @@ const USAGE = `Usage: register-app --webhook-url <address> [options]
   --name <name>            The app's name on GitHub. Must be unused there.
                            Default: pr-buddy-dev
   --public-url <address>   Where the dashboard is reached. Default: http://localhost:3000
-  --env-file <path>        The file to write the credentials to. Default: .env
+  --write-to <path>        The file to write the credentials to. Default: .env
   --port <number>          The port of the page this command serves. Default: 3999
   --public                 Let anyone install the app. Default: only you.
   --contents               Ask to read all code, not the one configuration file.
@@ -58,7 +58,8 @@ const { values } = parseArgs({
     "webhook-url": { type: "string" },
     name: { type: "string", default: "pr-buddy-dev" },
     "public-url": { type: "string", default: "http://localhost:3000" },
-    "env-file": { type: "string", default: ".env" },
+    // Not "--env-file": Node.js takes a flag of that name for itself, wherever it stands.
+    "write-to": { type: "string", default: ".env" },
     port: { type: "string", default: "3999" },
     public: { type: "boolean", default: false },
     contents: { type: "boolean", default: false },
@@ -88,7 +89,7 @@ if (!parsed.success) {
   );
 }
 const options = parsed.data;
-const envFile = resolve(values["env-file"]);
+const envFile = resolve(values["write-to"]);
 const state = randomBytes(STATE_BYTES).toString("base64url");
 
 const app = express();
