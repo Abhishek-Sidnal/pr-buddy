@@ -28,6 +28,29 @@ accepted and are kept as history.
 | 2026-10-10 | Clean export of commit `6929d67` in a fresh `node:24-alpine` container: `npm ci`, `npm run check`, audit, signatures, pin check | Passed: 1,448 tests; 0 vulnerabilities; 358 signatures verified |
 | 2026-10-10 | `docker compose run --rm dev npm audit --omit=dev` | 0 vulnerabilities |
 
+## Milestone 6 — running it day to day
+
+Design: [DESIGN-OPERATIONS.md](DESIGN-OPERATIONS.md), sections 5 and 6. Decisions D-092 to
+D-094. Threats O11 to O14.
+
+| Task                                                                                   | Requirement                      | Status |
+| -------------------------------------------------------------------------------------- | -------------------------------- | ------ |
+| The operator setting, `isOperator` in `GET /api/me`, and `GET /api/operator/overview`  | FR-109, FR-110, NFR-104, NFR-105 | ⬜     |
+| The operator's page                                                                    | FR-109, FR-110                   | ⬜     |
+| `register-app`: a GitHub App from a manifest, written to the environment file          | FR-111, NFR-106                  | ⬜     |
+| A development app registered with it, and a review through it on a developer's machine | FR-111                           | ⬜     |
+
+### What 0.3.0 left unverified, and what has been seen since
+
+| Check                                                                            | Result                                                                                                                                        |
+| -------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
+| An alert reaching a person                                                       | Passed on 2026-10-11: after the maintainer confirmed the subscription, a rehearsed problem and its recovery each arrived by email             |
+| A scheduled backup overnight                                                     | Passed: cron ran `deploy/backup.sh` at 20:15 UTC on 2026-10-10 and the server logged the dump as stored locally and in the bucket             |
+| An alarm outside the server                                                      | In place: a Lightsail alarm on the instance's status check, with a verified email contact. Not triggered: that would mean breaking the server |
+| The owner check for an organisation                                              | ⬜ Needs an organisation with the app installed                                                                                               |
+| A review for a second installation on the public deployment                      | ⬜                                                                                                                                            |
+| Suspending the app ends sessions; uninstalling deletes history, key and sessions | ⬜                                                                                                                                            |
+
 ## Milestone 5 — a hosted service
 
 | Part | Contents                       | Status |
@@ -35,9 +58,9 @@ accepted and are kept as history.
 | 1    | An installation's own AI key   | ✅     |
 | 2    | A first public deployment      | ✅     |
 | 3    | Onboarding                     | ✅     |
-| 4    | Operations: backups and alerts | 🟡     |
-| 5    | Who runs the service           | 🟡     |
-| 6    | A fair share of the queue      | 🟡     |
+| 4    | Operations: backups and alerts | ✅     |
+| 5    | Who runs the service           | ✅     |
+| 6    | A fair share of the queue      | ✅     |
 
 ### Parts 4 to 6 — operations, the operator's page, the queue
 

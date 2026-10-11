@@ -739,6 +739,36 @@ policy; it links to the operator's.
 **Why.** The software can vouch for its own behaviour on every deployment. It cannot know an
 operator's jurisdiction, company or promises, and inventing them would be worse than silence.
 
+### D-092 — The operator gets a page of counts, kept apart from every other read
+
+**Decision.** `GET /api/operator/overview` and a page at `/operator` show totals, review and
+AI outcomes over time, the queue, and one row per installation: account, counts, last review,
+AI provider. No repository name, pull request, finding, file path or login.
+**Why.** An operator must see use and failures without a database client. A browser session
+can be stolen, so it carries only what is needed for that.
+**How it stays safe.** D-054 limits every dashboard query to the session's installations.
+These queries cross installations on purpose, so they are in their own store, behind their own
+router, and nothing else may call them.
+
+### D-093 — An operator is a GitHub user ID in a setting
+
+**Decision.** `OPERATOR_GITHUB_USER_IDS`. Everyone else gets `404` from the operator route, as
+for a path that does not exist. Without the setting the route is not registered.
+**Why.** There are no user accounts or roles to extend (D-049). An ID cannot be re-registered
+by someone else; a login can.
+**Cost.** Changing who is an operator needs a restart.
+
+### D-094 — A command registers a GitHub App from a manifest
+
+**Decision.** `register-app` serves one local page, sends GitHub a manifest, exchanges the
+one-time code for the app's credentials and writes them to the environment file. It keeps the
+previous file and never prints a secret.
+**Why.** A developer needs an app of their own, because an app's webhooks go to one address
+and production has it. By hand that is a dozen fields and five secrets to copy, and the
+permissions are easy to get wrong.
+**Rejected.** A page in the dashboard that registers the app: the service would then have to
+rewrite its own configuration while running.
+
 ## 3. Glossary
 
 | Term       | Meaning                                                                                 |

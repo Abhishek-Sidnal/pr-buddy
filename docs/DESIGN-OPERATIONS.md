@@ -3,7 +3,7 @@
 What a hosted PR Buddy needs once it holds other people's history and keys: backups that
 survive the server, a way to hear that something is wrong, a fair share of the review queue for
 every installation, and a page that says who runs the service. Decisions are in
-[BRAIN.md](BRAIN.md) (D-086 to D-091); threats and controls in [SECURITY.md](SECURITY.md),
+[BRAIN.md](BRAIN.md) (D-086 to D-094); threats and controls in [SECURITY.md](SECURITY.md),
 section 6F.
 
 Backups and watching are scripts in `deploy/`, for the example stack. They are not part of the
@@ -142,7 +142,82 @@ the law asks for them; those remain the operator's texts, which the page links t
 
 The first page and the dashboard link to `/privacy`.
 
-## 5. Limits
+## 5. What the operator can see
+
+Someone who runs PR Buddy for others needs to answer three questions without opening a
+database: is it being used, is it working, and who is having trouble. A page of the dashboard
+answers them, for the operator only (D-092, D-093).
+
+### Who is the operator
+
+`OPERATOR_GITHUB_USER_IDS` lists GitHub's numeric user IDs, separated by commas. A session
+whose user ID is in the list is an operator's. IDs are used, not logins: a login can be given up
+and registered again by someone else, an ID cannot. Without the setting nobody is an operator
+and the page and its route do not exist.
+
+`GET /api/me` says whether the signed-in person is an operator, so that the dashboard can show
+the link. Being told "yes" grants nothing: the route checks the session itself.
+
+### What it shows
+
+`GET /api/operator/overview`, and the page at `/operator`:
+
+| Section           | Content                                                                                             |
+| ----------------- | --------------------------------------------------------------------------------------------------- |
+| Totals            | Installations and repositories that have been reviewed                                              |
+| Reviews           | Completed, skipped and failed in the last 24 hours, 7 days and 30 days                              |
+| AI reviews        | Completed, skipped and failed in the last 30 days                                                   |
+| Right now         | Reviews running and waiting in this process; requests not yet finished, and the oldest              |
+| Stored AI keys    | How many, by provider                                                                               |
+| Signed in         | People with a session that has not ended                                                            |
+| Each installation | Account, repositories, reviews and failures in 30 days, last review, AI provider if a key is stored |
+
+The installation list is the hundred most recently active.
+
+### What it never shows
+
+Repository names, pull request numbers, findings, file paths, people's logins, and keys. An
+operator can read the database anyway; the point is that a browser session, which can be
+stolen, should carry counts and account names and nothing a customer would call their work.
+
+### How it differs from every other read
+
+Every other dashboard query is limited in SQL to the session's installations (D-054). These
+queries are deliberately not: they cross installations. They therefore live in a store of
+their own, reachable only through a router that first checks the operator list, and that
+answers `404` to everyone else, exactly as for a path that does not exist. The service logs
+each read with the operator's user ID.
+
+## 6. A second app for development
+
+One GitHub App delivers its webhooks to one address. Once that address is the public server,
+a developer's own machine receives nothing, and a change can only be tried in production.
+The answer is a second, private app whose webhooks go to the developer's relay (D-094).
+
+Registering an app by hand takes a dozen fields and five secrets copied one at a time. GitHub
+can instead create an app from a description, a manifest, in one click. A command does that:
+
+```
+register-app --webhook-url <relay address> [--name <app name>] [--public-url http://localhost:3000]
+```
+
+1. It starts a page on the developer's machine with one button.
+2. The button sends GitHub the manifest: the name, the relay address, the callback and setup
+   addresses for `--public-url`, the three permissions PR Buddy needs, the pull request event,
+   and "private".
+3. The developer confirms on GitHub. GitHub sends the browser back with a one-time code.
+4. The command checks that the request is the one it started, exchanges the code with GitHub
+   for the app's ID, private key, webhook secret, client ID and client secret, and writes them
+   into the environment file. The previous file is kept beside it.
+5. It prints the app's name and where to install it. It never prints a secret.
+
+The same command suits an operator registering their first app, with `--public` and their
+server's address.
+
+What it does not do: install the app on a repository, which only its owner can, or change an
+app that already exists.
+
+## 7. Limits
 
 - One server. Backups and alerts make its loss survivable and visible; they do not prevent it.
 - The watcher runs on the server it watches.

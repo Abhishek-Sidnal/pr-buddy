@@ -441,6 +441,22 @@ Design: [DESIGN-OPERATIONS.md](DESIGN-OPERATIONS.md).
 Out of scope: several servers, automatic restore, usage metering and billing, AI spending
 limits, translated pages.
 
+## 6H. Milestone 6 — running it day to day
+
+Design: [DESIGN-OPERATIONS.md](DESIGN-OPERATIONS.md), sections 5 and 6.
+
+| ID      | Requirement                                                                                 |
+| ------- | ------------------------------------------------------------------------------------------- |
+| FR-109  | An operator can see, in the dashboard, how much the service is used and how often it fails. |
+| FR-110  | The view lists each installation with its account, activity, failures and AI provider.      |
+| FR-111  | A developer can register a private GitHub App for their own machine with one command.       |
+| NFR-104 | Only a GitHub user the operator listed can see the view; everyone else finds nothing there. |
+| NFR-105 | The view never shows a repository name, pull request, finding, file path, login or key.     |
+| NFR-106 | The registering command never prints a secret and keeps the previous environment file.      |
+
+Out of scope: charts over time, exporting figures, alerts from the page (the watcher does
+that), changing an existing app.
+
 ## 7. Success metrics (from M2 onward)
 
 These cannot be measured until PR Buddy reviews real pull requests.

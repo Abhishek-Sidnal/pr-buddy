@@ -283,18 +283,22 @@ secret that is not its own.
 
 Design: [DESIGN-OPERATIONS.md](DESIGN-OPERATIONS.md).
 
-| #   | Threat                                                         | Control                                                                                                         | Where                          |
-| --- | -------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------- | ------------------------------ |
-| O1  | The server is lost and the history and keys with it            | A nightly dump is copied to a bucket elsewhere; a restore from the bucket has been carried out                  | `deploy/backup.sh`             |
-| O2  | A stolen backup reveals customers' AI keys                     | Keys are encrypted in the database; the master key is not in the backup and is kept separately                  | `deploy/backup.sh`, D-086      |
-| O3  | Whoever takes over the server deletes or reads the backups     | The server's credential may only write objects and publish alerts; the bucket keeps versions                    | Bucket and credential policy   |
-| O4  | A backup that cannot be restored goes unnoticed                | Each dump is listed with `pg_restore` before it is kept; a failed run alerts; the watcher alerts on a stale one | `deploy/backup.sh`, `watch.sh` |
-| O5  | The service fails and nobody knows                             | A watcher checks reachability, containers, certificate, disk, backups and failed reviews, and alerts on change  | `deploy/watch.sh`              |
-| O6  | An alert leaks what was reviewed                               | A message names the site and the failing checks only                                                            | `deploy/watch.sh`              |
-| O7  | The server is down and so is its watcher                       | Documented: an alarm outside the server is needed; the example deployment uses its provider's                   | `docs/DEPLOYMENT.md`           |
-| O8  | One installation takes the whole review queue                  | The next job is chosen across installations; one installation's waiting reviews are capped                      | `review-queue.ts`, D-089       |
-| O9  | An operator's contact or link becomes a script or another site | Each is checked against a pattern when configured and again in the browser; links are `https://` only           | `config/env.ts`, `web/`        |
-| O10 | The privacy page promises what the software does not do        | Its software statements are fixed text reviewed with the code; operator statements come only from settings      | `web/src/pages/privacy.tsx`    |
+| #   | Threat                                                                 | Control                                                                                                                                    | Where                          |
+| --- | ---------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------ |
+| O1  | The server is lost and the history and keys with it                    | A nightly dump is copied to a bucket elsewhere; a restore from the bucket has been carried out                                             | `deploy/backup.sh`             |
+| O2  | A stolen backup reveals customers' AI keys                             | Keys are encrypted in the database; the master key is not in the backup and is kept separately                                             | `deploy/backup.sh`, D-086      |
+| O3  | Whoever takes over the server deletes or reads the backups             | The server's credential may only write objects and publish alerts; the bucket keeps versions                                               | Bucket and credential policy   |
+| O4  | A backup that cannot be restored goes unnoticed                        | Each dump is listed with `pg_restore` before it is kept; a failed run alerts; the watcher alerts on a stale one                            | `deploy/backup.sh`, `watch.sh` |
+| O5  | The service fails and nobody knows                                     | A watcher checks reachability, containers, certificate, disk, backups and failed reviews, and alerts on change                             | `deploy/watch.sh`              |
+| O6  | An alert leaks what was reviewed                                       | A message names the site and the failing checks only                                                                                       | `deploy/watch.sh`              |
+| O7  | The server is down and so is its watcher                               | Documented: an alarm outside the server is needed; the example deployment uses its provider's                                              | `docs/DEPLOYMENT.md`           |
+| O8  | One installation takes the whole review queue                          | The next job is chosen across installations; one installation's waiting reviews are capped                                                 | `review-queue.ts`, D-089       |
+| O9  | An operator's contact or link becomes a script or another site         | Each is checked against a pattern when configured and again in the browser; links are `https://` only                                      | `config/env.ts`, `web/`        |
+| O10 | The privacy page promises what the software does not do                | Its software statements are fixed text reviewed with the code; operator statements come only from settings                                 | `web/src/pages/privacy.tsx`    |
+| O11 | Someone who is not the operator reads figures about every installation | The route checks the session's GitHub user ID against a configured list and answers `404` otherwise; without the list it is not registered | `api/modules/operator/`        |
+| O12 | A stolen operator session reveals customers' work                      | The view holds account names and counts only: no repository, pull request, finding, file path, login or key                                | `operator-store.ts`            |
+| O13 | The queries that cross installations are reused where they must not be | They are in a store of their own that only the operator router receives                                                                    | `api/app.ts`                   |
+| O14 | Registering an app leaks its secrets or is hijacked by another page    | The command checks a random state, talks to GitHub over HTTPS, writes the credentials to a file readable by its owner and prints none      | `api/src/cli/register-app.ts`  |
 
 ### Known limits
 
