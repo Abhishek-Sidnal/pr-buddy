@@ -905,6 +905,29 @@ committed with one click.
 **Why.** A suggestion is code written by a model and applied by a person in a hurry. It needs
 its own design: formatting, checking it against the diff, and publishing it exactly once.
 
+### D-109 — A gate on cost never stops the rules
+
+**Status: accepted on 2026-10-11, while building phase 1.**
+**Decision.** Closed, draft and "this commit was already reviewed" end a run. "Too large" and
+"a small re-push" end only the request to a model. The deterministic rules run on every open,
+ready pull request at a new commit.
+**Why.** The first design let a small re-push end the whole run. The rules cost nothing, and a
+push of ten lines is exactly the one that removes a committed credential: the comment would
+have kept accusing a pull request that had been fixed.
+**Cost.** A rules-only run on every push. In phase 1 the re-push gate is measured and reported
+and changes nothing, since no model is asked yet.
+
+### D-110 — One function reads the configuration for both modes
+
+**Status: accepted on 2026-10-11, while building phase 1.**
+**Decision.** `parseRepositoryConfiguration`, in `packages/ai-reviewer`, turns the file at the
+base commit into rules, the AI setting and the mode. The service and the Action both call it.
+A file wrong in any part yields the defaults: hosted mode, no AI.
+**Why.** D-105 depends on the two sides agreeing. Two implementations of "is this file valid"
+would drift, and the first difference would be a pull request with two reviewers or none.
+**Cost.** The function lives in the AI package, the only one that already knew both the engine
+and the `ai` section. Its name is not the obvious place to look for the review mode.
+
 ## 3. Glossary
 
 | Term       | Meaning                                                                                 |

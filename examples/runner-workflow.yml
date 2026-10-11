@@ -1,0 +1,34 @@
+# PR Buddy in runner mode: reviews each pull request with PR Buddy's rules, inside this
+# repository's own CI. Copy to .github/workflows/pr-buddy.yml.
+#
+# It does nothing until the DEFAULT branch has .github/pr-buddy.json with:
+#   { "review": { "mode": "runner" } }
+# Guide: docs/RUNNER.md
+
+name: PR Buddy
+
+on:
+  # Never pull_request_target: it would hand this repository's secrets to code from a fork.
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+
+# The least that works. Nothing here can push, merge or change settings.
+permissions:
+  contents: read
+  pull-requests: write
+
+# A newer push replaces an older run of the same pull request.
+concurrency:
+  group: pr-buddy-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  review:
+    name: Review
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      # Pin a full commit SHA, so that the code that runs is the code you looked at.
+      # No checkout is needed: PR Buddy reads the pull request through GitHub's API and runs
+      # nothing from it.
+      - uses: Abhishek-Sidnal/pr-buddy@<full commit SHA>

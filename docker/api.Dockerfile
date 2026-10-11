@@ -10,6 +10,7 @@ COPY packages/review-engine/package.json packages/review-engine/
 COPY packages/ai-reviewer/package.json packages/ai-reviewer/
 COPY packages/github-client/package.json packages/github-client/
 COPY apps/api/package.json apps/api/
+COPY apps/runner/package.json apps/runner/
 COPY apps/web/package.json apps/web/
 RUN npm ci
 

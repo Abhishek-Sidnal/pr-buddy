@@ -33,6 +33,7 @@ docker compose run --rm dev npm test -w @pr-buddy/api -- tests/unit/review.servi
 ```
 
 Workspace names: `@pr-buddy/review-engine`, `@pr-buddy/ai-reviewer`, `@pr-buddy/github-client`,
+`@pr-buddy/runner`,
 `@pr-buddy/api`, `@pr-buddy/web`.
 
 Run the API itself (needs `.env`, see `docs/GITHUB_APP.md`):
@@ -63,12 +64,12 @@ Things that will trip you up:
 
 ## Architecture
 
-Five workspaces with one-way dependencies. `apps/web` depends on none of the others: it talks to
+Six workspaces with one-way dependencies. `apps/web` depends on none of the others: it talks to
 the API over HTTP and is served by it as static files.
 
 ```
-apps/api ──► packages/github-client ──► packages/review-engine
-    └──────► packages/ai-reviewer ─────►┘
+apps/api ────┬──► packages/github-client ──► packages/review-engine
+apps/runner ─┴──► packages/ai-reviewer ─────►┘
 ```
 
 - **`review-engine`** is pure. It takes a `ReviewContext` (pull request metadata plus changed
@@ -90,6 +91,9 @@ apps/api ──► packages/github-client ──► packages/review-engine
 - In **`api`**, `modules/auth` holds sign-in and sessions, `modules/history` the read API, and
   `modules/web` serves the built dashboard. All three exist only when the dashboard is configured.
   `modules/ai-keys` stores an installation's own AI key and exists only with a master key.
+- **`apps/runner`** is PR Buddy as a GitHub Action (`action.yml`, `docker/runner.Dockerfile`): the
+  same rules, in a repository's own CI, with the workflow's token. `main.ts` is its only file that
+  reads the environment. It asks no AI model yet. It depends on nothing in `apps/api`.
 - **`github-client`** is the only package that knows GitHub: signature verification, event
   parsing, the `RepositoryClient` interface and its Octokit implementation, mapping GitHub files
   to engine input, and rendering and publishing the summary comment.
@@ -106,7 +110,7 @@ or updates the comment.
 
 ## Invariants
 
-These are design decisions with reasons recorded in `docs/BRAIN.md` (D-001 to D-108; D-096 onward are for runner mode, which is designed in `docs/DESIGN-RUNNER.md` and not built). Read the
+These are design decisions with reasons recorded in `docs/BRAIN.md` (D-001 to D-110; D-096 onward are for runner mode, `docs/DESIGN-RUNNER.md`, of which phase 1 is built). Read the
 relevant entry before changing one.
 
 - A webhook body is only a trigger. What gets reviewed is fetched from the API.
@@ -152,6 +156,13 @@ relevant entry before changing one.
   counts, never a repository name, pull request, finding, file path, login or key (D-092, D-093).
 - `cli/register-app.ts` is a second entry point. It never prints a secret, and the pages it
   serves never contain one (D-094).
+- A repository has one reviewer. `review.mode` in its configuration, read at the base commit
+  through `parseRepositoryConfiguration` on both sides, says which; a file wrong in any part
+  means hosted. The service skips `runner`; the Action reviews only on a valid `runner` and does
+  nothing when it cannot tell (D-105, D-110).
+- In the Action: never `pull_request_target`; nothing from a pull request is executed; a gate on
+  cost never stops the rules (D-109); only comments with PR Buddy's marker written by the
+  workflow's own identity are changed (D-102).
 - Every queued review carries its installation. The queue is shared fairly between
   installations and one installation's waiting reviews are capped (D-089).
 - Backups and alerts are scripts in `deploy/`, not part of the API. A backup never contains

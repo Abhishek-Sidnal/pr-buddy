@@ -1,0 +1,20 @@
+name: PR Buddy
+description: >-
+  Reviews a pull request with PR Buddy's deterministic rules, inside the repository's own CI.
+  It posts one summary comment and never approves, blocks or merges.
+author: PR Buddy contributors
+branding:
+  icon: check-square
+  color: green
+
+inputs:
+  github-token:
+    description: >-
+      The workflow's own token. It needs "pull-requests: write" to comment and "contents: read"
+      to read .github/pr-buddy.json at the base commit. Nothing else.
+    required: false
+    default: ${{ github.token }}
+
+runs:
+  using: docker
+  image: docker/runner.Dockerfile
