@@ -26,6 +26,9 @@ change behaviour or configuration; such changes are listed under "Upgrade notes"
   own AI key. GitHub refuses the question PR Buddy asks unless the app has the organisation
   permission **Members: read**. The registration command now requests it, the guide lists it,
   and a failed owner check is logged with its reason.
+- `register-app` checks that it can write the environment file before it asks GitHub for
+  anything, and says why when a registration fails. Before, a file it could not read was
+  noticed only after GitHub had created the app.
 
 ### Upgrade notes
 

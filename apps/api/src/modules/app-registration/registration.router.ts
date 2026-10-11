@@ -15,8 +15,11 @@ export interface RegistrationDependencies {
   readonly needsFilePath: boolean;
   /** Called once with the credentials GitHub returned. It stores them; it must not print them. */
   readonly onRegistered: (credentials: AppCredentials) => Promise<void>;
-  /** Called after the last page was sent, whether the registration worked or not. */
-  readonly onFinished: (outcome: "registered" | "failed") => void;
+  /**
+   * Called after the last page was sent, whether the registration worked or not. A failure
+   * comes with why, in words that hold no part of a credential.
+   */
+  readonly onFinished: (outcome: "registered" | "failed", failure?: string) => void;
   /** Replaces the global `fetch`; used by tests. */
   readonly fetch?: typeof fetch;
 }
@@ -133,33 +136,58 @@ export function createRegistrationRouter(dependencies: RegistrationDependencies)
     }
     isUsed = true;
 
-    let credentials: AppCredentials;
-    try {
-      const reply = await send(`${GITHUB_API_URL}/app-manifests/${code}/conversions`, {
-        method: "POST",
-        headers: { accept: "application/vnd.github+json", "x-github-api-version": "2022-11-28" },
-        signal: AbortSignal.timeout(EXCHANGE_TIMEOUT_MS),
-      });
-      if (!reply.ok) {
-        throw new Error(`GitHub answered ${reply.status}.`);
+    // Why it failed is said in words made here: a status, the names of fields, an error code.
+    // Never anything GitHub returned, which could be part of a credential.
+    const exchange = async (): Promise<AppCredentials | { readonly failure: string }> => {
+      let reply: Response;
+      try {
+        reply = await send(`${GITHUB_API_URL}/app-manifests/${code}/conversions`, {
+          method: "POST",
+          headers: { accept: "application/vnd.github+json", "x-github-api-version": "2022-11-28" },
+          signal: AbortSignal.timeout(EXCHANGE_TIMEOUT_MS),
+        });
+      } catch {
+        return { failure: "GitHub could not be reached to fetch the credentials" };
       }
-      credentials = appCredentialsSchema.parse(await reply.json());
-      await onRegistered(credentials);
-    } catch {
-      // The reason is not shown: it could carry part of what GitHub returned.
+      if (!reply.ok) {
+        return {
+          failure: `GitHub answered ${String(reply.status)} when asked for the credentials`,
+        };
+      }
+      const parsed = appCredentialsSchema.safeParse(await reply.json().catch(() => undefined));
+      if (!parsed.success) {
+        const fields = [
+          ...new Set(parsed.error.issues.map((issue) => String(issue.path[0] ?? "answer"))),
+        ];
+        return {
+          failure: `GitHub's answer was not in the expected form (${fields.join(", ")})`,
+        };
+      }
+      try {
+        await onRegistered(parsed.data);
+      } catch (error) {
+        const code = (error as { code?: unknown } | null)?.code;
+        const kind = typeof code === "string" && /^[A-Z0-9_]{1,40}$/.test(code) ? code : "error";
+        return { failure: `the credentials could not be written to the file (${kind})` };
+      }
+      return parsed.data;
+    };
+
+    const outcome = await exchange();
+    if ("failure" in outcome) {
       response
         .status(BAD_GATEWAY)
         .type("html")
         .send(
           page(
             "Not registered",
-            "<p>GitHub created the app, but its credentials could not be fetched or stored. Nothing was saved. Delete the app on GitHub and run the command again.</p>",
+            `<p>GitHub created the app, but ${escapeHtml(outcome.failure)}. Nothing was saved. Delete the app on GitHub and run the command again.</p>`,
           ),
         );
-      onFinished("failed");
+      onFinished("failed", outcome.failure);
       return;
     }
-
+    const credentials = outcome;
     const installUrl = `https://github.com/apps/${credentials.slug}/installations/new`;
     const permissionsUrl = `https://github.com/settings/apps/${credentials.slug}/permissions`;
     response.type("html").send(

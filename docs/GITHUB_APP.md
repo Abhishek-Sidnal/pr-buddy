@@ -71,7 +71,7 @@ Sections 2 and 3 can be done by one command, which sends GitHub a description of
 writes the credentials GitHub returns into `.env`:
 
 ```bash
-docker compose run --rm -p 127.0.0.1:3999:3999 dev sh -c \
+docker compose run --rm --user 0 -p 127.0.0.1:3999:3999 dev sh -c \
   'npm run build -w @pr-buddy/api && npm run register-app -w @pr-buddy/api -- \
      --webhook-url https://smee.io/YOUR_CHANNEL --name pr-buddy-yourname --write-to /workspace/.env'
 ```
@@ -86,6 +86,12 @@ addresses for the dashboard, and keeps the app private unless you pass `--public
 `.env` is kept beside the new one as `.env.before-register-app`. No secret is printed or shown
 in the browser. `--help` lists the options; `--contents` asks to read all code in place of the
 single file, and grants more.
+
+The command checks that it can write the file before it asks GitHub for anything. `--user 0`
+is there because the dev container otherwise runs as a user who may not read an `.env` that
+only its owner can read. If the last page says the app is "Not registered", it also says why;
+delete the half-made app under **Developer settings → GitHub Apps** before trying again,
+because its name is then taken.
 
 **An app of your own for development.** A GitHub App sends its webhooks to one address. If the
 app you registered serves a public deployment, your own machine receives nothing. Register a
