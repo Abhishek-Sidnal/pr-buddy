@@ -30,24 +30,48 @@ accepted and are kept as history.
 | 2026-10-10 | Clean export of commit `6929d67` in a fresh `node:24-alpine` container: `npm ci`, `npm run check`, audit, signatures, pin check | Passed: 1,448 tests; 0 vulnerabilities; 358 signatures verified |
 | 2026-10-10 | `docker compose run --rm dev npm audit --omit=dev` | 0 vulnerabilities |
 
-## Milestone 7 — runner mode (proposed)
+## Milestone 7 — runner mode
 
-Design: [DESIGN-RUNNER.md](DESIGN-RUNNER.md). Decisions D-096 to D-104, all proposed. Threats R1
-to R12. **Nothing is built.** The design waits for the maintainer to confirm the five decisions
-in its section 13.
+Design: [DESIGN-RUNNER.md](DESIGN-RUNNER.md). Decisions D-096 to D-108, accepted on 2026-10-11.
+Threats R1 to R17. **No Action exists.** Only phase 0 is done.
 
-| Part | Delivers                                                                          | Status |
-| ---- | --------------------------------------------------------------------------------- | ------ |
-| 0    | The design, and the five decisions confirmed                                      | 🟡     |
-| 1    | The Action: gates, rules, the summary comment, the mode switch. No AI             | ⬜     |
-| 2    | Tool use for the providers; the read-only tools; one-pass deep review; the filter | ⬜     |
-| 3    | Depth by size: specialists and a lead. Re-reviews that track earlier findings     | ⬜     |
-| 4    | Reporting to a service; tokens, cost and usage in the dashboard                   | ⬜     |
-| 5    | AI line comments and suggested changes                                            | ⬜     |
-| 6    | Notifications to chat, and a measure of how often findings are acted on           | ⬜     |
+| Phase | Delivers                                                        | Status |
+| ----- | --------------------------------------------------------------- | ------ |
+| 0     | The design, the decisions, the threats                          | 🟡     |
+| 1     | The Action without AI: mode, gates, rules, summary, job summary | ⬜     |
+| 2     | The three tools, read evidence, the tool loop, one reviewer     | ⬜     |
+| 3     | Specialists and a lead; re-reviews                              | ⬜     |
+| 4     | Optional reporting to a service; then usage views               | ⬜     |
+| 5     | AI line comments, off by default                                | ⬜     |
+| 6     | Optional notifications; a measure of findings acted on          | ⬜     |
+
+A phase starts only when the one before it has passed its gate (DESIGN-RUNNER.md, section 18).
+
+### Phase 0 — design and security baseline
+
+Documents only. Waiting for the maintainer's review of the reconciled design.
+
+| Task                                                                        | Status |
+| --------------------------------------------------------------------------- | ------ |
+| The five decisions recorded, and the four that followed from the review     | ✅     |
+| Trust boundaries, permissions per phase, fork behaviour                     | ✅     |
+| Mode exclusivity on both sides, and what an invalid or unreadable file does | ✅     |
+| Limits, provider compatibility, idempotency, failure modes                  | ✅     |
+| Phases with acceptance gates                                                | ✅     |
+| The release checks of decision 5, as found                                  | ✅     |
+| Reviewed by the maintainer                                                  | ⬜     |
+
+| Check                                  | Result                                                                                                                                                                                                                                                  |
+| -------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Formatting                             | `npm run format:check` passed. There is no other check for documents                                                                                                                                                                                    |
+| Cross-references                       | Checked by hand: every decision, threat and requirement named in one document exists in the others                                                                                                                                                      |
+| Release checks, as found on 2026-10-11 | The repository is public. `LICENSE` holds the MIT text; GitHub's license detection reported none. `SECURITY.md` sends reports to GitHub's private reporting, which is **turned off**, so that route does not work. The code of conduct names no contact |
+| Unsupported claims left in the design  | Tool calling is "documented" for each provider's API; none has been tried by PR Buddy. The limits have no numbers yet; each gets one in the phase that builds it                                                                                        |
+| Still open                             | `review.mode` is not in the configuration schema yet: it arrives with phase 1, on both sides at once                                                                                                                                                    |
 
 Where the ideas come from: a reviewer the maintainer built for an organisation, which runs in
-CI with a full checkout. Only its design is reused; no code is taken from it.
+CI with a full checkout. Only its design is reused. No source, prompt, rule or configuration is
+taken from it.
 
 ## Milestone 6 — running it day to day
 
