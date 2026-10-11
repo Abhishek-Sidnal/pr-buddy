@@ -23,6 +23,8 @@ export interface SummaryNotes {
   readonly configurationPath: string;
   /** Present when an AI model was asked about this pull request. */
   readonly ai?: AiSummary;
+  /** Further notes from the caller. Fixed text only: it is published as it is. */
+  readonly extraNotes?: readonly string[];
 }
 
 /** What an AI model contributed to a review. Its findings are shown apart from the rules'. */
@@ -35,6 +37,13 @@ export interface AiSummary {
   readonly findings: readonly ReviewFinding[];
   /** Changed files that were not sent to the model. */
   readonly omittedFileCount: number;
+  /**
+   * What the model could read: the diff alone, as in the hosted service, or the repository's
+   * checkout through read-only tools, as in runner mode. Defaults to the diff.
+   */
+  readonly source?: "diff" | "checkout";
+  /** True when a limit ended the model's reading before it said it was done. */
+  readonly isStoppedEarly?: boolean;
 }
 
 function plural(count: number, singular: string, pluralForm = `${singular}s`): string {
@@ -120,6 +129,14 @@ function renderNotes(result: ReviewResult, notes: SummaryNotes): string[] {
       `- ${capitalize(plural(notes.ai.omittedFileCount, "file"))} ${notes.ai.omittedFileCount === 1 ? "was" : "were"} not sent to the AI model because of ${notes.ai.omittedFileCount === 1 ? "its" : "their"} type or size.`,
     );
   }
+  if (notes.ai?.isStoppedEarly === true && !notes.ai.isFailed) {
+    lines.push(
+      "- The AI review reached a limit on how much it may read and stopped early, so it may have missed something.",
+    );
+  }
+  for (const note of notes.extraNotes ?? []) {
+    lines.push(`- ${note}`);
+  }
   if (notes.configurationIssues.length > 0) {
     lines.push(
       `- The configuration in ${inlineCode(notes.configurationPath)} is invalid, so default settings were used:`,
@@ -182,7 +199,7 @@ export function renderReviewSummary(result: ReviewResult, notes: SummaryNotes): 
   if (ai !== undefined && ai.findings.length > 0) {
     sections.push(
       "## AI suggestions",
-      `_${capitalize(plural(ai.findings.length, "suggestion"))} written by an AI model (${inlineCode(ai.model)}) from this pull request's diff. They are not verified and may be wrong: check each one before acting on it._`,
+      `_${capitalize(plural(ai.findings.length, "suggestion"))} written by an AI model (${inlineCode(ai.model)}) from ${ai.source === "checkout" ? "this pull request and the files of the repository it read" : "this pull request's diff"}. They are not verified and may be wrong: check each one before acting on it._`,
     );
     appendFindings(sections, ai.findings, remaining, "suggestion");
   }

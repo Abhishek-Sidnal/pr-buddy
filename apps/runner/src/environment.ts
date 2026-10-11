@@ -1,3 +1,4 @@
+import { providerSettingsSchema, type ProviderSettings } from "@pr-buddy/ai-reviewer";
 import { z } from "zod";
 import { MAX_EVENT_BYTES } from "./limits.js";
 
@@ -10,12 +11,61 @@ export interface RunnerEnvironment {
   readonly pullRequestNumber: number;
   /** Where GitHub collects a job's summary; absent outside GitHub Actions. */
   readonly summaryPath: string | undefined;
+  /** Where the workflow checked the repository out, if it did. */
+  readonly workspacePath: string | undefined;
+  readonly ai: AiInputs;
 }
 
 export type EnvironmentResult =
   | { readonly ok: true; readonly environment: RunnerEnvironment }
   /** `problem` is fixed text that holds no value from the environment. */
   | { readonly ok: false; readonly problem: string };
+
+/** What the workflow said about an AI provider. */
+export type AiInputs =
+  /** Nothing: the rules run alone. A fork's pull request is always here, having no secrets. */
+  | { readonly kind: "none" }
+  | { readonly kind: "configured"; readonly settings: ProviderSettings }
+  /** `fields` names the inputs that are wrong. It never holds a value. */
+  | { readonly kind: "invalid"; readonly fields: readonly string[] };
+
+/** The Action's inputs for a provider, by the setting each one fills. */
+const AI_INPUTS = {
+  provider: "INPUT_AI-PROVIDER",
+  model: "INPUT_AI-MODEL",
+  apiKey: "INPUT_AI-API-KEY",
+  baseUrl: "INPUT_AI-BASE-URL",
+  region: "INPUT_AWS-REGION",
+  accessKeyId: "INPUT_AWS-ACCESS-KEY-ID",
+  secretAccessKey: "INPUT_AWS-SECRET-ACCESS-KEY",
+  sessionToken: "INPUT_AWS-SESSION-TOKEN",
+} as const;
+
+/**
+ * Reads the provider from the Action's inputs. An input left empty is an input not given: that
+ * is what a secret that does not exist looks like, as in a fork's pull request.
+ */
+export function readAiInputs(variables: Readonly<Record<string, string | undefined>>): AiInputs {
+  const given = Object.fromEntries(
+    Object.entries(AI_INPUTS)
+      .map(([setting, name]) => [setting, variables[name]] as const)
+      .filter(([, value]) => value !== undefined && value !== ""),
+  );
+  if (given["provider"] === undefined) {
+    return { kind: "none" };
+  }
+  const parsed = providerSettingsSchema.safeParse(given);
+  if (parsed.success) {
+    return { kind: "configured", settings: parsed.data };
+  }
+  const fields = parsed.error.issues.map((issue) => {
+    const setting = String(issue.path[0]);
+    return setting in AI_INPUTS
+      ? AI_INPUTS[setting as keyof typeof AI_INPUTS].slice("INPUT_".length).toLowerCase()
+      : "ai-provider";
+  });
+  return { kind: "invalid", fields: [...new Set(fields)].sort() };
+}
 
 /** How an input named `github-token` reaches a container action. */
 const TOKEN_INPUT = "INPUT_GITHUB-TOKEN";
@@ -91,6 +141,8 @@ export function readEnvironment(
       repo,
       pullRequestNumber: parsed.data.pull_request.number,
       summaryPath: summaryPath === undefined || summaryPath === "" ? undefined : summaryPath,
+      workspacePath: variables["GITHUB_WORKSPACE"],
+      ai: readAiInputs(variables),
     },
   };
 }
