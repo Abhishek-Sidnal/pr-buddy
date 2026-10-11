@@ -93,7 +93,8 @@ apps/runner ─┴──► packages/ai-reviewer ─────►┘
   `modules/ai-keys` stores an installation's own AI key and exists only with a master key.
 - **`apps/runner`** is PR Buddy as a GitHub Action (`action.yml`, the root `Dockerfile`): the
   same rules, in a repository's own CI, with the workflow's token. `main.ts` is its only file that
-  reads the environment. It asks no AI model yet. It depends on nothing in `apps/api`.
+  reads the environment. It asks no AI model yet; `src/tools` holds the read-only tools a model
+  will get in phase 2. It depends on nothing in `apps/api`.
 - **`github-client`** is the only package that knows GitHub: signature verification, event
   parsing, the `RepositoryClient` interface and its Octokit implementation, mapping GitHub files
   to engine input, and rendering and publishing the summary comment.
@@ -110,7 +111,7 @@ or updates the comment.
 
 ## Invariants
 
-These are design decisions with reasons recorded in `docs/BRAIN.md` (D-001 to D-110; D-096 onward are for runner mode, `docs/DESIGN-RUNNER.md`, of which phase 1 is built). Read the
+These are design decisions with reasons recorded in `docs/BRAIN.md` (D-001 to D-115; D-096 onward are for runner mode, `docs/DESIGN-RUNNER.md`, of which phase 1 and the tools of phase 2 are built). Read the
 relevant entry before changing one.
 
 - A webhook body is only a trigger. What gets reviewed is fetched from the API.
@@ -163,6 +164,10 @@ relevant entry before changing one.
 - In the Action: never `pull_request_target`; nothing from a pull request is executed; a gate on
   cost never stops the rules (D-109); only comments with PR Buddy's marker written by the
   workflow's own identity are changed (D-102).
+- The runner's tools (`apps/runner/src/tools`) only read, and only inside the checkout. Every
+  path goes through `resolveInCheckout`: no `..`, no symbolic link wherever it points, nothing
+  under `.git`, nothing `isNeverSentPath` names (D-113, D-115). A line is recorded as read only
+  when it was returned. Code that reads files for a model stays out of the packages (D-114).
 - Every queued review carries its installation. The queue is shared fairly between
   installations and one installation's waiting reviews are capped (D-089).
 - Backups and alerts are scripts in `deploy/`, not part of the API. A backup never contains

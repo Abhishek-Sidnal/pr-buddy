@@ -20,6 +20,7 @@ The one current figure. Counts in the sections below are what was true when each
 accepted and are kept as history.
 
 | Date | Command | Result |
+| 2026-10-11 | `docker compose run --rm dev npm run check` | Passed: 2,204 tests (engine 474, AI reviewer 211, GitHub client 284, runner 213, API 739, web 283) |
 | 2026-10-11 | `docker compose run --rm dev npm run check` | Passed: 2,094 tests (engine 474, AI reviewer 211, GitHub client 284, runner 103, API 739, web 283) |
 | 2026-10-11 | `docker compose run --rm dev npm run check` | Passed: 1,938 tests (engine 474, AI reviewer 186, GitHub client 266, API 729, web 283) |
 | 2026-10-11 | `docker compose run --rm dev npm run check` | Passed: 1,926 tests (engine 474, AI reviewer 186, GitHub client 266, API 717, web 283) |
@@ -34,19 +35,20 @@ accepted and are kept as history.
 ## Milestone 7 — runner mode
 
 Design: [DESIGN-RUNNER.md](DESIGN-RUNNER.md). Decisions D-096 to D-108, accepted on 2026-10-11.
-Threats R1 to R17. Phase 0 is done; phase 1 is built and waits for its acceptance gate.
+Threats R1 to R17. Phase 1 is released in `v0.4.0`; phase 2 has started (D-111 to D-115).
 
 | Phase | Delivers                                                        | Status |
 | ----- | --------------------------------------------------------------- | ------ |
-| 0     | The design, the decisions, the threats                          | 🟡     |
-| 1     | The Action without AI: mode, gates, rules, summary, job summary | ⬜     |
-| 2     | The three tools, read evidence, the tool loop, one reviewer     | ⬜     |
+| 0     | The design, the decisions, the threats                          | ✅     |
+| 1     | The Action without AI: mode, gates, rules, summary, job summary | 🟡     |
+| 2     | The three tools, read evidence, the tool loop, one reviewer     | 🚧     |
 | 3     | Specialists and a lead; re-reviews                              | ⬜     |
 | 4     | Optional reporting to a service; then usage views               | ⬜     |
 | 5     | AI line comments, off by default                                | ⬜     |
 | 6     | Optional notifications; a measure of findings acted on          | ⬜     |
 
 A phase starts only when the one before it has passed its gate (DESIGN-RUNNER.md, section 18).
+Phase 2 is the recorded exception: it started with two items of phase 1's gate unseen (D-111).
 
 ### Phase 0 — design and security baseline
 
@@ -112,6 +114,38 @@ failed. The Action's Dockerfile is at the repository root for that reason.
 | A service that has not been upgraded               | Seen, and it is a hazard: the public deployment, still on the previous version, does not know `review.mode`, called the file invalid and reviewed the runner-mode pull requests as well. A service must be upgraded before a repository selects runner mode |
 | The pull_request_target refusal in a real workflow | Checked in the built image and in CI, not in a workflow of that kind                                                                                                                                                                                        |
 | Size limits on a very large pull request           | Covered by tests only                                                                                                                                                                                                                                       |
+
+### Phase 2 — AI review with read-only tools
+
+Started on 2026-10-11 on the maintainer's instruction, with the two "not verified" rows above
+still open (D-111). Delivered as three changes (DESIGN-RUNNER.md, section 18).
+
+| Task                                                                           | Change | Status |
+| ------------------------------------------------------------------------------ | ------ | ------ |
+| The design in numbers: the checkout, how a path is checked, every tool's limit | 2a     | ✅     |
+| The checkout is opened only at the head commit, read from `.git/HEAD`          | 2a     | ✅     |
+| `read_file`, `search`, `list_files`, confined to the checkout                  | 2a     | ✅     |
+| The read record, and the budget for tool output                                | 2a     | ✅     |
+| One never-sent policy for the prompt and the tools                             | 2a     | ✅     |
+| Tool calling in each provider's adapter                                        | 2b     | ⬜     |
+| The tool loop: steps, tokens, time                                             | 2b     | ⬜     |
+| One reviewer, the filter, the Action's inputs, the comment and job summary     | 2c     | ⬜     |
+| Real requests to providers; a real workflow with a checkout                    | 2c     | ⬜     |
+
+Change 2a, checked by tests against a real file system in the development container:
+
+| Threat | What the tests try                                                                                                                       |
+| ------ | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| R4     | `..`, absolute paths, `.git`, credential names in any capitals, lockfiles; a link to a file outside, to one inside, and through a folder |
+| R5     | A text that would be a slow pattern is compared literally; each of `search`'s four limits is reached                                     |
+| R12    | With a canary in the process's environment, a link to `/proc/self/environ` and `/proc/self` returns a refusal and never the canary       |
+| R14    | The limits per line, per answer and per review; a line is recorded as read only if the answer that carried it fitted the review's budget |
+
+| Not verified in 2a                              | Why                                                                                        |
+| ----------------------------------------------- | ------------------------------------------------------------------------------------------ |
+| Anything in a real workflow                     | Nothing calls the tools yet; a run behaves as in `v0.4.0`                                  |
+| That `actions/checkout` leaves a commit in HEAD | Taken from its documentation. It is the first thing change 2c tries on a real repository   |
+| A checkout on a file system that ignores case   | The Action runs on Linux only. Names are compared in lower case as a precaution, by a test |
 
 Where the ideas come from: a reviewer the maintainer built for an organisation, which runs in
 CI with a full checkout. Only its design is reused. No source, prompt, rule or configuration is

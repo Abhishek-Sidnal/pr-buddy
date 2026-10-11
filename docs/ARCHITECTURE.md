@@ -222,7 +222,15 @@ apps/runner/src/
 ├── gates.ts         Closed, draft, same commit; how much a push changed
 ├── markers.ts       The hidden line that names the reviewed commit
 ├── job-summary.ts   What a run did, for the job's page
-└── limits.ts        Named sizes and thresholds
+├── limits.ts        Named sizes and thresholds
+└── tools/           Phase 2: what a model may read of the checkout. Not called yet
+    ├── checkout.ts        Opens the checkout at the head commit; checks every path
+    ├── read-file.ts       `read_file`
+    ├── search.ts          `search`, a literal text
+    ├── list-files.ts      `list_files`
+    ├── read-record.ts     Which lines were returned to the model
+    ├── tool-context.ts    The budget for tool output; what the tools share
+    └── checkout-tools.ts  The three tools as one set
 action.yml           The Action's definition, at the repository's root
 Dockerfile           Its image, at the root because GitHub builds it with that folder as context
 ```
@@ -232,4 +240,7 @@ it needs no service. Both sides read the repository's configuration through
 `parseRepositoryConfiguration` in `ai-reviewer`, so they cannot disagree about who reviews
 (D-110). `apps/api` knows about runner mode only in that it skips a repository that selects it.
 
-As of phase 1 the runner asks no AI model.
+As of phase 1 the runner asks no AI model. The tools of phase 2 are the only code in PR Buddy
+that reads a file system on behalf of a model, and they live here and not in a package, so that
+the hosted service cannot reach them (D-114). `ai-reviewer` holds the shape of a tool (`AiTool`)
+and the one policy for what never reaches a model (`isNeverSentPath`, D-115).

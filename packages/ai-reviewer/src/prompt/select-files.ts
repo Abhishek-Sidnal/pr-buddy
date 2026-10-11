@@ -1,13 +1,6 @@
-import {
-  CREDENTIAL_FILE_PATTERNS,
-  CREDENTIAL_TEMPLATE_PATTERNS,
-  createPathMatcher,
-  getVisibleLines,
-  LOCKFILE_PATTERNS,
-  type ChangedFile,
-  type VisibleLine,
-} from "@pr-buddy/review-engine";
+import { getVisibleLines, type ChangedFile, type VisibleLine } from "@pr-buddy/review-engine";
 import { MAX_PROMPT_CODE_LENGTH, MAX_PROMPT_FILES, MAX_PROMPT_LINE_LENGTH } from "../limits.js";
+import { isNeverSentPath } from "../never-sent.js";
 
 /** A changed file and the lines of it that are sent to the model. */
 export interface SelectedFile {
@@ -19,15 +12,6 @@ export interface FileSelection {
   readonly selected: readonly SelectedFile[];
   /** Files with changes to review that were left out: by name, or because they did not fit. */
   readonly omittedFileCount: number;
-}
-
-const isCredentialFile = createPathMatcher(CREDENTIAL_FILE_PATTERNS);
-const isCredentialTemplate = createPathMatcher(CREDENTIAL_TEMPLATE_PATTERNS);
-const isLockfile = createPathMatcher(LOCKFILE_PATTERNS);
-
-/** Files that must never be sent, whatever room is left. */
-function isExcludedByName(path: string): boolean {
-  return (isCredentialFile(path) && !isCredentialTemplate(path)) || isLockfile(path);
 }
 
 function shorten(line: VisibleLine): VisibleLine {
@@ -51,7 +35,7 @@ export function selectFiles(files: readonly ChangedFile[]): FileSelection {
     if (file.status === "removed" || file.patch === undefined) {
       continue;
     }
-    if (isExcludedByName(file.path)) {
+    if (isNeverSentPath(file.path)) {
       omittedFileCount += 1;
       continue;
     }

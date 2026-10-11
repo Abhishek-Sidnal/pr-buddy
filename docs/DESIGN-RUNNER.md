@@ -1,13 +1,15 @@
 # Design: runner mode
 
 How PR Buddy can review a pull request with the whole repository in view, without ever holding
-a customer's code. Decisions are in [BRAIN.md](BRAIN.md) (D-096 to D-110); threats and controls
+a customer's code. Decisions are in [BRAIN.md](BRAIN.md) (D-096 to D-115); threats and controls
 in [SECURITY.md](SECURITY.md), section 6G.
 
-**Status on 2026-10-11: phase 1 is built.** The maintainer confirmed the decisions of section 2.
-The Action exists and runs the deterministic rules; it asks no AI model. What was tried on a real
-repository is in [TRACKER.md](TRACKER.md). Phases 2 to 6 are not built, and each waits for the
-gate of the one before (section 18). How to use it: [RUNNER.md](RUNNER.md).
+**Status on 2026-10-11: phase 1 is built and released in `v0.4.0`; phase 2 has started.** The
+Action runs the deterministic rules and asks no AI model. Of phase 2, the three tools and the
+read record exist and are tested; nothing calls them yet, so a run behaves exactly as in phase 1
+(section 18). Phase 2 began on the maintainer's instruction with two items of phase 1's gate
+still unverified (D-111). What was tried on a real repository is in [TRACKER.md](TRACKER.md).
+How to use the Action: [RUNNER.md](RUNNER.md).
 
 ## 1. The problem
 
@@ -126,6 +128,7 @@ that says why.
 | Size          | More files or more diff than the limits allow: the rules run on what fits, AI does not run |
 | Small re-push | A push after a review changed fewer code lines than the threshold: AI does not run (D-109) |
 | No key        | No AI key is available, as for a fork's pull request: rules only                           |
+| No checkout   | There is no checkout, or it is not at the head commit: rules only (section 8.1, D-112)     |
 
 The gates on the pull request's state and on a repeated commit end the run. The gates on size
 and on a small re-push end only the part that costs money: **the rules always run** on a pull
@@ -152,7 +155,9 @@ No other permission is asked for, and none is widened to make a fork's pull requ
 
 **Phase 1 needs no checkout.** The changed files and their diffs come from GitHub's API, as in
 hosted mode, so no contributor code is on the runner at all. From phase 2 the head commit is
-checked out for reading, without stored credentials, and still never executed.
+checked out for reading, without stored credentials, and still never executed. The workflow
+does that with its own step (section 8.1); a repository that leaves the step out keeps the
+rules-only review.
 
 A workflow should also set a concurrency group per pull request, so that a newer push cancels
 an older run instead of racing it to the comment.
@@ -160,7 +165,8 @@ an older run instead of racing it to the comment.
 ## 8. The tools (from phase 2)
 
 The model starts from the diff and may ask for more through three tools, implemented by the
-runner.
+runner in `apps/runner/src/tools`. The hosted service has no tools and is never given any
+(D-114).
 
 | Tool         | Returns                                             | Refuses                               |
 | ------------ | --------------------------------------------------- | ------------------------------------- |
@@ -182,6 +188,56 @@ For **every** call, enforced in code:
 
 When a limit is reached, the review stops, what was verified so far is published, and the
 comment says that it stopped early.
+
+### 8.1 The checkout
+
+The workflow checks the repository out; the Action does not, and runs no `git`. Two things are
+asked of that step:
+
+```yaml
+- uses: actions/checkout@<full commit SHA>
+  with:
+    ref: ${{ github.event.pull_request.head.sha }}
+    persist-credentials: false
+```
+
+- **`ref` must be the head commit.** For a pull request GitHub checks out a merge commit by
+  default. Its line numbers can differ from the head commit's, and the diff, the read record and
+  every finding are in the head commit's numbers.
+- **`persist-credentials: false`** keeps the workflow's token out of `.git/config`. The tools
+  refuse everything under `.git` anyway.
+
+The runner does not take this on trust. It reads `.git/HEAD` as a file and compares it with the
+head commit GitHub's API reports. If there is no checkout, or it is at another commit, **no model
+is asked**: the rules run as in phase 1 and the job summary says why (D-112).
+
+### 8.2 How a path is checked
+
+In this order, by `resolveInCheckout`:
+
+1. Longer than 1,000 characters, or holding a NUL or a backslash: refused.
+2. Starting with `/`, or with a `..` segment anywhere: refused. `..` is not resolved first.
+3. Protected by name: refused. That is anything under a folder named `.git`, and every file the
+   hosted reviewer never sends (`isNeverSentPath`: credential files other than templates, and
+   lockfiles). Names are compared in lower case as well.
+4. Not there: refused.
+5. **A symbolic link, or a path through one: refused, wherever it points** (D-113). The path's
+   real location must be the path itself.
+
+A refusal is fixed text. It never repeats the path, and a tool that refuses records nothing.
+
+`search` and `list_files` walk folders with the same checks: a link is never followed or opened,
+`.git` is never entered, and a protected file is never read. `list_files` shows a protected
+file's name, because a name is not its content; `read_file` then refuses it.
+
+A file larger than 1 MiB, or holding a NUL byte, is not text for a review and is not read.
+
+### 8.3 What counts as read
+
+`read_file` records the lines it returned, and `search` the matching lines it returned.
+`list_files` records nothing. A line is recorded only after the answer that carries it fitted in
+the review's budget, so the record never runs ahead of what the model received. The lines of the
+diff that the prompt carries are added to the same record in the change that builds the reviewer.
 
 ## 9. Depth follows size (phase 3)
 
@@ -248,16 +304,25 @@ this work.
 
 ## 13. Limits
 
-Named constants, as everywhere in PR Buddy. Defaults are set in the phase that introduces each.
+Named constants, as everywhere in PR Buddy (`apps/runner/src/limits.ts`). Each gets its number
+in the phase that builds it.
 
-| Limit                             | Phase | When it is reached                         |
-| --------------------------------- | ----- | ------------------------------------------ |
-| Files and diff size               | 1     | Rules run on what fits; AI does not run    |
-| Small re-push threshold           | 1     | No run                                     |
-| Bytes per file read, per response | 2     | The tool refuses or truncates, and says so |
-| Total tool output in a review     | 2     | The review stops early                     |
-| Steps, tokens, wall-clock time    | 2     | The review stops early                     |
-| Findings, and AI line comments    | 2, 5  | The rest are counted, not published        |
+| Limit                                  | Value         | When it is reached                             |
+| -------------------------------------- | ------------- | ---------------------------------------------- |
+| Files and diff size                    | as hosted     | Rules run on what fits; AI does not run        |
+| Small re-push threshold                | 50 code lines | AI does not run; the rules do (D-109)          |
+| A path given to a tool                 | 1,000 chars   | Refused                                        |
+| A file a tool reads                    | 1 MiB         | Refused; `search` passes over it               |
+| Lines per `read_file` call             | 400           | The rest needs another call                    |
+| Characters kept of one line            | 500           | The line is cut, with a mark                   |
+| One tool answer                        | 40,000 chars  | Fewer lines are returned, and the answer says  |
+| All tool answers of one review         | 400,000 chars | The call is refused and the review stops early |
+| `search`: text length                  | 3 to 200      | Refused                                        |
+| `search`: matches, files, bytes, names | 50, 5,000,    | The search stops and says there may be more    |
+|                                        | 64 MiB, 50k   |                                                |
+| `list_files`: entries                  | 200           | The rest are counted                           |
+| Steps, tokens, wall-clock time         | phase 2b      | The review stops early                         |
+| Findings, and AI line comments         | phases 2c, 5  | The rest are counted, not published            |
 
 The ceiling is in tokens, which every provider reports, not in money, which depends on a price
 PR Buddy does not know.
@@ -333,6 +398,15 @@ own, with its tests, and with the tracker updated in the same change.
 | 4     | Optional reporting to a service; then usage views                       | The endpoint tested for forged, replayed and cross-tenant reports                                                                                                                                                   |
 | 5     | AI line comments, off by default                                        | No duplicate notification across re-runs on a real pull request                                                                                                                                                     |
 | 6     | Optional notifications; a measure of findings acted on                  | To be defined when it is designed                                                                                                                                                                                   |
+
+Phase 2 is delivered as three changes, so that each can be reviewed on its own. Only the last
+one changes what a run does.
+
+| Change | Delivers                                                                   | Status  |
+| ------ | -------------------------------------------------------------------------- | ------- |
+| 2a     | The checkout check, the three tools, the read record, their limits         | Built   |
+| 2b     | Tool calling in each provider's adapter; the bounded tool loop             | Not yet |
+| 2c     | The reviewer, the filter, the Action's inputs, the comment; real providers | Not yet |
 
 For every phase: the full check from a clean checkout, least-privilege permissions verified,
 Actions and images pinned (D-070), a real GitHub workflow exercised, and a record of exactly

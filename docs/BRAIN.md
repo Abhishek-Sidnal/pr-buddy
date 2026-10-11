@@ -928,6 +928,67 @@ would drift, and the first difference would be a pull request with two reviewers
 **Cost.** The function lives in the AI package, the only one that already knew both the engine
 and the `ai` section. Its name is not the obvious place to look for the review mode.
 
+### D-111 — Phase 2 started before two items of phase 1's gate were seen
+
+**Status: the maintainer's instruction on 2026-10-11.**
+**Decision.** Phase 2 began with a fork's pull request and GitHub's rendering of the job summary
+still unverified. Both stay listed as not verified; neither is reported as passed.
+**Why.** Both need the maintainer's hands: a second account, and a look at a page GitHub's API
+does not return. Neither can be changed by phase 2, and the first two changes of phase 2 alter
+nothing a run does.
+**Cost.** A defect in either would be found later than the phases intended. Both must be seen
+before the Action is called generally available (D-107).
+
+### D-112 — The workflow checks out the head commit, and the runner verifies it
+
+**Status: accepted on 2026-10-11, while building phase 2.**
+**Decision.** The Action runs no `git`. The workflow checks out the pull request's head commit
+without stored credentials. The runner reads `.git/HEAD` as a file and asks a model only if it
+names the head commit GitHub's API reports. Otherwise the rules run alone and the summary says
+why.
+**Why.** GitHub's default checkout for a pull request is a merge commit, whose line numbers can
+differ from the head's. A model reading it would cite lines that do not match the diff, and the
+filter could not tell. Running `git` inside the Action would add a program that reads
+configuration from the untrusted checkout.
+**Cost.** Two lines the workflow's author must get right. Getting them wrong costs the AI
+review, never correctness, and the job summary names the cause.
+
+### D-113 — The tools never follow a symbolic link
+
+**Status: accepted on 2026-10-11, while building phase 2.**
+**Decision.** A path whose real location differs from the path itself is refused, whether the
+link points outside the checkout or inside it. Folder walks pass over links without opening
+them.
+**Why.** A link is the one way a file in the checkout can stand for a file outside it: the
+process's environment, which holds the AI key, or the runner's own files. Allowing links that
+stay inside would need the protected-name policy applied to the target as well, and a second
+path for every file in the read record. One rule with no exceptions is easier to test and to
+believe.
+**Cost.** A repository that keeps real source behind links has those files unread by the model.
+The rules, which work from GitHub's diff, are unaffected.
+
+### D-114 — The tools belong to the runner; the hosted service has none
+
+**Status: accepted on 2026-10-11, while building phase 2.**
+**Decision.** `packages/ai-reviewer` defines the shape of a tool (`AiTool`) and nothing that
+touches a file system. The three tools live in `apps/runner`. The hosted reviewer keeps its one
+request with no tools.
+**Why.** The service has no checkout and must never grow one (D-096). Code that reads files, if
+it sat in a shared package, would be one import away from the service.
+**Cost.** The tool loop of change 2b lives in the AI package while its tools live elsewhere, so
+the loop is tested with tools made for the test.
+
+### D-115 — One policy says what never reaches a model
+
+**Status: accepted on 2026-10-11, while building phase 2.**
+**Decision.** `isNeverSentPath`, in `packages/ai-reviewer`, is used by the hosted reviewer when
+it chooses files for a prompt and by the runner's tools before they open one. The tools add what
+only a checkout has: everything under `.git`.
+**Why.** Section 8 of the design asks for one policy in one place. Two lists would drift, and the
+weaker one would be the leak.
+**Cost.** Lockfiles are refused to the tools as well, though they hold no secret: the policy is
+"never sent", not "secret", and a lockfile is as useless to a model in a checkout as in a diff.
+
 ## 3. Glossary
 
 | Term       | Meaning                                                                                 |
