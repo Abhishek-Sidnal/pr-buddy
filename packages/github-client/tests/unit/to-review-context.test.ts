@@ -19,6 +19,7 @@ function buildPullRequest(overrides: Partial<PullRequestSnapshot> = {}): PullReq
     state: "open",
     isDraft: false,
     changedFileCount: 1,
+    isFromFork: false,
     ...overrides,
   };
 }

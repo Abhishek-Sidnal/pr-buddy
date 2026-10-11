@@ -24,6 +24,8 @@ const SKIP_EXPLANATIONS: Readonly<Record<string, string>> = {
   closed: "The pull request was closed or merged before it could be reviewed.",
   stale:
     "A newer commit arrived while this review ran, so its result was not published. That commit has its own review.",
+  runner:
+    "This repository selects runner mode: a GitHub Action reviews its pull requests in its own CI, so the service did not. The result is on the pull request, not here.",
 };
 
 const COMMENT_ACTIONS: Readonly<Record<string, string>> = {

@@ -35,23 +35,55 @@ export interface OctokitClientOptions {
   readonly fetch?: typeof fetch;
 }
 
+/**
+ * Who PR Buddy is on GitHub for one client: the GitHub App, or a workflow's own token. It
+ * decides which comments are "ours". Only those are ever updated or deleted (D-039).
+ */
+interface CommentIdentity {
+  /** Whether a comment on the pull request's conversation was written by this identity. */
+  isOwnIssueComment(comment: IssueCommentAuthor): boolean;
+  /** The login this identity's line comments carry. */
+  getLogin(): Promise<string>;
+}
+
+/** The parts of an issue comment that say who wrote it. */
+interface IssueCommentAuthor {
+  readonly user?: { readonly login: string; readonly type?: string } | null;
+  readonly performed_via_github_app?: { readonly id: number; readonly slug?: string } | null;
+}
+
+/** What a workflow's `GITHUB_TOKEN` writes as. */
+const WORKFLOW_LOGIN = "github-actions[bot]";
+const WORKFLOW_APP_SLUG = "github-actions";
+/** GitHub lists at most this many files when it compares two commits. */
+const MAX_COMPARED_FILES = 300;
+
 function hasStatus(error: unknown, status: number): boolean {
   return (
     typeof error === "object" && error !== null && "status" in error && error.status === status
   );
 }
 
+/**
+ * The repository a pull request's head branch is in. GitHub's own types say it is always there;
+ * it is `null` when that repository, usually a fork, has been deleted.
+ */
+function headRepositoryOf(head: {
+  readonly repo: { readonly full_name: string } | null;
+}): string | undefined {
+  return head.repo?.full_name;
+}
+
 function createRepositoryClient(
   octokit: Octokit,
-  target: RepositoryTarget,
-  appId: number,
+  target: Pick<RepositoryTarget, "owner" | "repo">,
+  identity: CommentIdentity,
   retry: RetryOptions,
-  getBotLogin: () => Promise<string>,
 ): RepositoryClient {
   const { owner, repo } = target;
   const call = <T>(operation: () => Promise<T>): Promise<T> => withRetry(operation, retry);
 
-  return {
+  const client: RepositoryClient = {
     async getPullRequest(pullRequestNumber) {
       const { data } = await call(() =>
         octokit.rest.pulls.get({ owner, repo, pull_number: pullRequestNumber }),
@@ -65,6 +97,8 @@ function createRepositoryClient(
         state: data.state,
         isDraft: data.draft ?? false,
         changedFileCount: data.changed_files,
+        // A head repository that was deleted counts as a fork: nothing may be assumed about it.
+        isFromFork: headRepositoryOf(data.head) !== data.base.repo.full_name,
       };
     },
 
@@ -132,6 +166,10 @@ function createRepositoryClient(
     },
 
     async findOwnComment(pullRequestNumber, marker) {
+      return (await client.getOwnComment(pullRequestNumber, marker))?.id;
+    },
+
+    async getOwnComment(pullRequestNumber, marker) {
       for (let page = 1; page <= MAX_COMMENT_PAGES; page += 1) {
         const { data } = await call(() =>
           octokit.rest.issues.listComments({
@@ -144,17 +182,45 @@ function createRepositoryClient(
         );
         // A comment by anyone else that copies the marker must not be mistaken for ours.
         const own = data.find(
-          (comment) =>
-            comment.performed_via_github_app?.id === appId && comment.body?.includes(marker),
+          (comment) => identity.isOwnIssueComment(comment) && comment.body?.includes(marker),
         );
         if (own !== undefined) {
-          return own.id;
+          return { id: own.id, body: own.body ?? "" };
         }
         if (data.length < PAGE_SIZE) {
           break;
         }
       }
       return undefined;
+    },
+
+    async compareCommits(baseSha, headSha) {
+      let data;
+      try {
+        ({ data } = await call(() =>
+          octokit.rest.repos.compareCommitsWithBasehead({
+            owner,
+            repo,
+            basehead: `${baseSha}...${headSha}`,
+            per_page: 1,
+          }),
+        ));
+      } catch (error) {
+        if (hasStatus(error, NOT_FOUND)) {
+          return undefined;
+        }
+        throw error;
+      }
+      const files = data.files ?? [];
+      // A full list may be a cut-off list. An incomplete answer is no answer.
+      if (files.length >= MAX_COMPARED_FILES) {
+        return undefined;
+      }
+      return files.map((file) => ({
+        path: file.filename,
+        additions: file.additions,
+        deletions: file.deletions,
+      }));
     },
 
     async createComment(pullRequestNumber, body) {
@@ -170,7 +236,7 @@ function createRepositoryClient(
     },
 
     async listOwnReviewComments(pullRequestNumber) {
-      const login = await getBotLogin();
+      const login = await identity.getLogin();
       const own: ReviewComment[] = [];
       for (let page = 1; page <= MAX_COMMENT_PAGES; page += 1) {
         const { data } = await call(() =>
@@ -214,6 +280,7 @@ function createRepositoryClient(
       );
     },
   };
+  return client;
 }
 
 /**
@@ -267,6 +334,49 @@ export function createRepositoryClientFactory(
     return botLogin;
   }
 
+  const appIdentity: CommentIdentity = {
+    isOwnIssueComment: (comment) => comment.performed_via_github_app?.id === appId,
+    getLogin: getBotLogin,
+  };
+
   return (target) =>
-    createRepositoryClient(octokitFor(target.installationId), target, appId, retry, getBotLogin);
+    createRepositoryClient(octokitFor(target.installationId), target, appIdentity, retry);
+}
+
+export interface WorkflowClientOptions {
+  /** The workflow's own token, `GITHUB_TOKEN`. Never logged. */
+  readonly token: string;
+  readonly owner: string;
+  readonly repo: string;
+  readonly retry?: RetryOptions;
+  /** Replaces the global `fetch`; used by tests. */
+  readonly fetch?: typeof fetch;
+}
+
+/**
+ * Creates a repository client that acts with a workflow's own token, for PR Buddy running as a
+ * GitHub Action. Its comments appear as GitHub Actions, and "ours" means written by that
+ * identity: a comment by a person or by another app is never touched, even if it copies PR
+ * Buddy's marker (D-102).
+ */
+export function createWorkflowRepositoryClient(options: WorkflowClientOptions): RepositoryClient {
+  const octokit = new Octokit({
+    auth: options.token,
+    userAgent: "pr-buddy-runner",
+    log: SILENT_LOG,
+    ...(options.fetch === undefined ? {} : { request: { fetch: options.fetch } }),
+  });
+  const workflowIdentity: CommentIdentity = {
+    isOwnIssueComment: (comment) =>
+      comment.user?.login === WORKFLOW_LOGIN &&
+      comment.user.type === "Bot" &&
+      comment.performed_via_github_app?.slug === WORKFLOW_APP_SLUG,
+    getLogin: () => Promise.resolve(WORKFLOW_LOGIN),
+  };
+  return createRepositoryClient(
+    octokit,
+    { owner: options.owner, repo: options.repo },
+    workflowIdentity,
+    options.retry ?? DEFAULT_RETRY,
+  );
 }

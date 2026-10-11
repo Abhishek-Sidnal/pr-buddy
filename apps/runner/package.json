@@ -1,0 +1,25 @@
+{
+  "name": "@pr-buddy/runner",
+  "version": "0.3.0",
+  "private": true,
+  "description": "PR Buddy as a GitHub Action: reviews a pull request inside the repository's own CI.",
+  "license": "MIT",
+  "type": "module",
+  "engines": {
+    "node": ">=22.12"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "typecheck": "tsc -p tsconfig.json",
+    "start": "node dist/main.js",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage"
+  },
+  "dependencies": {
+    "@pr-buddy/ai-reviewer": "0.3.0",
+    "@pr-buddy/github-client": "0.3.0",
+    "@pr-buddy/review-engine": "0.3.0",
+    "zod": "^4.6.5"
+  }
+}

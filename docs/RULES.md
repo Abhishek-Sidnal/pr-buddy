@@ -78,6 +78,20 @@ is sent, what never is, and how replies are checked: [DESIGN-AI.md](DESIGN-AI.md
 
 No provider is included yet, so today this setting has no effect.
 
+### Who reviews
+
+```json
+{
+  "review": { "mode": "runner" }
+}
+```
+
+`hosted`, the default, means the PR Buddy service reviews the repository. `runner` means a
+GitHub Action in the repository's own CI does, and the service then leaves the repository alone:
+[RUNNER.md](RUNNER.md). A repository is never reviewed by both. Like the rest of this file, the
+setting is read at the pull request's base commit, and a file that is invalid anywhere means
+`hosted`.
+
 ### Glob patterns
 
 Options that select files take glob patterns matched against the path from the repository root,

@@ -9,9 +9,9 @@ of actionable, evidence-backed findings. Humans keep the merge decision.
 
 ## Current state
 
-- **Milestone 7**, runner mode, is designed and not built: a GitHub Action that would review in
-  a repository's own CI with the whole checkout in view. Its decisions are accepted
-  (DESIGN-RUNNER.md); no Action exists.
+- **Milestone 7**, runner mode, has its first phase built: PR Buddy as a GitHub Action that runs
+  the rules in a repository's own CI (RUNNER.md). It asks no AI model yet; the later phases of
+  DESIGN-RUNNER.md are not built.
 - **Milestone 6** added the operator's Service page and a command that registers a GitHub App.
 - **Milestone 1**, the deterministic review engine, is done.
 - **Milestone 2**, the GitHub App, is done. It was verified against the real GitHub API on a

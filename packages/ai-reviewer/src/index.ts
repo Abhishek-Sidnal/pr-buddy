@@ -48,3 +48,13 @@ export {
   type ChatCompletionsDialect,
   type ChatCompletionsOptions,
 } from "./providers/openai.js";
+export {
+  CONFIGURATION_PATH,
+  MAX_CONFIGURATION_BYTES,
+  parseRepositoryConfiguration,
+  REVIEW_MODES,
+  reviewSettingsSchema,
+  type ConfigurationLookup,
+  type RepositoryConfiguration,
+  type ReviewMode,
+} from "./repository-configuration.js";

@@ -1,12 +1,13 @@
 # Design: runner mode
 
 How PR Buddy can review a pull request with the whole repository in view, without ever holding
-a customer's code. Decisions are in [BRAIN.md](BRAIN.md) (D-096 to D-108); threats and controls
+a customer's code. Decisions are in [BRAIN.md](BRAIN.md) (D-096 to D-110); threats and controls
 in [SECURITY.md](SECURITY.md), section 6G.
 
-**Status on 2026-10-11: designed, not built.** The maintainer confirmed the decisions of
-section 2. No Action exists yet. Work proceeds in the phases of section 18, each behind an
-acceptance gate; phase 0, this design, is the only one done.
+**Status on 2026-10-11: phase 1 is built.** The maintainer confirmed the decisions of section 2.
+The Action exists and runs the deterministic rules; it asks no AI model. What was tried on a real
+repository is in [TRACKER.md](TRACKER.md). Phases 2 to 6 are not built, and each waits for the
+gate of the one before (section 18). How to use it: [RUNNER.md](RUNNER.md).
 
 ## 1. The problem
 
@@ -123,8 +124,17 @@ that says why.
 | State         | The pull request is closed, merged or a draft                                              |
 | Same commit   | PR Buddy's summary comment already names this head commit                                  |
 | Size          | More files or more diff than the limits allow: the rules run on what fits, AI does not run |
-| Small re-push | A push after a review changed fewer code lines than the threshold                          |
+| Small re-push | A push after a review changed fewer code lines than the threshold: AI does not run (D-109) |
 | No key        | No AI key is available, as for a fork's pull request: rules only                           |
+
+The gates on the pull request's state and on a repeated commit end the run. The gates on size
+and on a small re-push end only the part that costs money: **the rules always run** on a pull
+request that is open, ready and at a new commit. They are free, and a comment that kept a
+finding the push had removed would be wrong (D-109). In phase 1, where no model is asked, a
+small re-push is therefore measured and reported, and changes nothing else.
+
+The "same commit" gate reads PR Buddy's own comment. A pull request with no findings has no
+comment, so a second run for the same commit runs the rules again and still publishes nothing.
 
 ## 7. GitHub events and permissions
 

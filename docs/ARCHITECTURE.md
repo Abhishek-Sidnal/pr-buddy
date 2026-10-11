@@ -61,9 +61,9 @@ pr-buddy/
 ## 3. Package dependencies
 
 ```
-apps/api ──► packages/github-client ──► packages/review-engine
-    ├──────► packages/ai-reviewer ─────────────►┤
-    └──────────────────────────────────────────►┘
+apps/api ────┬──► packages/github-client ──► packages/review-engine
+apps/runner ─┤                                        ▲
+             └──► packages/ai-reviewer ───────────────┘
 ```
 
 Dependencies point one way. The engine knows nothing about GitHub, HTTP or AI; the GitHub client
@@ -209,10 +209,27 @@ These hold for every change. Several are enforced by ESLint or the compiler.
 
 The reasoning behind each decision is recorded in [BRAIN.md](BRAIN.md).
 
-## 10. Planned: runner mode
+## 10. Runner mode
 
-Not built. [DESIGN-RUNNER.md](DESIGN-RUNNER.md) describes a GitHub Action that runs the same
-`review-engine` and publishes through `github-client`, in a repository's own CI. It would add one
-workspace for the Action and extend `ai-reviewer` with tool calling behind the existing provider
-adapters. The dependency directions above do not change, and `apps/api` gains only the rule
-that it skips a repository whose configuration selects runner mode.
+`apps/runner` is PR Buddy as a GitHub Action ([DESIGN-RUNNER.md](DESIGN-RUNNER.md)). It runs
+the same `review-engine` and publishes through `github-client`, in a repository's own CI.
+
+```
+apps/runner/src/
+├── main.ts          Entry point: the environment, the workflow's token, the job summary, exit
+├── environment.ts   What is taken from the workflow: token, repository, which pull request
+├── run.ts           Mode, gates, rules, the summary comment
+├── gates.ts         Closed, draft, same commit; how much a push changed
+├── markers.ts       The hidden line that names the reviewed commit
+├── job-summary.ts   What a run did, for the job's page
+└── limits.ts        Named sizes and thresholds
+action.yml           The Action's definition, at the repository's root
+Dockerfile           Its image, at the root because GitHub builds it with that folder as context
+```
+
+It depends on `review-engine`, `github-client` and `ai-reviewer`, and on nothing in `apps/api`:
+it needs no service. Both sides read the repository's configuration through
+`parseRepositoryConfiguration` in `ai-reviewer`, so they cannot disagree about who reviews
+(D-110). `apps/api` knows about runner mode only in that it skips a repository that selects it.
+
+As of phase 1 the runner asks no AI model.

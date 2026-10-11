@@ -9,13 +9,15 @@ import {
   type RepositoryClientFactory,
   type ReviewTrigger,
 } from "@pr-buddy/github-client";
-import { parseAiSettings, type AiReview, type AiReviewer } from "@pr-buddy/ai-reviewer";
 import {
-  ConfigurationError,
-  createReviewEngine,
-  parseReviewContext,
-  type ReviewEngine,
-} from "@pr-buddy/review-engine";
+  CONFIGURATION_PATH,
+  MAX_CONFIGURATION_BYTES,
+  parseRepositoryConfiguration,
+  type AiReview,
+  type AiReviewer,
+  type RepositoryConfiguration,
+} from "@pr-buddy/ai-reviewer";
+import { createReviewEngine, parseReviewContext } from "@pr-buddy/review-engine";
 import { describeError, type LogFields, type Logger } from "../../logger.js";
 import {
   createDiscardingReviewStore,
@@ -25,9 +27,8 @@ import {
   type SkipReason,
 } from "./review-store.js";
 
-/** Where a repository keeps its PR Buddy settings. The app is granted read access to this file only. */
-export const CONFIGURATION_PATH = ".github/pr-buddy.json";
-const MAX_CONFIGURATION_BYTES = 64 * 1_024;
+/** Where a repository keeps its PR Buddy settings. The app may read this file and no other. */
+export { CONFIGURATION_PATH };
 
 export type ReviewOutcome =
   | { readonly status: "skipped"; readonly reason: SkipReason }
@@ -70,18 +71,6 @@ export interface ReviewServiceDependencies {
   readonly now?: () => Date;
 }
 
-/**
- * Separates the `ai` section from the settings of the review engine, which knows nothing about
- * AI and would reject the section as an unknown field.
- */
-function splitConfiguration(config: unknown): { ai: unknown; engineConfig: unknown } {
-  if (typeof config !== "object" || config === null || Array.isArray(config)) {
-    return { ai: undefined, engineConfig: config };
-  }
-  const { ai, ...engineConfig } = config as Record<string, unknown>;
-  return { ai, engineConfig };
-}
-
 /** Reduces an AI review to what is kept: identifiers, counts and timings, never its text. */
 /** Which provider and model a review was asked of. */
 type ReviewerIdentity = Pick<AiReviewer, "provider" | "model">;
@@ -111,13 +100,8 @@ function toAiReviewRecord(reviewer: ReviewerIdentity, review: AiReview): AiRevie
   };
 }
 
-interface ConfiguredEngine {
-  readonly engine: ReviewEngine;
-  /** Whether the repository allows its pull requests to be sent to an AI provider. */
-  readonly isAiEnabled: boolean;
-  /** Why the repository's configuration was not used; empty when it was, or when there is none. */
-  readonly configurationIssues: readonly string[];
-}
+/** The repository's configuration, as the hosted service and the Action both read it. */
+type ConfiguredEngine = RepositoryConfiguration;
 
 export function createReviewService(dependencies: ReviewServiceDependencies): ReviewService {
   const { clientFactory, logger, aiReviewer, resolveInstallationReviewer } = dependencies;
@@ -126,47 +110,15 @@ export function createReviewService(dependencies: ReviewServiceDependencies): Re
   const defaultEngine = createReviewEngine();
 
   /**
-   * Builds an engine from the repository's configuration at the base commit. Reading it there,
-   * and not at the head, stops a contributor from relaxing the checks on their own pull request.
+   * Reads the repository's configuration at the base commit. Reading it there, and not at the
+   * head, stops a contributor from relaxing the checks, or switching who reviews, on their own
+   * pull request.
    */
   async function loadEngine(client: RepositoryClient, baseSha: string): Promise<ConfiguredEngine> {
-    // Defaults always mean no AI review: a broken file must never send code anywhere.
-    const useDefaults = (...issues: string[]): ConfiguredEngine => ({
-      engine: defaultEngine,
-      isAiEnabled: false,
-      configurationIssues: issues,
-    });
-
-    const lookup = await client.getFileText(CONFIGURATION_PATH, baseSha, MAX_CONFIGURATION_BYTES);
-    if (lookup.status === "missing") {
-      return useDefaults();
-    }
-    if (lookup.status === "too-large") {
-      return useDefaults("The file is larger than 64 KB.");
-    }
-
-    let config: unknown;
-    try {
-      config = JSON.parse(lookup.text);
-    } catch {
-      return useDefaults("The file is not valid JSON.");
-    }
-
-    const { ai, engineConfig } = splitConfiguration(config);
-    const aiSettings = parseAiSettings(ai);
-    const aiIssues = aiSettings.ok ? [] : aiSettings.issues;
-    let engine: ReviewEngine;
-    try {
-      engine = createReviewEngine({ config: engineConfig });
-    } catch (error) {
-      if (error instanceof ConfigurationError) {
-        return useDefaults(...error.issues, ...aiIssues);
-      }
-      throw error;
-    }
-    return aiSettings.ok
-      ? { engine, isAiEnabled: aiSettings.settings.enabled, configurationIssues: [] }
-      : useDefaults(...aiIssues);
+    return parseRepositoryConfiguration(
+      await client.getFileText(CONFIGURATION_PATH, baseSha, MAX_CONFIGURATION_BYTES),
+      defaultEngine,
+    );
   }
 
   /**
@@ -271,9 +223,15 @@ export function createReviewService(dependencies: ReviewServiceDependencies): Re
       return skipped("draft", logFields);
     }
 
-    const files = await client.listPullRequestFiles(pullRequestNumber, REVIEW_FILE_LIMITS);
     const configured = await loadEngine(client, pullRequest.baseSha);
-    const { engine, configurationIssues } = configured;
+    if (configured.mode === "runner") {
+      // The repository reviews itself, with a GitHub Action in its own CI. Reviewing here as
+      // well would put two reviews on one pull request (D-105).
+      return skipped("runner", logFields);
+    }
+
+    const files = await client.listPullRequestFiles(pullRequestNumber, REVIEW_FILE_LIMITS);
+    const { engine, issues: configurationIssues } = configured;
     const { context, skippedFileCount, omittedPatchCount } = toReviewContext(pullRequest, files);
     const result = await engine.review(context);
     const ai = await reviewWithAi(context, configured, trigger.installationId, logFields);
