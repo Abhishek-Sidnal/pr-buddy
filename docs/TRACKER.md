@@ -20,6 +20,7 @@ The one current figure. Counts in the sections below are what was true when each
 accepted and are kept as history.
 
 | Date | Command | Result |
+| 2026-10-11 | `docker compose run --rm dev npm run check` | Passed: 1,938 tests (engine 474, AI reviewer 186, GitHub client 266, API 729, web 283) |
 | 2026-10-11 | `docker compose run --rm dev npm run check` | Passed: 1,926 tests (engine 474, AI reviewer 186, GitHub client 266, API 717, web 283) |
 | 2026-10-10 | `docker compose run --rm dev npm run check` | Passed: 1,812 tests (engine 474, AI reviewer 186, GitHub client 266, API 621, web 265) |
 | 2026-10-10 | `docker compose run --rm dev npm run check` | Passed: 1,732 tests (engine 474, AI reviewer 186, GitHub client 266, API 584, web 222). The clean-checkout check for `v0.2.0` passed on `a092c81` with 1,655 |
@@ -39,7 +40,15 @@ D-094. Threats O11 to O14.
 | The operator setting, `isOperator` in `GET /api/me`, and `GET /api/operator/overview`  | FR-109, FR-110, NFR-104, NFR-105 | ✅     |
 | The operator's page                                                                    | FR-109, FR-110                   | ✅     |
 | `register-app`: a GitHub App from a manifest, written to the environment file          | FR-111, NFR-106                  | ✅     |
-| A development app registered with it, and a review through it on a developer's machine | FR-111                           | ⬜     |
+| A development app registered with it, and a review through it on a developer's machine | FR-111                           | ✅     |
+
+| Check                                     | Result                                                                                                                                                                                                                                                                                                                                                                                                                                    |
+| ----------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `register-app`, live                      | Passed on 2026-10-11 at the third attempt. First GitHub refused the manifest: "Single file name path is required", which showed that it takes `single_file_name` although its documentation does not list it. Then the dev container's user could not read `.env`, which was noticed only after GitHub had created the app; the command now checks first. Then it registered a private app and wrote its credentials without showing them |
+| What GitHub created                       | Asked of GitHub as the new app: permissions `members: read`, `metadata: read`, `pull_requests: write`, `single_file: read`; the event `pull_request`; the single file path `.github/pr-buddy.json`. No manual step was needed                                                                                                                                                                                                             |
+| A review through the development app      | Passed: a pull request in the test repository reached the developer's machine through the relay, the review read the repository's configuration, ran the rules and the AI review, and created its comment                                                                                                                                                                                                                                 |
+| Two PR Buddy apps on one repository       | Observed, because the production app was still installed there: each app reviewed and each posted its own comment. Neither touched the other's                                                                                                                                                                                                                                                                                            |
+| The Service page on the public deployment | ⬜ Deployed with the maintainer as operator; the route answers `401` without a session. Not yet opened by a person                                                                                                                                                                                                                                                                                                                        |
 
 ### What 0.3.0 left unverified, and what has been seen since
 
