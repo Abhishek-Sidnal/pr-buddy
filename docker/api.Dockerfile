@@ -1,7 +1,7 @@
 # Production image for the PR Buddy API. Build from the repository root:
 #   docker build -f docker/api.Dockerfile -t pr-buddy-api .
 
-FROM node:24-alpine@sha256:ebfe2f90462722a7a4de65e91990e97fe0d401c70e0e762c5b53302f905ec1c1 AS build
+FROM node:26-alpine@sha256:6f08a523443ddedf52941874c203475b0ad503e859ad70cb26ab8be9a517dbd5 AS build
 WORKDIR /app
 
 # Manifests first, so the dependency layer is reused until they change.
@@ -20,7 +20,7 @@ COPY apps apps
 RUN npm run build && npm prune --omit=dev
 
 
-FROM node:24-alpine@sha256:ebfe2f90462722a7a4de65e91990e97fe0d401c70e0e762c5b53302f905ec1c1
+FROM node:26-alpine@sha256:6f08a523443ddedf52941874c203475b0ad503e859ad70cb26ab8be9a517dbd5
 ENV NODE_ENV=production
 WORKDIR /app
 
