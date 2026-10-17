@@ -27,6 +27,6 @@
   },
   "dependencies": {
     "@pr-buddy/review-engine": "0.4.0",
-    "zod": "^4.6.5"
+    "zod": "^4.6.7"
   }
 }

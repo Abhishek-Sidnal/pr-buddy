@@ -20,6 +20,6 @@
     "@pr-buddy/ai-reviewer": "0.4.0",
     "@pr-buddy/github-client": "0.4.0",
     "@pr-buddy/review-engine": "0.4.0",
-    "zod": "^4.6.5"
+    "zod": "^4.6.7"
   }
 }
